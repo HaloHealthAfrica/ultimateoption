@@ -1,3 +1,38 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "src/testing/**/*.ts",
+        "src/testing/**/*.tsx"
+      ],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "prefer-const": "off",
+        "@next/next/no-assign-module-variable": "off"
+      }
+    },
+    {
+      "files": ["src/engine/**/*.ts", "src/engine/**/*.tsx", "src/safety/**/*.ts", "src/safety/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/learning/**", "@/learning/**", "../learning/**", "./learning/**"],
+                "message": "Engine/Safety modules cannot import from learning module. Learning is isolated from execution (Requirement 2.6)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

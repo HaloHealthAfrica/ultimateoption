@@ -1,100 +1,259 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+/**
+ * Main Dashboard Page
+ * Read-only dashboard for monitoring the options trading platform
+ * 
+ * Requirements: 14.6
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { SignalMonitor } from '@/ui/components/SignalMonitor';
+import { ConfluenceView } from '@/ui/components/ConfluenceView';
+import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
+import { PaperTrades } from '@/ui/components/PaperTrades';
+import { LearningInsights } from '@/ui/components/LearningInsights';
+import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
+import TrendAlignment from '@/components/dashboard/TrendAlignment';
+import { StoredSignal } from '@/webhooks/timeframeStore';
+import { DecisionResult } from '@/types/decision';
+import { LedgerEntry } from '@/types/ledger';
+import { Metrics } from '@/learning/metricsEngine';
+import { LearningSuggestion } from '@/learning/learningAdvisor';
+import { SignalType } from '@/types/signal';
+
+// Dashboard state interface
+interface DashboardState {
+  signals: Map<string, StoredSignal>;
+  decision: DecisionResult | null;
+  ledgerEntries: LedgerEntry[];
+  metrics: Metrics | null;
+  suggestions: LearningSuggestion[];
+  confluenceScore: number;
+  direction: SignalType | null;
+  lastUpdated: number;
+  error: string | null;
+}
+
+// Initial state
+const initialState: DashboardState = {
+  signals: new Map(),
+  decision: null,
+  ledgerEntries: [],
+  metrics: null,
+  suggestions: [],
+  confluenceScore: 0,
+  direction: null,
+  lastUpdated: Date.now(),
+  error: null,
+};
+
+/**
+ * Fetch dashboard data from APIs
+ */
+async function fetchDashboardData(): Promise<Partial<DashboardState>> {
+  const results: Partial<DashboardState> = {};
+  
+  try {
+    // Fetch decisions (includes latest decision)
+    const decisionsRes = await fetch('/api/decisions?limit=1');
+    if (decisionsRes.ok) {
+      const decisionsData = await decisionsRes.json();
+      if (decisionsData.decisions && decisionsData.decisions.length > 0) {
+        results.decision = decisionsData.decisions[0];
+      }
+    }
+    
+    // Fetch ledger entries
+    const ledgerRes = await fetch('/api/ledger?limit=100');
+    if (ledgerRes.ok) {
+      const ledgerData = await ledgerRes.json();
+      results.ledgerEntries = ledgerData.entries || [];
+    }
+    
+    // Fetch metrics
+    const metricsRes = await fetch('/api/metrics');
+    if (metricsRes.ok) {
+      const metricsData = await metricsRes.json();
+      results.metrics = metricsData.metrics || null;
+    }
+    
+    // Fetch learning suggestions
+    const suggestionsRes = await fetch('/api/learning/suggestions');
+    if (suggestionsRes.ok) {
+      const suggestionsData = await suggestionsRes.json();
+      results.suggestions = suggestionsData.suggestions || [];
+    }
+    
+    results.lastUpdated = Date.now();
+    results.error = null;
+  } catch (error) {
+    results.error = error instanceof Error ? error.message : 'Failed to fetch data';
+  }
+  
+  return results;
+}
+
+/**
+ * Main Dashboard Component
+ */
+export default function Dashboard() {
+  const [state, setState] = useState<DashboardState>(initialState);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'learning'>('overview');
+  
+  // Refresh data
+  const refreshData = useCallback(async () => {
+    setIsLoading(true);
+    const data = await fetchDashboardData();
+    setState(prev => ({ ...prev, ...data }));
+    setIsLoading(false);
+  }, []);
+  
+  // Initial load and periodic refresh
+  useEffect(() => {
+    refreshData();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(refreshData, 30000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
+  
+  // Format last updated time
+  const formatLastUpdated = () => {
+    const seconds = Math.floor((Date.now() - state.lastUpdated) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    return `${Math.floor(seconds / 60)}m ago`;
+  };
+  
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-950 text-white">
+      {/* Header */}
+      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Options Trading Platform</h1>
+              <p className="text-gray-400 text-sm">Paper Trading Dashboard (Read-Only)</p>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Status Indicator */}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${state.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                <span className="text-gray-400 text-sm">
+                  {state.error ? 'Error' : 'Connected'}
+                </span>
+              </div>
+              
+              {/* Last Updated */}
+              <span className="text-gray-500 text-sm">
+                Updated {formatLastUpdated()}
+              </span>
+              
+              {/* Refresh Button */}
+              <button
+                onClick={refreshData}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm transition-colors"
+              >
+                {isLoading ? 'Loading...' : 'Refresh'}
+              </button>
+              
+              {/* Testing Link */}
+              <a
+                href="/testing"
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition-colors"
+              >
+                Testing →
+              </a>
+            </div>
+          </div>
+          
+          {/* Navigation Tabs */}
+          <div className="flex gap-1 mt-4">
+            {(['overview', 'trades', 'learning'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
+      </header>
+      
+      {/* Error Banner */}
+      {state.error && (
+        <div className="bg-red-500/20 border-b border-red-500/50 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex items-center gap-2">
+            <span className="text-red-400">⚠️</span>
+            <span className="text-red-400">{state.error}</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Top Row: Signals and Confluence */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SignalMonitor 
+                signals={state.signals} 
+                onRefresh={refreshData}
+              />
+              <ConfluenceView 
+                signals={state.signals}
+                confluenceScore={state.confluenceScore}
+                direction={state.direction}
+              />
+            </div>
+            
+            {/* Phase 1B Row: Phase Monitor and Trend Alignment */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PhaseMonitor />
+              <TrendAlignment />
+            </div>
+            
+            {/* Decision Breakdown */}
+            <DecisionBreakdown result={state.decision} />
+          </div>
+        )}
+        
+        {activeTab === 'trades' && (
+          <PaperTrades 
+            entries={state.ledgerEntries}
+            onRefresh={refreshData}
+          />
+        )}
+        
+        {activeTab === 'learning' && (
+          <LearningInsights
+            metrics={state.metrics}
+            suggestions={state.suggestions}
+            onRefresh={refreshData}
+          />
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      
+      {/* Footer */}
+      <footer className="bg-gray-900 border-t border-gray-800 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center text-sm text-gray-500">
+            <div>
+              Paper Trading Only • No Real Money • No Live Execution
+            </div>
+            <div>
+              Engine Version: {state.decision?.engine_version || 'N/A'}
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
