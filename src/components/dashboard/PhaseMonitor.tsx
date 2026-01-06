@@ -2,25 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 
-interface PhaseData {
-  symbol: string;
+type LocalBias = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+
+interface RegimePhaseApi {
   timeframe: string;
-  local_bias: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  event_type: string;
+  event_name: string;
+  local_bias: LocalBias;
   confidence_score: number;
-  created_at: string;
-  expires_at: string;
+  htf_alignment: boolean;
+  generated_at: number;
 }
 
-interface RegimeContext {
+interface RegimeContextApiResponse {
   symbol: string;
-  phases: PhaseData[];
-  is_aligned: boolean;
-  active_count: number;
-  last_updated: string;
+  regime_context: {
+    setup_phase: RegimePhaseApi | null;      // 15M
+    bias_phase: RegimePhaseApi | null;       // 1H
+    regime_phase: RegimePhaseApi | null;     // 4H
+    structural_phase: RegimePhaseApi | null; // 1D
+  };
+  alignment: {
+    is_aligned: boolean;
+    active_count: number;
+  };
+  retrieved_at: number;
 }
 
 export default function PhaseMonitor() {
-  const [regimeContext, setRegimeContext] = useState<RegimeContext | null>(null);
+  const [regimeContext, setRegimeContext] = useState<RegimeContextApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [symbol, setSymbol] = useState('SPY');
@@ -34,7 +44,7 @@ export default function PhaseMonitor() {
         throw new Error(`Failed to fetch regime context: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data: RegimeContextApiResponse = await response.json();
       setRegimeContext(data);
       setError(null);
     } catch (err) {
@@ -66,22 +76,7 @@ export default function PhaseMonitor() {
     return 'text-red-600';
   };
 
-  const formatTimeRemaining = (expiresAt: string) => {
-    const now = new Date();
-    const expiry = new Date(expiresAt);
-    const diffMs = expiry.getTime() - now.getTime();
-    
-    if (diffMs <= 0) return 'Expired';
-    
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
+  const formatGeneratedAt = (ts: number) => new Date(ts).toLocaleTimeString();
 
   if (loading) {
     return (
@@ -145,20 +140,26 @@ export default function PhaseMonitor() {
               <div>
                 <span className="font-medium">Regime Status:</span>
                 <span className={`ml-2 px-2 py-1 rounded text-sm ${
-                  regimeContext.is_aligned ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  regimeContext.alignment.is_aligned ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
-                  {regimeContext.is_aligned ? 'ALIGNED' : 'NOT ALIGNED'}
+                  {regimeContext.alignment.is_aligned ? 'ALIGNED' : 'NOT ALIGNED'}
                 </span>
               </div>
               <div className="text-sm text-gray-600">
-                Active: {regimeContext.active_count}/4 timeframes
+                Active: {regimeContext.alignment.active_count}/4 timeframes
               </div>
             </div>
           </div>
 
           <div className="space-y-3">
-            {['1D', '4H', '1H', '15M'].map(timeframe => {
-              const phase = regimeContext.phases.find(p => p.timeframe === timeframe);
+            {(['1D', '4H', '1H', '15M'] as const).map(timeframe => {
+              const phaseByTf: Record<typeof timeframe, RegimePhaseApi | null> = {
+                '15M': regimeContext.regime_context.setup_phase,
+                '1H': regimeContext.regime_context.bias_phase,
+                '4H': regimeContext.regime_context.regime_phase,
+                '1D': regimeContext.regime_context.structural_phase,
+              } as const;
+              const phase = phaseByTf[timeframe];
               
               return (
                 <div key={timeframe} className="border rounded p-3">
@@ -173,6 +174,9 @@ export default function PhaseMonitor() {
                           <span className={`text-sm font-medium ${getConfidenceColor(phase.confidence_score)}`}>
                             {phase.confidence_score}%
                           </span>
+                          <span className="text-xs text-gray-500">
+                            {phase.event_name}
+                          </span>
                         </>
                       ) : (
                         <span className="text-gray-400 text-sm">No active phase</span>
@@ -181,7 +185,7 @@ export default function PhaseMonitor() {
                     
                     {phase && (
                       <div className="text-xs text-gray-500">
-                        Expires: {formatTimeRemaining(phase.expires_at)}
+                        Updated: {formatGeneratedAt(phase.generated_at)}
                       </div>
                     )}
                   </div>
@@ -191,7 +195,7 @@ export default function PhaseMonitor() {
           </div>
 
           <div className="mt-4 text-xs text-gray-500">
-            Last updated: {new Date(regimeContext.last_updated).toLocaleTimeString()}
+            Retrieved: {new Date(regimeContext.retrieved_at).toLocaleTimeString()}
           </div>
         </div>
       ) : (

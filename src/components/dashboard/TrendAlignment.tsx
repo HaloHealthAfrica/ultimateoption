@@ -23,6 +23,40 @@ interface TrendData {
   last_updated: string;
 }
 
+type ApiDirection = 'bullish' | 'bearish' | 'neutral';
+type ApiStrength = 'STRONG' | 'MODERATE' | 'WEAK' | 'CHOPPY';
+
+interface TrendApiResponse {
+  ticker: string;
+  exchange: string;
+  price: number;
+  timestamp: string;
+  timeframes: {
+    tf3min: { direction: ApiDirection; open: number; close: number };
+    tf5min: { direction: ApiDirection; open: number; close: number };
+    tf15min: { direction: ApiDirection; open: number; close: number };
+    tf30min: { direction: ApiDirection; open: number; close: number };
+    tf60min: { direction: ApiDirection; open: number; close: number };
+    tf240min: { direction: ApiDirection; open: number; close: number };
+    tf1week: { direction: ApiDirection; open: number; close: number };
+    tf1month: { direction: ApiDirection; open: number; close: number };
+  };
+  alignment: {
+    score: number;
+    strength: ApiStrength;
+    dominant_trend: ApiDirection;
+    counts: { bullish: number; bearish: number; neutral: number };
+    bias: { htf_bias: ApiDirection; ltf_bias: ApiDirection };
+  };
+  retrieved_at: number;
+}
+
+function toUiDirection(d: ApiDirection): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+  if (d === 'bullish') return 'BULLISH';
+  if (d === 'bearish') return 'BEARISH';
+  return 'NEUTRAL';
+}
+
 export default function TrendAlignment() {
   const [trendData, setTrendData] = useState<TrendData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +78,35 @@ export default function TrendAlignment() {
         throw new Error(`Failed to fetch trend data: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const api: TrendApiResponse = await response.json();
+
+      const timeframes: TimeframeData[] = [
+        { timeframe: '3M', direction: toUiDirection(api.timeframes.tf3min.direction), open: api.timeframes.tf3min.open, close: api.timeframes.tf3min.close },
+        { timeframe: '5M', direction: toUiDirection(api.timeframes.tf5min.direction), open: api.timeframes.tf5min.open, close: api.timeframes.tf5min.close },
+        { timeframe: '15M', direction: toUiDirection(api.timeframes.tf15min.direction), open: api.timeframes.tf15min.open, close: api.timeframes.tf15min.close },
+        { timeframe: '30M', direction: toUiDirection(api.timeframes.tf30min.direction), open: api.timeframes.tf30min.open, close: api.timeframes.tf30min.close },
+        { timeframe: '1H', direction: toUiDirection(api.timeframes.tf60min.direction), open: api.timeframes.tf60min.open, close: api.timeframes.tf60min.close },
+        { timeframe: '4H', direction: toUiDirection(api.timeframes.tf240min.direction), open: api.timeframes.tf240min.open, close: api.timeframes.tf240min.close },
+        { timeframe: '1W', direction: toUiDirection(api.timeframes.tf1week.direction), open: api.timeframes.tf1week.open, close: api.timeframes.tf1week.close },
+        { timeframe: '1M', direction: toUiDirection(api.timeframes.tf1month.direction), open: api.timeframes.tf1month.open, close: api.timeframes.tf1month.close },
+      ];
+
+      const dominantCount = Math.max(api.alignment.counts.bullish, api.alignment.counts.bearish, api.alignment.counts.neutral);
+
+      const data: TrendData = {
+        ticker: api.ticker,
+        exchange: api.exchange,
+        price: api.price,
+        timeframes,
+        alignment_score: api.alignment.score,
+        strength: api.alignment.strength,
+        htf_bias: toUiDirection(api.alignment.bias.htf_bias),
+        ltf_bias: toUiDirection(api.alignment.bias.ltf_bias),
+        dominant_direction: toUiDirection(api.alignment.dominant_trend),
+        dominant_count: dominantCount,
+        last_updated: new Date(api.retrieved_at).toISOString(),
+      };
+
       setTrendData(data);
       setError(null);
     } catch (err) {
