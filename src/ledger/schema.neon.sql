@@ -5,13 +5,12 @@
 -- - Neon does NOT provide TimescaleDB by default.
 -- - This schema avoids `timescaledb` + hypertables.
 
--- Enable required extensions (uuid generation)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Main ledger entries table
 CREATE TABLE IF NOT EXISTS ledger_entries (
   -- Identity
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  -- Note: we avoid extension-based UUID generators for maximum compatibility.
+  -- The application already generates UUIDs before INSERT.
+  id UUID PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   engine_version VARCHAR(20) NOT NULL,
 

@@ -22,4 +22,15 @@ This repo includes:
 
 Use `schema.neon.sql` with Neon unless you specifically need TimescaleDB features.
 
+### 5) Run migrations
+
+#### Option A (recommended): Neon SQL Editor
+- Neon console → SQL Editor
+- Paste/run `src/ledger/schema.neon.sql`
+
+#### Option B: Run from your machine (no secrets in git)
+1) Put your connection string in `.env.local` or set it in your shell as `DATABASE_URL`
+2) Run:
+   - `npm run db:migrate`
+
 
