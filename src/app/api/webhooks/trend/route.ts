@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeParseTrendWebhook, calculateTrendAlignment } from '@/types/trend';
 import { TrendStore } from '@/trend/storage/trendStore';
+import { WebhookAuditLog } from '@/webhooks/auditLog';
 
 /**
  * POST /api/webhooks/trend
@@ -18,6 +19,7 @@ import { TrendStore } from '@/trend/storage/trendStore';
  * Payload should be JSON with a "text" field containing stringified trend data.
  */
 export async function POST(request: NextRequest) {
+  const audit = WebhookAuditLog.getInstance();
   try {
     const body = await request.json();
     
@@ -25,6 +27,14 @@ export async function POST(request: NextRequest) {
     const result = safeParseTrendWebhook(body);
     
     if (!result.success) {
+      audit.add({
+        kind: 'trend',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Invalid trend payload',
+      });
       return NextResponse.json(
         { 
           error: 'Invalid trend payload',
@@ -46,6 +56,15 @@ export async function POST(request: NextRequest) {
     // Calculate alignment metrics
     const alignment = calculateTrendAlignment(trend);
     
+    audit.add({
+      kind: 'trend',
+      ok: true,
+      status: 200,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      ticker: trend.ticker,
+    });
+
     return NextResponse.json({
       success: true,
       trend: {
@@ -72,6 +91,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/webhooks/trend:', error);
+
+    audit.add({
+      kind: 'trend',
+      ok: false,
+      status: 500,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(

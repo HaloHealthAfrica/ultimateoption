@@ -12,6 +12,7 @@ import { safeParseEnrichedSignal } from '@/types/signal';
 import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
 import { getTimeframeStore } from '@/webhooks/timeframeStore';
 import { executionPublisher } from '@/events/eventBus';
+import { WebhookAuditLog } from '@/webhooks/auditLog';
 
 /**
  * POST /api/webhooks/signals
@@ -20,6 +21,7 @@ import { executionPublisher } from '@/events/eventBus';
  * Payload should be JSON with a "text" field containing stringified signal data.
  */
 export async function POST(request: NextRequest) {
+  const audit = WebhookAuditLog.getInstance();
   try {
     const body = await request.json();
     
@@ -27,6 +29,14 @@ export async function POST(request: NextRequest) {
     const result = safeParseEnrichedSignal(body);
     
     if (!result.success) {
+      audit.add({
+        kind: 'signals',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Invalid signal payload',
+      });
       return NextResponse.json(
         { 
           error: 'Invalid signal payload',
@@ -51,6 +61,16 @@ export async function POST(request: NextRequest) {
     // Publish event for learning modules
     executionPublisher.signalReceived(signal, signal.signal.timeframe, validityMinutes);
     
+    audit.add({
+      kind: 'signals',
+      ok: true,
+      status: 200,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      ticker: signal.instrument.ticker,
+      timeframe: signal.signal.timeframe,
+    });
+
     return NextResponse.json({
       success: true,
       signal: {
@@ -69,6 +89,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/webhooks/signals:', error);
+
+    audit.add({
+      kind: 'signals',
+      ok: false,
+      status: 500,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(

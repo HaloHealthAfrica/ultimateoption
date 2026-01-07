@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeParseSatyPhaseWebhook } from '@/types/saty';
 import { PhaseStore } from '@/saty/storage/phaseStore';
 import { executionPublisher } from '@/events/eventBus';
+import { WebhookAuditLog } from '@/webhooks/auditLog';
 
 /**
  * POST /api/webhooks/saty-phase
@@ -19,6 +20,7 @@ import { executionPublisher } from '@/events/eventBus';
  * Payload should be JSON with a "text" field containing stringified phase data.
  */
 export async function POST(request: NextRequest) {
+  const audit = WebhookAuditLog.getInstance();
   try {
     const body = await request.json();
     
@@ -26,6 +28,14 @@ export async function POST(request: NextRequest) {
     const result = safeParseSatyPhaseWebhook(body);
     
     if (!result.success) {
+      audit.add({
+        kind: 'saty-phase',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Invalid phase payload',
+      });
       return NextResponse.json(
         { 
           error: 'Invalid phase payload',
@@ -49,6 +59,16 @@ export async function POST(request: NextRequest) {
     
     // Publish event for learning modules
     executionPublisher.phaseReceived(phase, phase.timeframe.event_tf, decayMinutes);
+
+    audit.add({
+      kind: 'saty-phase',
+      ok: true,
+      status: 200,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      symbol: phase.instrument.symbol,
+      timeframe: phase.timeframe.chart_tf,
+    });
     
     return NextResponse.json({
       success: true,
@@ -66,6 +86,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/webhooks/saty-phase:', error);
+
+    audit.add({
+      kind: 'saty-phase',
+      ok: false,
+      status: 500,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(
