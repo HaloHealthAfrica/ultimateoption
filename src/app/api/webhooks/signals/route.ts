@@ -13,6 +13,7 @@ import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
 import { getTimeframeStore } from '@/webhooks/timeframeStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
+import { recordWebhookReceipt } from '@/webhooks/auditDb';
 
 /**
  * POST /api/webhooks/signals
@@ -29,14 +30,16 @@ export async function POST(request: NextRequest) {
     const result = safeParseEnrichedSignal(body);
     
     if (!result.success) {
-      audit.add({
+      const entry = {
         kind: 'signals',
         ok: false,
         status: 400,
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid signal payload',
-      });
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
       return NextResponse.json(
         { 
           error: 'Invalid signal payload',
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Publish event for learning modules
     executionPublisher.signalReceived(signal, signal.signal.timeframe, validityMinutes);
     
-    audit.add({
+    const okEntry = {
       kind: 'signals',
       ok: true,
       status: 200,
@@ -69,7 +72,9 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: signal.instrument.ticker,
       timeframe: signal.signal.timeframe,
-    });
+    } as const;
+    audit.add(okEntry);
+    await recordWebhookReceipt(okEntry);
 
     return NextResponse.json({
       success: true,
@@ -90,14 +95,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/webhooks/signals:', error);
 
-    audit.add({
+    const errEntry = {
       kind: 'signals',
       ok: false,
       status: 500,
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    } as const;
+    audit.add(errEntry);
+    await recordWebhookReceipt(errEntry);
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(

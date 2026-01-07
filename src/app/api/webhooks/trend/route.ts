@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeParseTrendWebhook, calculateTrendAlignment } from '@/types/trend';
 import { TrendStore } from '@/trend/storage/trendStore';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
+import { recordWebhookReceipt } from '@/webhooks/auditDb';
 
 /**
  * POST /api/webhooks/trend
@@ -27,14 +28,16 @@ export async function POST(request: NextRequest) {
     const result = safeParseTrendWebhook(body);
     
     if (!result.success) {
-      audit.add({
+      const entry = {
         kind: 'trend',
         ok: false,
         status: 400,
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid trend payload',
-      });
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
       return NextResponse.json(
         { 
           error: 'Invalid trend payload',
@@ -56,14 +59,16 @@ export async function POST(request: NextRequest) {
     // Calculate alignment metrics
     const alignment = calculateTrendAlignment(trend);
     
-    audit.add({
+    const okEntry = {
       kind: 'trend',
       ok: true,
       status: 200,
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: trend.ticker,
-    });
+    } as const;
+    audit.add(okEntry);
+    await recordWebhookReceipt(okEntry);
 
     return NextResponse.json({
       success: true,
@@ -92,14 +97,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/webhooks/trend:', error);
 
-    audit.add({
+    const errEntry = {
       kind: 'trend',
       ok: false,
       status: 500,
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    } as const;
+    audit.add(errEntry);
+    await recordWebhookReceipt(errEntry);
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(

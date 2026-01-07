@@ -12,6 +12,7 @@ import { safeParseSatyPhaseWebhook } from '@/types/saty';
 import { PhaseStore } from '@/saty/storage/phaseStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
+import { recordWebhookReceipt } from '@/webhooks/auditDb';
 
 /**
  * POST /api/webhooks/saty-phase
@@ -28,14 +29,16 @@ export async function POST(request: NextRequest) {
     const result = safeParseSatyPhaseWebhook(body);
     
     if (!result.success) {
-      audit.add({
+      const entry = {
         kind: 'saty-phase',
         ok: false,
         status: 400,
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid phase payload',
-      });
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
       return NextResponse.json(
         { 
           error: 'Invalid phase payload',
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
     // Publish event for learning modules
     executionPublisher.phaseReceived(phase, phase.timeframe.event_tf, decayMinutes);
 
-    audit.add({
+    const okEntry = {
       kind: 'saty-phase',
       ok: true,
       status: 200,
@@ -68,7 +71,9 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       symbol: phase.instrument.symbol,
       timeframe: phase.timeframe.chart_tf,
-    });
+    } as const;
+    audit.add(okEntry);
+    await recordWebhookReceipt(okEntry);
     
     return NextResponse.json({
       success: true,
@@ -87,14 +92,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/webhooks/saty-phase:', error);
 
-    audit.add({
+    const errEntry = {
       kind: 'saty-phase',
       ok: false,
       status: 500,
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    } as const;
+    audit.add(errEntry);
+    await recordWebhookReceipt(errEntry);
     
     if (error instanceof SyntaxError) {
       return NextResponse.json(

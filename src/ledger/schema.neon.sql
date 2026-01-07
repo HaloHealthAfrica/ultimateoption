@@ -56,4 +56,23 @@ CREATE INDEX IF NOT EXISTS idx_ledger_decision_timeframe ON ledger_entries (deci
 CREATE INDEX IF NOT EXISTS idx_ledger_signal_gin ON ledger_entries USING GIN (signal);
 CREATE INDEX IF NOT EXISTS idx_ledger_regime_gin ON ledger_entries USING GIN (regime);
 
+-- Webhook receipts (durable audit log)
+-- Used to confirm TradingView delivery in serverless environments (Vercel)
+CREATE TABLE IF NOT EXISTS webhook_receipts (
+  id BIGSERIAL PRIMARY KEY,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  kind TEXT NOT NULL CHECK (kind IN ('signals', 'trend', 'saty-phase')),
+  ok BOOLEAN NOT NULL,
+  status INTEGER NOT NULL,
+  ip TEXT,
+  user_agent TEXT,
+  ticker TEXT,
+  symbol TEXT,
+  timeframe TEXT,
+  message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_receipts_received_at ON webhook_receipts (received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_receipts_kind ON webhook_receipts (kind);
+
 

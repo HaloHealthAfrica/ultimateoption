@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
+import { listWebhookReceipts } from '@/webhooks/auditDb';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -30,11 +31,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Prefer durable DB-backed receipts when DATABASE_URL is configured.
+  const dbEntries = await listWebhookReceipts(limit).catch(() => null);
   const log = WebhookAuditLog.getInstance();
   return NextResponse.json({
     success: true,
     count: Math.min(limit, 200),
-    entries: log.list(limit),
+    entries: dbEntries ?? log.list(limit),
     retrieved_at: Date.now(),
   });
 }
