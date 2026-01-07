@@ -35,10 +35,20 @@ export async function POST(
       );
     }
     
+    // IMPORTANT (Vercel/serverless):
+    // Build webhook endpoints from the current request origin so we never
+    // accidentally POST to localhost or an unset env var.
+    const origin = new URL(request.url).origin;
+
     // Run the scenario
     const result = await runScenario(scenario, {
       stopOnFailure: false,
       defaultWaitMs: 100,
+      webhookConfig: {
+        signalEndpoint: `${origin}/api/webhooks/signals`,
+        phaseEndpoint: `${origin}/api/webhooks/saty-phase`,
+        trendEndpoint: `${origin}/api/webhooks/trend`,
+      },
     });
     
     return NextResponse.json(result);
