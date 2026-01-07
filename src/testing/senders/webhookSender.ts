@@ -48,17 +48,41 @@ export interface WebhookSenderConfig {
 }
 
 /**
- * Default configuration
+ * Default configuration (computed lazily so env vars are respected in tests/CI)
  */
-const DEFAULT_CONFIG: WebhookSenderConfig = {
-  signalEndpoint: 'http://localhost:3000/api/webhooks/signals',
-  phaseEndpoint: 'http://localhost:3000/api/webhooks/saty-phase',
-  trendEndpoint: 'http://localhost:3000/api/webhooks/trend',
-  timeout_ms: 5000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-};
+function getDefaultConfig(): WebhookSenderConfig {
+  return {
+    signalEndpoint: getWebhookEndpoint('/api/webhooks/signals'),
+    phaseEndpoint: getWebhookEndpoint('/api/webhooks/saty-phase'),
+    trendEndpoint: getWebhookEndpoint('/api/webhooks/trend'),
+    timeout_ms: 5000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+}
+
+/**
+ * Get webhook endpoint URL based on environment
+ */
+function getWebhookEndpoint(path: string): string {
+  // Check if we're in browser environment
+  if (typeof window !== 'undefined') {
+    // Browser environment - use current origin
+    return `${window.location.origin}${path}`;
+  }
+  
+  // Server environment - check for environment variables
+  const baseUrl =
+    process.env.WEBHOOK_BASE_URL ||
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_VERCEL_URL
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : 'http://localhost:3000');
+  
+  return `${baseUrl}${path}`;
+}
 
 /**
  * Send a signal webhook
@@ -72,7 +96,7 @@ export async function sendSignalWebhook(
   signal: EnrichedSignal,
   config: Partial<WebhookSenderConfig> = {}
 ): Promise<WebhookSendResult> {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+  const cfg = { ...getDefaultConfig(), ...config };
   const payload = wrapAsWebhookPayload(signal);
   
   return sendWebhook(cfg.signalEndpoint, payload, cfg);
@@ -90,7 +114,7 @@ export async function sendPhaseWebhook(
   phase: SatyPhaseWebhook,
   config: Partial<WebhookSenderConfig> = {}
 ): Promise<WebhookSendResult> {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+  const cfg = { ...getDefaultConfig(), ...config };
   const payload = wrapPhaseAsWebhookPayload(phase);
   
   return sendWebhook(cfg.phaseEndpoint, payload, cfg);
@@ -108,7 +132,7 @@ export async function sendTrendWebhook(
   trend: TrendWebhookPayload,
   config: Partial<WebhookSenderConfig> = {}
 ): Promise<WebhookSendResult> {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+  const cfg = { ...getDefaultConfig(), ...config };
   
   return sendWebhook(cfg.trendEndpoint, trend, cfg);
 }
@@ -333,7 +357,7 @@ function sleep(ms: number): Promise<void> {
  * @returns Configured sender functions
  */
 export function createWebhookSender(config: Partial<WebhookSenderConfig> = {}) {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+  const cfg = { ...getDefaultConfig(), ...config };
   
   return {
     sendSignal: (signal: EnrichedSignal) => sendSignalWebhook(signal, cfg),

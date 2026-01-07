@@ -14,8 +14,17 @@ import { generateSignal } from '../generators/signalGenerator';
 import { generatePhase } from '../generators/phaseGenerator';
 
 describe('Webhook Sender - Phase 1B', () => {
+  beforeEach(() => {
+    // Ensure tests don't depend on localhost unless explicitly desired.
+    process.env.WEBHOOK_BASE_URL = 'https://optionstrat.vercel.app';
+  });
+
+  afterEach(() => {
+    delete process.env.WEBHOOK_BASE_URL;
+  });
+
   const mockConfig: Partial<WebhookSenderConfig> = {
-    trendEndpoint: 'http://localhost:3000/api/webhooks/trend',
+    trendEndpoint: 'https://optionstrat.vercel.app/api/webhooks/trend',
     timeout_ms: 1000,
   };
 
@@ -36,7 +45,7 @@ describe('Webhook Sender - Phase 1B', () => {
       expect(result.success).toBe(true);
       expect(result.status).toBe(200);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/webhooks/trend',
+        'https://optionstrat.vercel.app/api/webhooks/trend',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -77,15 +86,15 @@ describe('Webhook Sender - Phase 1B', () => {
       
       // Verify correct endpoints were called
       expect(mockFetch).toHaveBeenNthCalledWith(1, 
-        'http://localhost:3000/api/webhooks/signals',
+        'https://optionstrat.vercel.app/api/webhooks/signals',
         expect.any(Object)
       );
       expect(mockFetch).toHaveBeenNthCalledWith(2, 
-        'http://localhost:3000/api/webhooks/saty-phase',
+        'https://optionstrat.vercel.app/api/webhooks/saty-phase',
         expect.any(Object)
       );
       expect(mockFetch).toHaveBeenNthCalledWith(3, 
-        'http://localhost:3000/api/webhooks/trend',
+        'https://optionstrat.vercel.app/api/webhooks/trend',
         expect.any(Object)
       );
     });
