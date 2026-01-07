@@ -48,6 +48,14 @@ const initialState: DashboardState = {
   error: null,
 };
 
+interface SignalItem {
+  timeframe: string;
+  signal: StoredSignal['signal'];
+  received_at: number;
+  expires_at: number;
+  validity_minutes: number;
+}
+
 /**
  * Fetch dashboard data from APIs
  */
@@ -55,6 +63,46 @@ async function fetchDashboardData(): Promise<Partial<DashboardState>> {
   const results: Partial<DashboardState> = {};
   
   try {
+    // Fetch current active signals
+    const signalsRes = await fetch('/api/signals/current');
+    if (signalsRes.ok) {
+      const signalsData = await signalsRes.json();
+      if (signalsData.signals) {
+        // Convert array back to Map for component compatibility
+        const signalsMap = new Map();
+        signalsData.signals.forEach((item: SignalItem) => {
+          signalsMap.set(item.timeframe, {
+            signal: item.signal,
+            received_at: item.received_at,
+            expires_at: item.expires_at,
+            validity_minutes: item.validity_minutes,
+          });
+        });
+        results.signals = signalsMap;
+        
+        // Calculate confluence score if we have signals
+        if (signalsMap.size > 0) {
+          // Simple confluence calculation for display
+          const weights = { '240': 0.40, '60': 0.25, '30': 0.15, '15': 0.10, '5': 0.07, '3': 0.03 };
+          let totalWeight = 0;
+          let direction: SignalType | null = null;
+          
+          for (const [tf, stored] of signalsMap) {
+            const weight = weights[tf as keyof typeof weights] || 0;
+            if (weight > 0) {
+              totalWeight += weight;
+              if (!direction) {
+                direction = stored.signal.signal.type;
+              }
+            }
+          }
+          
+          results.confluenceScore = Math.round(totalWeight * 100);
+          results.direction = direction;
+        }
+      }
+    }
+    
     // Fetch decisions (includes latest decision)
     const decisionsRes = await fetch('/api/decisions?limit=1');
     if (decisionsRes.ok) {
@@ -114,8 +162,8 @@ export default function Dashboard() {
   useEffect(() => {
     refreshData();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(refreshData, 30000);
+    // Refresh every 5 seconds for real-time updates
+    const interval = setInterval(refreshData, 5000);
     return () => clearInterval(interval);
   }, [refreshData]);
   

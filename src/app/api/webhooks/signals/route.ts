@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeParseEnrichedSignal } from '@/types/signal';
 import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
+import { getTimeframeStore } from '@/webhooks/timeframeStore';
+import { executionPublisher } from '@/events/eventBus';
 
 /**
  * POST /api/webhooks/signals
@@ -42,8 +44,12 @@ export async function POST(request: NextRequest) {
     // Calculate validity
     const validityMinutes = calculateSignalValidityMinutes(signal);
     
-    // TODO: Store signal in timeframe store and publish event
-    // For now, return success with signal info
+    // Store signal in timeframe store
+    const timeframeStore = getTimeframeStore();
+    timeframeStore.storeSignal(signal);
+    
+    // Publish event for learning modules
+    executionPublisher.signalReceived(signal, signal.signal.timeframe, validityMinutes);
     
     return NextResponse.json({
       success: true,

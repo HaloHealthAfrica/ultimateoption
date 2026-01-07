@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface TimeframeData {
   timeframe: string;
@@ -63,7 +63,7 @@ export default function TrendAlignment() {
   const [error, setError] = useState<string | null>(null);
   const [ticker, setTicker] = useState('SPY');
 
-  const fetchTrendData = async () => {
+  const fetchTrendData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/trend/current?ticker=${ticker}`);
@@ -115,13 +115,13 @@ export default function TrendAlignment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ticker]);
 
   useEffect(() => {
     fetchTrendData();
     const interval = setInterval(fetchTrendData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
-  }, [ticker]);
+  }, [ticker, fetchTrendData]);
 
   const getDirectionColor = (direction: string) => {
     switch (direction) {

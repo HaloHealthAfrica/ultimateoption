@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 type LocalBias = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 
@@ -35,7 +35,7 @@ export default function PhaseMonitor() {
   const [error, setError] = useState<string | null>(null);
   const [symbol, setSymbol] = useState('SPY');
 
-  const fetchRegimeContext = async () => {
+  const fetchRegimeContext = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/phase/current?symbol=${symbol}`);
@@ -53,13 +53,13 @@ export default function PhaseMonitor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [symbol]);
 
   useEffect(() => {
     fetchRegimeContext();
     const interval = setInterval(fetchRegimeContext, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
-  }, [symbol]);
+  }, [symbol, fetchRegimeContext]);
 
   const getBiasColor = (bias: string) => {
     switch (bias) {
