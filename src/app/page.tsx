@@ -15,6 +15,7 @@ import { PaperTrades } from '@/ui/components/PaperTrades';
 import { LearningInsights } from '@/ui/components/LearningInsights';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
+import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
 import { StoredSignal } from '@/webhooks/timeframeStore';
 import { DecisionResult } from '@/types/decision';
 import { LedgerEntry } from '@/types/ledger';
@@ -148,7 +149,7 @@ async function fetchDashboardData(): Promise<Partial<DashboardState>> {
 export default function Dashboard() {
   const [state, setState] = useState<DashboardState>(initialState);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'learning'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'learning' | 'webhooks'>('overview');
   
   // Refresh data
   const refreshData = useCallback(async () => {
@@ -219,7 +220,7 @@ export default function Dashboard() {
           
           {/* Navigation Tabs */}
           <div className="flex gap-1 mt-4">
-            {(['overview', 'trades', 'learning'] as const).map(tab => (
+            {(['overview', 'trades', 'learning', 'webhooks'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -287,6 +288,10 @@ export default function Dashboard() {
             suggestions={state.suggestions}
             onRefresh={refreshData}
           />
+        )}
+
+        {activeTab === 'webhooks' && (
+          <WebhookMonitor />
         )}
       </main>
       
