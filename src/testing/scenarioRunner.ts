@@ -13,9 +13,11 @@ import { TestScenario, ScenarioStep } from './scenarios/scenarios';
 import { 
   sendSignalWebhook, 
   sendPhaseWebhook, 
+  sendTrendWebhook,
   WebhookSendResult,
   WebhookSenderConfig,
 } from './senders/webhookSender';
+import { TrendWebhookPayload } from './generators/trendGenerator';
 
 /**
  * Step execution result
@@ -113,6 +115,21 @@ async function executeStep(
         };
       }
       
+      case 'TREND': {
+        // Trend steps use the webhook wrapper payload: { text: string }
+        const trend = step.data as TrendWebhookPayload;
+        const result = await sendTrendWebhook(trend, config.webhookConfig);
+
+        return {
+          step_index: stepIndex,
+          step_type: 'TREND',
+          description: step.description,
+          success: result.success,
+          duration_ms: Date.now() - startTime,
+          webhook_result: result,
+        };
+      }
+
       case 'WAIT': {
         const waitMs = step.wait_ms || config.defaultWaitMs || 100;
         await sleep(waitMs);
