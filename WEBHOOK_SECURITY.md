@@ -6,12 +6,17 @@ All webhook endpoints now support secure authentication to prevent unauthorized 
 
 ## 🔐 **Authentication Methods**
 
-### Method 1: HMAC-SHA256 Signature (Recommended)
+### Method 1: Query Parameter (Recommended for Indicators)
+- **URL Format**: `https://optionstrat.vercel.app/api/webhooks/signals?key=<your_secret>`
+- **Parameters**: `?key=`, `?secret=`, or `?token=`
+- **Simple**: Just add your secret to the URL as a query parameter
+
+### Method 2: HMAC-SHA256 Signature
 - **Header**: `x-hub-signature-256`, `x-signature`, or `signature`
 - **Format**: `sha256=<hex_signature>` or just `<hex_signature>`
 - **Algorithm**: HMAC-SHA256 of the request body using your webhook secret
 
-### Method 2: Bearer Token
+### Method 3: Bearer Token
 - **Header**: `Authorization: Bearer <your_secret>`
 - **Simple**: Just include your webhook secret as a bearer token
 
@@ -25,9 +30,20 @@ WEBHOOK_SECRET_SATY_PHASE="your-saty-phase-webhook-secret-here"
 WEBHOOK_SECRET_TREND="your-trend-webhook-secret-here"
 ```
 
-## 📋 **TradingView Setup Examples**
+## 📋 **TradingView/Indicator Setup Examples**
 
-### Option 1: Using Bearer Token (Simplest)
+### Option 1: Using Query Parameter (Simplest for Indicators)
+
+**Webhook URL**: `https://optionstrat.vercel.app/api/webhooks/signals?key=your-signals-webhook-secret-here`
+
+**Headers**: 
+```
+Content-Type: application/json
+```
+
+**Message**: Your JSON payload
+
+### Option 2: Using Bearer Token
 
 **Webhook URL**: `https://optionstrat.vercel.app/api/webhooks/signals`
 
@@ -39,7 +55,7 @@ Content-Type: application/json
 
 **Message**: Your JSON payload
 
-### Option 2: Using HMAC Signature (Most Secure)
+### Option 3: Using HMAC Signature (Most Secure)
 
 **Webhook URL**: `https://optionstrat.vercel.app/api/webhooks/signals`
 
@@ -65,6 +81,11 @@ Content-Type: application/json
 ### Test with curl:
 
 ```bash
+# Query parameter method (simplest for indicators)
+curl -X POST "https://optionstrat.vercel.app/api/webhooks/signals?key=your-signals-webhook-secret-here" \
+  -H "Content-Type: application/json" \
+  -d '{"signal":{"type":"LONG","timeframe":"15",...}}'
+
 # Bearer token method
 curl -X POST https://optionstrat.vercel.app/api/webhooks/signals \
   -H "Authorization: Bearer your-signals-webhook-secret-here" \

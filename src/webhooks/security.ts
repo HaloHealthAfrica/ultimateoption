@@ -124,6 +124,46 @@ export function validateBearerToken(
 }
 
 /**
+ * Validate query parameter authentication
+ * Alternative for systems that can't set custom headers
+ */
+export function validateQueryParameter(
+  request: NextRequest,
+  webhookType: WebhookType
+): { valid: boolean; error?: string } {
+  const secret = getWebhookSecret(webhookType);
+  
+  if (!secret) {
+    return { valid: false, error: `No secret configured for ${webhookType} webhook` };
+  }
+  
+  const { searchParams } = new URL(request.url);
+  const key = searchParams.get('key') || searchParams.get('secret') || searchParams.get('token');
+  
+  if (!key) {
+    return { valid: false, error: 'No key parameter provided. Use ?key=<your_secret>' };
+  }
+  
+  // Use timing-safe comparison
+  try {
+    const expectedBuffer = Buffer.from(secret, 'utf8');
+    const providedBuffer = Buffer.from(key, 'utf8');
+    
+    if (expectedBuffer.length !== providedBuffer.length) {
+      return { valid: false, error: 'Invalid key' };
+    }
+    
+    const isValid = timingSafeEqual(expectedBuffer, providedBuffer);
+    
+    return { valid: isValid, error: isValid ? undefined : 'Invalid key' };
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: `Key validation error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    };
+  }
+}
+/**
  * Comprehensive webhook authentication
  * Tries multiple authentication methods in order of preference
  */
@@ -132,13 +172,19 @@ export function authenticateWebhook(
   body: string,
   webhookType: WebhookType
 ): { authenticated: boolean; method?: string; error?: string } {
-  // Method 1: Try HMAC signature validation
+  // Method 1: Try query parameter validation (most common for indicators)
+  const queryResult = validateQueryParameter(request, webhookType);
+  if (queryResult.valid) {
+    return { authenticated: true, method: 'query-parameter' };
+  }
+  
+  // Method 2: Try HMAC signature validation
   const signatureResult = validateWebhookSignature(request, body, webhookType);
   if (signatureResult.valid) {
     return { authenticated: true, method: 'hmac-signature' };
   }
   
-  // Method 2: Try Bearer token validation
+  // Method 3: Try Bearer token validation
   const tokenResult = validateBearerToken(request, webhookType);
   if (tokenResult.valid) {
     return { authenticated: true, method: 'bearer-token' };
@@ -157,6 +203,6 @@ export function authenticateWebhook(
   // All methods failed
   return { 
     authenticated: false, 
-    error: `Authentication failed. Tried: signature (${signatureResult.error}), token (${tokenResult.error})` 
+    error: `Authentication failed. Tried: query (?key=${queryResult.error}), signature (${signatureResult.error}), token (${tokenResult.error})` 
   };
 }
