@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { EnrichedSignalSchema, safeParseEnrichedSignal } from '@/types/signal';
+import { parseAndAdaptSignal } from '@/webhooks/signalAdapter';
 import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
 import { getTimeframeStore } from '@/webhooks/timeframeStore';
 import { executionPublisher } from '@/events/eventBus';
