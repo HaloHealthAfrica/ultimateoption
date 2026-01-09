@@ -9,6 +9,100 @@ import { z } from 'zod';
 import type { PhaseEventName, SatyPhaseWebhook } from '@/types/saty';
 
 /**
+ * Indicator v5 payload (new structure you described)
+ */
+const IndicatorV5Schema = z.object({
+  meta: z
+    .object({
+      version: z.string().optional(),
+      source: z.string().optional(),
+      indicator_name: z.string().optional(),
+    })
+    .optional(),
+  timeframe: z.object({
+    chart_tf: z.string(),
+    event_tf: z.string().optional(),
+    tf_role: z.string().optional(),
+    bar_close_time: z.string().optional(),
+  }),
+  instrument: z.object({
+    exchange: z.string().optional().default('AMEX'),
+    symbol: z.string(),
+    current_price: z.number().optional(),
+  }),
+  event: z.object({
+    type: z.string().optional(),
+    timestamp: z.number().optional(),
+    phase_from: z.number().optional(),
+    phase_to: z.number().optional(),
+    phase_name: z.string().optional(),
+    description: z.string().optional(),
+  }),
+  oscillator_state: z
+    .object({
+      rsi_14: z.number().optional(),
+      rsi_state: z.string().optional(),
+      macd_signal: z.string().optional(),
+      macd_histogram: z.number().optional(),
+    })
+    .optional(),
+  regime_context: z
+    .object({
+      regime: z.string().optional(),
+      volatility_state: z.string().optional(),
+      atr: z.number().optional(),
+      atr_normalized: z.number().optional(),
+      trend_strength: z.number().optional(),
+    })
+    .optional(),
+  market_structure: z
+    .object({
+      structure: z.string().optional(),
+      ema_8: z.number().optional(),
+      ema_21: z.number().optional(),
+      ema_50: z.number().optional(),
+      price_vs_ema50: z.string().optional(),
+      price_vs_ema21: z.string().optional(),
+      vwap: z.number().optional(),
+      pmh: z.number().optional(),
+      pml: z.number().optional(),
+    })
+    .optional(),
+  confidence: z
+    .object({
+      score: z.number().optional(),
+      ai_score_bull: z.number().optional(),
+      ai_score_bear: z.number().optional(),
+      dominant: z.string().optional(),
+    })
+    .optional(),
+  execution_guidance: z
+    .object({
+      bias: z.string().optional(),
+      urgency: z.string().optional(),
+      session: z.string().optional(),
+      day_of_week: z.string().optional(),
+    })
+    .optional(),
+  risk_hints: z
+    .object({
+      suggested_stop_pct: z.number().optional(),
+      atr_multiplier: z.number().optional(),
+      position_size_hint: z.string().optional(),
+    })
+    .optional(),
+  audit: z
+    .object({
+      generated_at: z.string().optional(),
+      bar_index: z.number().optional(),
+      volume: z.number().optional(),
+      volume_vs_avg: z.number().optional(),
+    })
+    .optional(),
+});
+type IndicatorV5 = z.infer<typeof IndicatorV5Schema>;
+
+/**
  * Phase-lite schema (what your indicator is currently sending)
  * Example:
  * {
@@ -417,6 +511,184 @@ function phaseLiteDirectionalImplication(input: PhaseLite): 'UPSIDE_POTENTIAL' |
   return 'NEUTRAL';
 }
 
+function normalizeTfRole(tfRole: unknown): 'REGIME' | 'BIAS' | 'SETUP_FORMATION' | 'STRUCTURAL' {
+  if (typeof tfRole !== 'string') return 'REGIME';
+  const upper = tfRole.toUpperCase();
+  if (upper.includes('BIAS')) return 'BIAS';
+  if (upper.includes('SETUP')) return 'SETUP_FORMATION';
+  if (upper.includes('STRUCT')) return 'STRUCTURAL';
+  // "PRIMARY" / "REGIME" / anything else
+  return 'REGIME';
+}
+
+function indicatorBias(input: IndicatorV5): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+  const eg = input.execution_guidance;
+  if (eg?.bias) {
+    const upper = eg.bias.toUpperCase();
+    if (upper.includes('LONG') || upper.includes('BULL')) return 'BULLISH';
+    if (upper.includes('SHORT') || upper.includes('BEAR')) return 'BEARISH';
+  }
+
+  const dom = input.confidence?.dominant;
+  if (dom) {
+    const upper = dom.toUpperCase();
+    if (upper.includes('BULL')) return 'BULLISH';
+    if (upper.includes('BEAR')) return 'BEARISH';
+  }
+
+  const rsiState = input.oscillator_state?.rsi_state;
+  if (rsiState) {
+    const upper = rsiState.toUpperCase();
+    if (upper.includes('BULL')) return 'BULLISH';
+    if (upper.includes('BEAR')) return 'BEARISH';
+  }
+
+  const macd = input.oscillator_state?.macd_signal;
+  if (macd) return normalizeBias(macd);
+
+  return 'NEUTRAL';
+}
+
+function indicatorDirectionalImplication(input: IndicatorV5): 'UPSIDE_POTENTIAL' | 'DOWNSIDE_POTENTIAL' | 'NEUTRAL' {
+  const bias = indicatorBias(input);
+  if (bias === 'BULLISH') return 'UPSIDE_POTENTIAL';
+  if (bias === 'BEARISH') return 'DOWNSIDE_POTENTIAL';
+  return 'NEUTRAL';
+}
+
+function indicatorEventName(input: IndicatorV5): PhaseEventName {
+  const phaseName = input.event.phase_name || '';
+  if (phaseName) return phaseNameToEventName(phaseName);
+
+  // Fallback to phase_to if present (your older "phase-lite" used numeric phases)
+  const p = input.event.phase_to;
+  if (p === 1) return 'ENTER_ACCUMULATION';
+  if (p === 2) return 'ZERO_CROSS_UP';
+  if (p === 3) return 'ENTER_DISTRIBUTION';
+  if (p === 4) return 'ZERO_CROSS_DOWN';
+  return 'ENTER_ACCUMULATION';
+}
+
+function indicatorOscValue(input: IndicatorV5): number {
+  const hist = input.oscillator_state?.macd_histogram;
+  if (typeof hist === 'number' && Number.isFinite(hist)) {
+    // Scale small MACD values into a +/-100-ish band
+    return Math.max(-100, Math.min(100, hist * 100));
+  }
+  const rsi = input.oscillator_state?.rsi_14;
+  if (typeof rsi === 'number' && Number.isFinite(rsi)) {
+    // Convert RSI (0..100) into centered oscillator (-50..+50)
+    return Math.max(-50, Math.min(50, rsi - 50));
+  }
+  return 0;
+}
+
+function indicatorVelocity(input: IndicatorV5): 'INCREASING' | 'DECREASING' {
+  const bias = indicatorBias(input);
+  return bias === 'BEARISH' ? 'DECREASING' : 'INCREASING';
+}
+
+function urgencyToPriority(urgency: unknown): number {
+  if (typeof urgency !== 'string') return 5;
+  const upper = urgency.toUpperCase();
+  if (upper.includes('HIGH')) return 8;
+  if (upper.includes('LOW')) return 3;
+  return 5;
+}
+
+function confidenceToTier(score: unknown): 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return 'MEDIUM';
+  if (score >= 90) return 'EXTREME';
+  if (score >= 75) return 'HIGH';
+  if (score >= 40) return 'MEDIUM';
+  return 'LOW';
+}
+
+function adaptIndicatorV5ToPhaseWebhook(input: IndicatorV5): SatyPhaseWebhook {
+  const nowIso = new Date().toISOString();
+
+  const barClose =
+    input.timeframe.bar_close_time ||
+    input.audit?.generated_at ||
+    toIsoFromTimestamp(input.event.timestamp) ||
+    nowIso;
+
+  const bias = indicatorBias(input);
+  const oscValue = indicatorOscValue(input);
+
+  return {
+    meta: {
+      engine: 'SATY_PO',
+      engine_version: input.meta?.version || '1.0',
+      event_id: generateEventId(),
+      event_type: 'REGIME_PHASE_ENTRY',
+      generated_at: input.audit?.generated_at || nowIso,
+    },
+    instrument: {
+      symbol: input.instrument.symbol,
+      exchange: input.instrument.exchange || 'AMEX',
+      asset_class: 'EQUITY',
+      session: 'REGULAR',
+    },
+    timeframe: {
+      chart_tf: input.timeframe.chart_tf,
+      event_tf: input.timeframe.event_tf || input.timeframe.chart_tf,
+      tf_role: normalizeTfRole(input.timeframe.tf_role),
+      bar_close_time: barClose,
+    },
+    event: {
+      name: indicatorEventName(input),
+      description:
+        input.event.description ||
+        (input.event.phase_name ? `Phase: ${input.event.phase_name}` : 'Phase event detected'),
+      directional_implication: indicatorDirectionalImplication(input),
+      event_priority: Math.min(10, Math.max(1, urgencyToPriority(input.execution_guidance?.urgency))),
+    },
+    oscillator_state: {
+      value: oscValue,
+      previous_value: oscValue,
+      zone_from: input.oscillator_state?.rsi_state || 'NEUTRAL',
+      zone_to: input.oscillator_state?.rsi_state || 'NEUTRAL',
+      distance_from_zero: Math.abs(oscValue),
+      distance_from_extreme: Math.abs(100 - Math.abs(oscValue)),
+      velocity: indicatorVelocity(input),
+    },
+    regime_context: {
+      local_bias: bias,
+      htf_bias: { tf: '4H', bias: 'NEUTRAL', osc_value: 0 },
+      macro_bias: { tf: '1D', bias: 'NEUTRAL' },
+    },
+    market_structure: {
+      mean_reversion_phase: input.regime_context?.volatility_state || 'NEUTRAL',
+      trend_phase: input.market_structure?.structure || input.regime_context?.regime || 'NEUTRAL',
+      is_counter_trend: false,
+      compression_state: input.regime_context?.volatility_state || 'NORMAL',
+    },
+    confidence: {
+      raw_strength: Math.min(100, Math.max(0, input.regime_context?.trend_strength ?? input.confidence?.score ?? 50)),
+      htf_alignment: false,
+      confidence_score: Math.min(100, Math.max(0, input.confidence?.score ?? 50)),
+      confidence_tier: confidenceToTier(input.confidence?.score),
+    },
+    execution_guidance: {
+      trade_allowed: true,
+      allowed_directions: bias === 'BEARISH' ? ['SHORT', 'LONG'] : ['LONG', 'SHORT'],
+      recommended_execution_tf: [input.timeframe.event_tf || input.timeframe.chart_tf],
+      requires_confirmation: [],
+    },
+    risk_hints: {
+      avoid_if: [],
+      time_decay_minutes: 60,
+      cooldown_tf: input.timeframe.chart_tf,
+    },
+    audit: {
+      source: input.meta?.source || 'TradingView',
+      alert_frequency: 'once_per_bar',
+      deduplication_key: `${input.instrument.symbol}_${input.timeframe.chart_tf}_${input.event.timestamp ?? Date.now()}`,
+    },
+  };
+}
+
 function adaptPhaseLiteToPhaseWebhook(input: PhaseLite): SatyPhaseWebhook {
   const nowIso = new Date().toISOString();
   const barClose = input.bar_time || toIsoFromTimestamp(input.timestamp) || nowIso;
@@ -515,8 +787,14 @@ export function parseAndAdaptSaty(
     if (phaseLiteResult.success) {
       return { success: true, data: adaptPhaseLiteToPhaseWebhook(phaseLiteResult.data) };
     }
+
+    // Third try: indicator v5 format (new structured payload)
+    const v5Result = IndicatorV5Schema.safeParse(rawData);
+    if (v5Result.success) {
+      return { success: true, data: adaptIndicatorV5ToPhaseWebhook(v5Result.data) };
+    }
     
-    return { success: false, error: { flexible: flexResult.error, phase_lite: phaseLiteResult.error } };
+    return { success: false, error: { flexible: flexResult.error, phase_lite: phaseLiteResult.error, indicator_v5: v5Result.error } };
   } catch (error) {
     return { success: false, error };
   }
