@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { EnrichedSignal, SignalType, SignalQuality, Timeframe } from '@/types/signal';
+import type { DayOfWeek, EnrichedSignal, SignalType, SignalQuality, Timeframe } from '@/types/signal';
 
 // Flexible input schema that matches your TradingView indicator output
 export const FlexibleSignalSchema = z.object({
@@ -124,9 +124,35 @@ function normalizeQuality(quality: string): SignalQuality {
 /**
  * Get current day of week
  */
-function getCurrentDayOfWeek(): string {
-  const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-  return days[new Date().getDay()] || 'MONDAY';
+function getCurrentDayOfWeek(): DayOfWeek {
+  // Trading signals are only relevant on trading days; map weekends to Monday.
+  const day = new Date().getDay(); // 0=Sun ... 6=Sat
+  if (day === 1) return 'MONDAY';
+  if (day === 2) return 'TUESDAY';
+  if (day === 3) return 'WEDNESDAY';
+  if (day === 4) return 'THURSDAY';
+  if (day === 5) return 'FRIDAY';
+  return 'MONDAY';
+}
+
+function normalizeDayOfWeek(value: unknown): DayOfWeek | undefined {
+  if (typeof value !== 'string') return undefined;
+  const upper = value.toUpperCase().trim();
+
+  // Common abbreviations
+  if (upper === 'MON') return 'MONDAY';
+  if (upper === 'TUE' || upper === 'TUES') return 'TUESDAY';
+  if (upper === 'WED') return 'WEDNESDAY';
+  if (upper === 'THU' || upper === 'THUR') return 'THURSDAY';
+  if (upper === 'FRI') return 'FRIDAY';
+
+  if (upper === 'MONDAY') return 'MONDAY';
+  if (upper === 'TUESDAY') return 'TUESDAY';
+  if (upper === 'WEDNESDAY') return 'WEDNESDAY';
+  if (upper === 'THURSDAY') return 'THURSDAY';
+  if (upper === 'FRIDAY') return 'FRIDAY';
+
+  return undefined;
 }
 
 /**
@@ -234,7 +260,7 @@ export function adaptSignalToEnriched(input: FlexibleSignal): EnrichedSignal {
       market_session: input.time_context?.market_session?.toUpperCase() === 'MIDDAY' ? 'MIDDAY' :
                      input.time_context?.market_session?.toUpperCase() === 'POWER_HOUR' ? 'POWER_HOUR' :
                      input.time_context?.market_session?.toUpperCase() === 'AFTERHOURS' ? 'AFTERHOURS' : 'OPEN',
-      day_of_week: (input.time_context?.day_of_week?.toUpperCase() as any) || getCurrentDayOfWeek(),
+      day_of_week: normalizeDayOfWeek(input.time_context?.day_of_week) || getCurrentDayOfWeek(),
     },
   };
   
@@ -244,7 +270,9 @@ export function adaptSignalToEnriched(input: FlexibleSignal): EnrichedSignal {
 /**
  * Parse and adapt incoming webhook data to EnrichedSignal
  */
-export function parseAndAdaptSignal(rawData: unknown): { success: true; data: EnrichedSignal } | { success: false; error: any } {
+export function parseAndAdaptSignal(
+  rawData: unknown
+): { success: true; data: EnrichedSignal } | { success: false; error: unknown } {
   try {
     // Try to parse as flexible signal first
     const flexResult = FlexibleSignalSchema.safeParse(rawData);

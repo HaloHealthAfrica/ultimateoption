@@ -12,7 +12,7 @@ let debugLogs: Array<{
   timestamp: string;
   headers: Record<string, string>;
   raw_body: string;
-  parsed_json: any;
+  parsed_json: unknown;
   ip: string;
 }> = [];
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     let parsed = null;
     try {
       parsed = JSON.parse(raw);
-    } catch (e) {
+    } catch {
       // Keep as null if not valid JSON
     }
     

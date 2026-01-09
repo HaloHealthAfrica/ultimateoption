@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listWebhookReceipts } from '@/webhooks/auditDb';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const receipts = await listWebhookReceipts(20);
     
@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
     // Recent activity summary
     const last24h = receipts.filter(r => r.received_at > Date.now() - 24 * 60 * 60 * 1000);
     const lastHour = receipts.filter(r => r.received_at > Date.now() - 60 * 60 * 1000);
+
+    const formatTime = (ms: number) => new Date(ms).toISOString();
     
     return NextResponse.json({
       summary: {
@@ -33,10 +35,10 @@ export async function GET(request: NextRequest) {
         failed: failed.length,
         last_24h: last24h.length,
         last_hour: lastHour.length,
-        last_attempt: receipts[0]?.received_at_formatted || 'None',
+        last_attempt: receipts[0] ? formatTime(receipts[0].received_at) : 'None',
       },
       recent_failures: failed.slice(0, 10).map(r => ({
-        time: r.received_at_formatted,
+        time: formatTime(r.received_at),
         kind: r.kind,
         status: r.status,
         message: r.message,
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
         timeframe: r.timeframe,
       })),
       recent_successes: successful.slice(0, 5).map(r => ({
-        time: r.received_at_formatted,
+        time: formatTime(r.received_at),
         kind: r.kind,
         ticker: r.ticker,
         symbol: r.symbol,

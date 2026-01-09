@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { SatyPhaseWebhook } from '@/types/saty';
+import type { PhaseEventName, SatyPhaseWebhook } from '@/types/saty';
 
 // Flexible input schema that matches TradingView indicator output
 export const FlexibleSatySchema = z.object({
@@ -123,7 +123,7 @@ function normalizeEventType(type: string): 'REGIME_PHASE_EXIT' | 'REGIME_PHASE_E
 /**
  * Convert event name to valid enum value
  */
-function normalizeEventName(name: string): string {
+function normalizeEventName(name: string): PhaseEventName {
   const upper = name.toUpperCase();
   if (upper.includes('EXIT_ACCUMULATION')) return 'EXIT_ACCUMULATION';
   if (upper.includes('ENTER_ACCUMULATION')) return 'ENTER_ACCUMULATION';
@@ -222,7 +222,7 @@ export function adaptSatyToPhaseWebhook(input: FlexibleSaty): SatyPhaseWebhook {
     },
     
     event: {
-      name: normalizeEventName(input.event.name) as any,
+      name: normalizeEventName(input.event.name),
       description: input.event.description || 'Phase event detected',
       directional_implication: normalizeDirectionalImplication(input.event.directional_implication || 'NEUTRAL'),
       event_priority: Math.min(10, Math.max(1, input.event.event_priority || 5)),
@@ -291,7 +291,9 @@ export function adaptSatyToPhaseWebhook(input: FlexibleSaty): SatyPhaseWebhook {
 /**
  * Parse and adapt incoming webhook data to SatyPhaseWebhook
  */
-export function parseAndAdaptSaty(rawData: unknown): { success: true; data: SatyPhaseWebhook } | { success: false; error: any } {
+export function parseAndAdaptSaty(
+  rawData: unknown
+): { success: true; data: SatyPhaseWebhook } | { success: false; error: unknown } {
   try {
     // Try to parse as flexible SATY first
     const flexResult = FlexibleSatySchema.safeParse(rawData);

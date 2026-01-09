@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { SatyPhaseWebhookSchema, safeParseSatyPhaseWebhook } from '@/types/saty';
 import { parseAndAdaptSaty } from '@/webhooks/satyAdapter';
 import { PhaseStore } from '@/saty/storage/phaseStore';
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Parse and validate the phase - try multiple formats
     let phase;
     let parseMethod = 'unknown';
-    let lastError: any = null;
+    let lastError: { method: string; error: unknown } | null = null;
     
     // First try: Expected format with "text" field
     if (body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)) {
@@ -111,16 +112,22 @@ export async function POST(request: NextRequest) {
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
+
+      const lastIssues =
+        lastError?.error instanceof z.ZodError
+          ? lastError.error.issues.slice(0, 5).map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            }))
+          : undefined;
+
       return NextResponse.json(
         { 
           error: 'Invalid phase payload',
           received_type: typeof body,
           message: 'Payload does not match any expected format (text-wrapped, direct-saty, or flexible)',
           last_attempt: lastError?.method,
-          last_error: lastError?.error?.issues?.slice(0, 5).map((i: any) => ({
-            path: i.path.join('.'),
-            message: i.message,
-          })),
+          last_error: lastIssues,
           raw_sample: typeof body === 'string' ? body.substring(0, 200) : JSON.stringify(body).substring(0, 200),
         },
         { status: 400 }

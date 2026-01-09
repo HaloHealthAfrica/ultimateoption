@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     let parsed = null;
     try {
       parsed = JSON.parse(raw);
-    } catch (e) {
+    } catch {
       // Keep as null if not valid JSON
     }
     
