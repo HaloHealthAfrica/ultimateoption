@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { safeParseTrendWebhook, calculateTrendAlignment } from '@/types/trend';
+import { TrendWebhookSchema, safeParseTrendWebhook, calculateTrendAlignment } from '@/types/trend';
 import { TrendStore } from '@/trend/storage/trendStore';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
@@ -17,15 +17,26 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * POST /api/webhooks/trend
  * 
  * Receives TradingView webhook with TrendWebhook payload.
- * Payload should be JSON with a "text" field containing stringified trend data.
+ * Accepts either:
+ * - `{ "text": "<stringified TrendWebhook JSON>" }` (legacy/testing wrapper), OR
+ * - raw `TrendWebhook` JSON object (recommended for TradingView).
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
   try {
-    const body = await request.json();
-    
+    const raw = await request.text();
+    let body: unknown = raw;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // keep as string
+    }
+
     // Parse and validate the trend data
-    const result = safeParseTrendWebhook(body);
+    const result =
+      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
+        ? safeParseTrendWebhook(body)
+        : TrendWebhookSchema.safeParse(body);
     
     if (!result.success) {
       const entry = {
@@ -41,6 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: 'Invalid trend payload',
+          received_type: typeof body,
           details: result.error.issues.map(i => ({
             path: i.path.join('.'),
             message: i.message,

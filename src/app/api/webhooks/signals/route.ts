@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { safeParseEnrichedSignal } from '@/types/signal';
+import { EnrichedSignalSchema, safeParseEnrichedSignal } from '@/types/signal';
 import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
 import { getTimeframeStore } from '@/webhooks/timeframeStore';
 import { executionPublisher } from '@/events/eventBus';
@@ -19,15 +19,26 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * POST /api/webhooks/signals
  * 
  * Receives TradingView webhook with EnrichedSignal payload.
- * Payload should be JSON with a "text" field containing stringified signal data.
+ * Accepts either:
+ * - `{ "text": "<stringified EnrichedSignal JSON>" }` (legacy/testing wrapper), OR
+ * - raw `EnrichedSignal` JSON object (recommended for TradingView).
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
   try {
-    const body = await request.json();
-    
+    const raw = await request.text();
+    let body: unknown = raw;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // Keep as string; we'll fail validation and return 400.
+    }
+
     // Parse and validate the signal
-    const result = safeParseEnrichedSignal(body);
+    const result =
+      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
+        ? safeParseEnrichedSignal(body)
+        : EnrichedSignalSchema.safeParse(body);
     
     if (!result.success) {
       const entry = {
@@ -43,6 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: 'Invalid signal payload',
+          received_type: typeof body,
           details: result.error.issues.map(i => ({
             path: i.path.join('.'),
             message: i.message,

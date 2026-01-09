@@ -14,9 +14,37 @@ interface ScenarioRunResult {
   scenarioId: string;
   scenarioName: string;
   success: boolean;
-  steps: { stepIndex: number; type: string; success: boolean; latency: number; }[];
+  error?: string;
+  failedSteps?: number;
   totalLatency: number;
+  steps: {
+    stepIndex: number;
+    type: string;
+    success: boolean;
+    durationMs: number;
+    status?: number;
+    message?: string;
+  }[];
 }
+
+type ScenarioApiResponse =
+  | {
+      scenario_id: string;
+      scenario_name: string;
+      success: boolean;
+      failed_steps: number;
+      total_duration_ms: number;
+      step_results: Array<{
+        step_index: number;
+        step_type: string;
+        description: string;
+        success: boolean;
+        duration_ms: number;
+        webhook_result?: { status: number; error?: string; response?: unknown };
+        error?: string;
+      }>;
+    }
+  | { error: string; message?: string; available?: string[] };
 
 /**
  * Scenario Card Component
@@ -62,6 +90,11 @@ function ScenarioCard({ scenario, onRun, isRunning, result }: {
       </button>
       {expanded && (
         <div className="mt-3 space-y-2">
+          {result?.error && (
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded p-2">
+              {result.error}
+            </div>
+          )}
           {scenario.steps.map((step, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               <span className="text-gray-600 w-6">{i + 1}.</span>
@@ -73,6 +106,28 @@ function ScenarioCard({ scenario, onRun, isRunning, result }: {
               </span>
             </div>
           ))}
+
+          {result?.steps?.length ? (
+            <div className="pt-3 mt-3 border-t border-gray-700 space-y-2">
+              <div className="text-xs text-gray-500">
+                Last run: {result.success ? 'PASSED' : 'FAILED'} • {result.totalLatency}ms • failed steps: {result.failedSteps ?? 0}
+              </div>
+              {result.steps.map((s, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 text-xs bg-gray-900/40 border border-gray-700 rounded px-2 py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 w-6">{s.stepIndex + 1}.</span>
+                    <span className={`px-2 py-0.5 rounded ${s.success ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+                      {s.type}
+                    </span>
+                    <span className="text-gray-400">{s.message || ''}</span>
+                  </div>
+                  <div className="text-gray-500">
+                    {typeof s.status === 'number' ? `HTTP ${s.status}` : ''} {s.durationMs}ms
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -99,13 +154,41 @@ export default function TestingPage() {
     
     try {
       const response = await fetch(`/api/testing/scenarios/${scenario.id}`, { method: 'POST' });
-      const data = await response.json();
+      const data = (await response.json()) as ScenarioApiResponse;
+
+      if (!response.ok) {
+        const errText =
+          'error' in data && data.error
+            ? `${data.error}${'message' in data && data.message ? `: ${data.message}` : ''}`
+            : `Request failed (${response.status})`;
+        setResults(prev => new Map(prev).set(scenario.id, {
+          scenarioId: scenario.id,
+          scenarioName: scenario.name,
+          success: false,
+          error: errText,
+          failedSteps: 0,
+          steps: [],
+          totalLatency: Date.now() - start,
+        }));
+        return;
+      }
+      
+      const ok = data as Exclude<ScenarioApiResponse, { error: string }>;
+      const mappedSteps = (ok.step_results || []).map((s) => ({
+        stepIndex: s.step_index,
+        type: s.step_type,
+        success: s.success,
+        durationMs: s.duration_ms,
+        status: s.webhook_result?.status,
+        message: s.description || s.error || s.webhook_result?.error,
+      }));
       
       setResults(prev => new Map(prev).set(scenario.id, {
         scenarioId: scenario.id,
         scenarioName: scenario.name,
-        success: data.success ?? false,
-        steps: data.steps ?? [],
+        success: ok.success ?? false,
+        failedSteps: ok.failed_steps ?? 0,
+        steps: mappedSteps,
         totalLatency: Date.now() - start,
       }));
     } catch {
@@ -113,6 +196,8 @@ export default function TestingPage() {
         scenarioId: scenario.id,
         scenarioName: scenario.name,
         success: false,
+        error: 'Failed to run scenario (network/client error)',
+        failedSteps: 0,
         steps: [],
         totalLatency: Date.now() - start,
       }));

@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { safeParseSatyPhaseWebhook } from '@/types/saty';
+import { SatyPhaseWebhookSchema, safeParseSatyPhaseWebhook } from '@/types/saty';
 import { PhaseStore } from '@/saty/storage/phaseStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
@@ -18,15 +18,26 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * POST /api/webhooks/saty-phase
  * 
  * Receives TradingView webhook with SatyPhaseWebhook payload.
- * Payload should be JSON with a "text" field containing stringified phase data.
+ * Accepts either:
+ * - `{ "text": "<stringified SatyPhaseWebhook JSON>" }` (legacy/testing wrapper), OR
+ * - raw `SatyPhaseWebhook` JSON object (recommended for TradingView).
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
   try {
-    const body = await request.json();
-    
+    const raw = await request.text();
+    let body: unknown = raw;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // keep as string
+    }
+
     // Parse and validate the phase
-    const result = safeParseSatyPhaseWebhook(body);
+    const result =
+      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
+        ? safeParseSatyPhaseWebhook(body)
+        : SatyPhaseWebhookSchema.safeParse(body);
     
     if (!result.success) {
       const entry = {
@@ -42,6 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: 'Invalid phase payload',
+          received_type: typeof body,
           details: result.error.issues.map(i => ({
             path: i.path.join('.'),
             message: i.message,
