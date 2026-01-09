@@ -1,162 +1,43 @@
 'use client';
 
-/**
- * Main Dashboard Page - Rebuilt Version 2.0
- * Read-only dashboard for monitoring the options trading platform
- * 
- * Requirements: 14.6
- * Last Updated: 2025-01-08 - Dashboard Rebuild with Error Boundaries
- */
-
-import { useState, useEffect, useCallback, ReactNode } from 'react';
-import { SignalMonitor } from '@/ui/components/SignalMonitor';
-import { ConfluenceView } from '@/ui/components/ConfluenceView';
-import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
-import { PaperTrades } from '@/ui/components/PaperTrades';
-import { LearningInsights } from '@/ui/components/LearningInsights';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
 import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
-import { StoredSignal } from '@/webhooks/timeframeStore';
-import { DecisionResult } from '@/types/decision';
-import { LedgerEntry } from '@/types/ledger';
+import { ConfluenceView } from '@/ui/components/ConfluenceView';
+import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
+import { LearningInsights } from '@/ui/components/LearningInsights';
+import { PaperTrades } from '@/ui/components/PaperTrades';
+import { SignalMonitor } from '@/ui/components/SignalMonitor';
 import { Metrics } from '@/learning/metricsEngine';
 import { LearningSuggestion } from '@/learning/learningAdvisor';
+import { DecisionResult } from '@/types/decision';
+import { LedgerEntry } from '@/types/ledger';
 import { SignalType } from '@/types/signal';
+import { StoredSignal } from '@/webhooks/timeframeStore';
 
-/**
- * Error Boundary Component for individual dashboard cells
- */
-interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-  componentName?: string;
-}
+type TabKey = 'overview' | 'trades' | 'learning' | 'webhooks';
 
-function ErrorBoundary({ children, fallback, componentName = 'Component' }: ErrorBoundaryProps) {
-  const [hasError, setHasError] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const handleError = (error: ErrorEvent) => {
-      setHasError(true);
-      setError(new Error(error.message));
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      setHasError(true);
-      setError(new Error(event.reason));
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
-
-  if (hasError) {
-    return fallback || (
-      <div className="bg-gray-900 rounded-xl p-6 border border-red-500/50">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-red-400">⚠️</span>
-          <h3 className="text-lg font-bold text-red-400">{componentName} Error</h3>
-        </div>
-        <div className="text-gray-400 text-sm mb-3">
-          {error?.message || 'An unexpected error occurred'}
-        </div>
-        <button
-          onClick={() => {
-            setHasError(false);
-            setError(null);
-          }}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-}
-
-/**
- * Safe Component Wrapper
- */
-function SafeComponent({ 
-  children, 
-  componentName, 
-  fallback 
-}: { 
-  children: ReactNode; 
-  componentName: string;
-  fallback?: ReactNode;
-}) {
-  return (
-    <ErrorBoundary componentName={componentName} fallback={fallback}>
-      {children}
-    </ErrorBoundary>
-  );
-}
-
-/**
- * Empty State Component
- */
-function EmptyState({ 
-  title, 
-  description, 
-  action 
-}: { 
-  title: string; 
-  description: string; 
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div className="bg-gray-900 rounded-xl p-8 text-center">
-      <div className="text-gray-500 mb-4">
-        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      </div>
-      <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-gray-400 mb-4">{description}</p>
-      {action && (
-        <button
-          onClick={action.onClick}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// Dashboard state interface
 interface DashboardState {
   signals: Map<string, StoredSignal>;
+  confluenceScore: number;
+  direction: SignalType | null;
   decision: DecisionResult | null;
   ledgerEntries: LedgerEntry[];
   metrics: Metrics | null;
   suggestions: LearningSuggestion[];
-  confluenceScore: number;
-  direction: SignalType | null;
   lastUpdated: number;
   error: string | null;
 }
 
-// Initial state
 const initialState: DashboardState = {
   signals: new Map(),
+  confluenceScore: 0,
+  direction: null,
   decision: null,
   ledgerEntries: [],
   metrics: null,
   suggestions: [],
-  confluenceScore: 0,
-  direction: null,
   lastUpdated: Date.now(),
   error: null,
 };
@@ -169,348 +50,356 @@ interface SignalItem {
   validity_minutes: number;
 }
 
-/**
- * Fetch dashboard data from APIs with better error handling
- */
-async function fetchDashboardData(): Promise<Partial<DashboardState>> {
-  const results: Partial<DashboardState> = {};
-  const errors: string[] = [];
-  
-  try {
-    // Fetch current active signals
-    try {
-      const signalsRes = await fetch('/api/signals/current');
-      if (signalsRes.ok) {
-        const signalsData = await signalsRes.json();
-        if (signalsData.signals) {
-          // Convert array back to Map for component compatibility
-          const signalsMap = new Map();
-          signalsData.signals.forEach((item: SignalItem) => {
-            signalsMap.set(item.timeframe, {
-              signal: item.signal,
-              received_at: item.received_at,
-              expires_at: item.expires_at,
-              validity_minutes: item.validity_minutes,
-            });
-          });
-          results.signals = signalsMap;
-          
-          // Calculate confluence score if we have signals
-          if (signalsMap.size > 0) {
-            // Simple confluence calculation for display
-            const weights = { '240': 0.40, '60': 0.25, '30': 0.15, '15': 0.10, '5': 0.07, '3': 0.03 };
-            let totalWeight = 0;
-            let direction: SignalType | null = null;
-            
-            for (const [tf, stored] of signalsMap) {
-              const weight = weights[tf as keyof typeof weights] || 0;
-              if (weight > 0) {
-                totalWeight += weight;
-                if (!direction) {
-                  direction = stored.signal.signal.type;
-                }
-              }
-            }
-            
-            results.confluenceScore = Math.round(totalWeight * 100);
-            results.direction = direction;
-          }
-        }
-      } else {
-        errors.push(`Signals API: ${signalsRes.status}`);
-      }
-    } catch (err) {
-      errors.push(`Signals: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-    
-    // Fetch decisions (includes latest decision)
-    try {
-      const decisionsRes = await fetch('/api/decisions?limit=1');
-      if (decisionsRes.ok) {
-        const decisionsData = await decisionsRes.json();
-        if (decisionsData.decisions && decisionsData.decisions.length > 0) {
-          results.decision = decisionsData.decisions[0];
-        }
-      } else {
-        errors.push(`Decisions API: ${decisionsRes.status}`);
-      }
-    } catch (err) {
-      errors.push(`Decisions: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-    
-    // Fetch ledger entries
-    try {
-      const ledgerRes = await fetch('/api/ledger?limit=100');
-      if (ledgerRes.ok) {
-        const ledgerData = await ledgerRes.json();
-        results.ledgerEntries = ledgerData.entries || [];
-      } else {
-        errors.push(`Ledger API: ${ledgerRes.status}`);
-      }
-    } catch (err) {
-      errors.push(`Ledger: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-    
-    // Fetch metrics
-    try {
-      const metricsRes = await fetch('/api/metrics');
-      if (metricsRes.ok) {
-        const metricsData = await metricsRes.json();
-        results.metrics = metricsData.metrics || null;
-      } else {
-        errors.push(`Metrics API: ${metricsRes.status}`);
-      }
-    } catch (err) {
-      errors.push(`Metrics: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-    
-    // Fetch learning suggestions
-    try {
-      const suggestionsRes = await fetch('/api/learning/suggestions');
-      if (suggestionsRes.ok) {
-        const suggestionsData = await suggestionsRes.json();
-        results.suggestions = suggestionsData.suggestions || [];
-      } else {
-        errors.push(`Learning API: ${suggestionsRes.status}`);
-      }
-    } catch (err) {
-      errors.push(`Learning: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-    
-    results.lastUpdated = Date.now();
-    results.error = errors.length > 0 ? `API Errors: ${errors.join(', ')}` : null;
-  } catch (error) {
-    results.error = error instanceof Error ? error.message : 'Failed to fetch data';
-  }
-  
-  return results;
+function classNames(...xs: Array<string | false | null | undefined>): string {
+  return xs.filter(Boolean).join(' ');
 }
 
-/**
- * Main Dashboard Component
- */
-export default function Dashboard() {
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString();
+}
+
+function formatRelative(ts: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 10) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  // Cache-bust to keep the dashboard "live" even if the browser caches responses.
+  const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`);
+  const data = (await res.json()) as T;
+  if (!res.ok) {
+    const msg = (data as unknown as { error?: string })?.error || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function fetchDashboardData(): Promise<Partial<DashboardState>> {
+  const next: Partial<DashboardState> = {};
+  const errors: string[] = [];
+
+  // Signals
+  try {
+    const payload = await fetchJson<{ signals?: SignalItem[] }>('/api/signals/current');
+    const map = new Map<string, StoredSignal>();
+    for (const item of payload.signals || []) {
+      map.set(item.timeframe, {
+        signal: item.signal,
+        received_at: item.received_at,
+        expires_at: item.expires_at,
+        validity_minutes: item.validity_minutes,
+      });
+    }
+    next.signals = map;
+
+    // Simple “coverage score” from HTF→LTF weights
+    const weights: Record<string, number> = { '240': 0.4, '60': 0.25, '30': 0.15, '15': 0.1, '5': 0.07, '3': 0.03 };
+    let total = 0;
+    let direction: SignalType | null = null;
+
+    for (const [tf, stored] of map) {
+      const w = weights[tf] ?? 0;
+      if (w > 0) {
+        total += w;
+        direction ||= stored.signal.signal.type;
+      }
+    }
+
+    next.confluenceScore = Math.round(total * 100);
+    next.direction = direction;
+  } catch (e) {
+    errors.push(`Signals: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  // Decisions (API returns { data: [] })
+  try {
+    const payload = await fetchJson<{ data?: DecisionResult[]; decisions?: DecisionResult[] }>('/api/decisions?limit=1');
+    const list = payload.data || payload.decisions || [];
+    next.decision = list[0] || null;
+  } catch (e) {
+    errors.push(`Decisions: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  // Ledger (API returns { data: [] })
+  try {
+    const payload = await fetchJson<{ data?: LedgerEntry[]; entries?: LedgerEntry[] }>('/api/ledger?limit=100');
+    next.ledgerEntries = payload.data || payload.entries || [];
+  } catch (e) {
+    errors.push(`Ledger: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  // Metrics
+  try {
+    const payload = await fetchJson<{ metrics: Metrics | null }>('/api/metrics');
+    next.metrics = payload.metrics ?? null;
+  } catch (e) {
+    errors.push(`Metrics: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  // Suggestions
+  try {
+    const payload = await fetchJson<{ suggestions?: LearningSuggestion[] }>('/api/learning/suggestions?status=PENDING&limit=10');
+    next.suggestions = payload.suggestions || [];
+  } catch (e) {
+    errors.push(`Suggestions: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  next.lastUpdated = Date.now();
+  next.error = errors.length ? errors.join(' | ') : null;
+  return next;
+}
+
+function Card({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur">
+      <header className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm text-white/60">{subtitle}</p> : null}
+        </div>
+        {right ? <div className="shrink-0">{right}</div> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={classNames(
+        'px-4 py-2 text-sm font-medium rounded-xl transition-colors',
+        active ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+export default function DashboardPage() {
+  const [tab, setTab] = useState<TabKey>('overview');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshMs, setRefreshMs] = useState(5000);
+
+  const [loading, setLoading] = useState(false);
   const [state, setState] = useState<DashboardState>(initialState);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'learning' | 'webhooks'>('overview');
-  
-  // Refresh data
-  const refreshData = useCallback(async () => {
-    setIsLoading(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await fetchDashboardData();
-      setState(prev => ({ ...prev, ...data }));
-    } catch (error) {
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Failed to refresh data',
-        lastUpdated: Date.now()
+      const patch = await fetchDashboardData();
+      setState((prev) => ({ ...prev, ...patch }));
+    } catch (e) {
+      setState((prev) => ({
+        ...prev,
+        lastUpdated: Date.now(),
+        error: e instanceof Error ? e.message : 'Unknown error',
       }));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
-  
-  // Initial load and periodic refresh
+
   useEffect(() => {
-    refreshData();
-    
-    // Refresh every 5 seconds for real-time updates
-    const interval = setInterval(refreshData, 5000);
-    return () => clearInterval(interval);
-  }, [refreshData]);
-  
-  // Format last updated time
-  const formatLastUpdated = () => {
-    const seconds = Math.floor((Date.now() - state.lastUpdated) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
-    return `${Math.floor(seconds / 60)}m ago`;
-  };
-  
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => refresh(), refreshMs);
+    return () => clearInterval(id);
+  }, [autoRefresh, refreshMs, refresh]);
+
+  const headerStatus = useMemo(() => {
+    return {
+      updated: formatTime(state.lastUpdated),
+      ago: formatRelative(state.lastUpdated),
+      connected: !state.error,
+      hasSignals: state.signals.size > 0,
+    };
+  }, [state.error, state.lastUpdated, state.signals.size]);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Options Trading Platform</h1>
-              <p className="text-gray-400 text-sm">Paper Trading Dashboard (Read-Only) - v2.0</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Loading Indicator */}
-              {isLoading && (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <span className="text-gray-400 text-sm">Loading...</span>
-                </div>
-              )}
-              
-              {/* Status Indicator */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${state.error ? 'bg-red-500' : 'bg-green-500'}`} />
-                <span className="text-gray-400 text-sm">
-                  {state.error ? 'Error' : 'Connected'}
-                </span>
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(1000px_circle_at_20%_-10%,rgba(59,130,246,0.25),transparent_50%),radial-gradient(900px_circle_at_90%_0%,rgba(168,85,247,0.18),transparent_55%),radial-gradient(900px_circle_at_50%_120%,rgba(16,185,129,0.12),transparent_55%)]" />
+
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur sticky top-0 z-10">
+        <div className="mx-auto max-w-7xl px-4 py-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500/30 to-purple-500/20 border border-white/10" />
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Options Trading Platform</h1>
+                <p className="text-sm text-white/60">
+                  Dashboard • updated {headerStatus.ago} ({headerStatus.updated})
+                </p>
               </div>
-              
-              {/* Last Updated */}
-              <span className="text-gray-500 text-sm">
-                Updated {formatLastUpdated()}
-              </span>
-              
-              {/* Refresh Button */}
-              <button
-                onClick={refreshData}
-                disabled={isLoading}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm transition-colors"
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                className={classNames(
+                  'rounded-xl border px-3 py-2 text-sm',
+                  headerStatus.connected ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200' : 'border-red-400/30 bg-red-500/10 text-red-200'
+                )}
               >
-                {isLoading ? 'Loading...' : 'Refresh'}
+                {headerStatus.connected ? 'Connected' : 'API error'}
+              </div>
+
+              <div
+                className={classNames(
+                  'rounded-xl border px-3 py-2 text-sm',
+                  headerStatus.hasSignals ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200' : 'border-white/10 bg-white/5 text-white/60'
+                )}
+              >
+                {headerStatus.hasSignals ? 'Signals: ACTIVE' : 'Signals: waiting'}
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <label className="flex items-center gap-2 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 bg-black text-blue-500"
+                  />
+                  Auto-refresh
+                </label>
+                <select
+                  value={String(refreshMs)}
+                  onChange={(e) => setRefreshMs(Number(e.target.value))}
+                  className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-sm text-white"
+                  disabled={!autoRefresh}
+                >
+                  <option value="3000">3s</option>
+                  <option value="5000">5s</option>
+                  <option value="10000">10s</option>
+                  <option value="30000">30s</option>
+                </select>
+              </div>
+
+              <button
+                onClick={refresh}
+                className={classNames(
+                  'rounded-xl px-4 py-2 text-sm font-medium border transition-colors',
+                  loading ? 'border-white/10 bg-white/5 text-white/60' : 'border-blue-400/30 bg-blue-500/10 hover:bg-blue-500/15 text-blue-200'
+                )}
+                disabled={loading}
+              >
+                {loading ? 'Refreshing…' : 'Refresh now'}
               </button>
-              
-              {/* Testing Link */}
+
               <a
                 href="/testing"
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition-colors"
+                className="rounded-xl px-4 py-2 text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 transition-colors"
               >
                 Testing →
               </a>
             </div>
           </div>
-          
-          {/* Navigation Tabs */}
-          <div className="flex gap-1 mt-4">
-            {(['overview', 'trades', 'learning', 'webhooks'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                {/* Add indicators for data availability */}
-                {tab === 'overview' && state.signals.size > 0 && (
-                  <span className="ml-2 w-2 h-2 bg-green-500 rounded-full inline-block" />
-                )}
-                {tab === 'trades' && state.ledgerEntries.length > 0 && (
-                  <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block" />
-                )}
-                {tab === 'learning' && (state.metrics || state.suggestions.length > 0) && (
-                  <span className="ml-2 w-2 h-2 bg-purple-500 rounded-full inline-block" />
-                )}
-              </button>
-            ))}
-          </div>
+
+          {state.error ? (
+            <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <span className="font-semibold">API warning:</span> {state.error}
+            </div>
+          ) : null}
+
+          <nav className="mt-5 flex flex-wrap gap-2">
+            <TabButton label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+            <TabButton label="Trades" active={tab === 'trades'} onClick={() => setTab('trades')} />
+            <TabButton label="Learning" active={tab === 'learning'} onClick={() => setTab('learning')} />
+            <TabButton label="Webhooks" active={tab === 'webhooks'} onClick={() => setTab('webhooks')} />
+          </nav>
         </div>
       </header>
-      
-      {/* Error Banner */}
-      {state.error && (
-        <div className="bg-red-500/20 border-b border-red-500/50 px-4 py-3">
-          <div className="max-w-7xl mx-auto flex items-center gap-2">
-            <span className="text-red-400">⚠️</span>
-            <span className="text-red-400">{state.error}</span>
-          </div>
-        </div>
-      )}
-      
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Show empty state if no signals and no decision */}
-            {state.signals.size === 0 && !state.decision && !isLoading && (
-              <EmptyState
-                title="No Trading Data Available"
-                description="Waiting for TradingView signals and decision engine data. Make sure your webhooks are configured and sending data."
-                action={{
-                  label: "Refresh Data",
-                  onClick: refreshData
-                }}
-              />
-            )}
-            
-            {/* Show dashboard when we have data or are loading */}
-            {(state.signals.size > 0 || state.decision || isLoading) && (
-              <>
-                {/* Top Row: Signals and Confluence */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <SafeComponent componentName="Signal Monitor">
-                    <SignalMonitor 
-                      signals={state.signals} 
-                      onRefresh={refreshData}
-                    />
-                  </SafeComponent>
-                  <SafeComponent componentName="Confluence View">
-                    <ConfluenceView 
-                      signals={state.signals}
-                      confluenceScore={state.confluenceScore}
-                      direction={state.direction}
-                    />
-                  </SafeComponent>
-                </div>
-                
-                {/* Phase 1B Row: Phase Monitor and Trend Alignment */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <SafeComponent componentName="Phase Monitor">
-                    <PhaseMonitor />
-                  </SafeComponent>
-                  <SafeComponent componentName="Trend Alignment">
-                    <TrendAlignment />
-                  </SafeComponent>
-                </div>
-                
-                {/* Decision Breakdown */}
-                <SafeComponent componentName="Decision Breakdown">
-                  <DecisionBreakdown result={state.decision} />
-                </SafeComponent>
-              </>
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'trades' && (
-          <SafeComponent componentName="Paper Trades">
-            <PaperTrades 
-              entries={state.ledgerEntries}
-              onRefresh={refreshData}
-            />
-          </SafeComponent>
-        )}
-        
-        {activeTab === 'learning' && (
-          <SafeComponent componentName="Learning Insights">
-            <LearningInsights
-              metrics={state.metrics}
-              suggestions={state.suggestions}
-              onRefresh={refreshData}
-            />
-          </SafeComponent>
-        )}
 
-        {activeTab === 'webhooks' && (
-          <SafeComponent componentName="Webhook Monitor">
-            <WebhookMonitor />
-          </SafeComponent>
-        )}
-      </main>
-      
-      {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center text-sm text-gray-500">
-            <div>
-              Paper Trading Only • No Real Money • No Live Execution
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        {tab === 'overview' ? (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7 space-y-6">
+              <Card title="Signals" subtitle="Active signals across timeframes (expires automatically)">
+                <SignalMonitor signals={state.signals} onRefresh={refresh} />
+              </Card>
+
+              <Card title="Decision" subtitle="Most recent decision breakdown (if any)">
+                <DecisionBreakdown result={state.decision} />
+              </Card>
             </div>
-            <div>
-              Engine Version: {state.decision?.engine_version || 'N/A'}
+
+            <div className="lg:col-span-5 space-y-6">
+              <Card title="Confluence" subtitle="At-a-glance confluence snapshot">
+                <ConfluenceView confluenceScore={state.confluenceScore} direction={state.direction} signals={state.signals} />
+              </Card>
+
+              <Card title="Phase" subtitle="Regime context by timeframe">
+                <PhaseMonitor />
+              </Card>
+
+              <Card title="Trend" subtitle="Multi-timeframe trend alignment">
+                <TrendAlignment />
+              </Card>
             </div>
           </div>
+        ) : null}
+
+        {tab === 'trades' ? (
+          <div className="space-y-6">
+            <Card title="Paper Trades" subtitle="Read-only ledger view (DB-backed later)">
+              <PaperTrades entries={state.ledgerEntries} onRefresh={refresh} />
+            </Card>
+          </div>
+        ) : null}
+
+        {tab === 'learning' ? (
+          <div className="space-y-6">
+            <Card title="Learning" subtitle="Metrics + suggestions (read-only)">
+              <LearningInsights metrics={state.metrics} suggestions={state.suggestions} onRefresh={refresh} />
+            </Card>
+          </div>
+        ) : null}
+
+        {tab === 'webhooks' ? (
+          <div className="space-y-6">
+            <Card title="Webhook Receipts" subtitle="Verify TradingView → Vercel hits (requires debug token)">
+              <WebhookMonitor />
+            </Card>
+          </div>
+        ) : null}
+      </main>
+
+      <footer className="border-t border-white/10 bg-black/20">
+        <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-white/50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>Paper Trading Only • No Real Money • No Live Execution</div>
+          <div>Last updated: {headerStatus.ago}</div>
         </div>
       </footer>
     </div>
   );
 }
+
+
