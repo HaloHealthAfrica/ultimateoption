@@ -8,6 +8,81 @@
 import { z } from 'zod';
 import type { PhaseEventName, SatyPhaseWebhook } from '@/types/saty';
 
+/**
+ * Phase-lite schema (what your indicator is currently sending)
+ * Example:
+ * {
+ *   phase: { current: 2, name: "MARKUP", description: "...", changed: true },
+ *   instrument: { exchange: "AMEX", ticker: "SPY", current_price: 693.82 },
+ *   timestamp: 1767983100,
+ *   bar_time: "2026-01-09T18:25:00Z",
+ *   timeframe: "5",
+ *   ... volatility/trend/market_context/ai_score/time_context ...
+ * }
+ */
+const PhaseLiteSchema = z.object({
+  phase: z.object({
+    current: z.number(),
+    name: z.string(),
+    description: z.string().optional(),
+    changed: z.boolean().optional(),
+  }),
+  instrument: z.object({
+    exchange: z.string().optional().default('AMEX'),
+    ticker: z.string(),
+    current_price: z.number().optional(),
+  }),
+  timestamp: z.number().optional(),
+  bar_time: z.string().optional(),
+  timeframe: z.string().optional(),
+  volatility: z
+    .object({
+      atr: z.number().optional(),
+      atr_normalized: z.number().optional(),
+      atr_sma: z.number().optional(),
+      condition: z.string().optional(),
+    })
+    .optional(),
+  trend: z
+    .object({
+      alignment: z.string().optional(),
+      ema_8: z.number().optional(),
+      ema_21: z.number().optional(),
+      ema_50: z.number().optional(),
+      price_vs_ema50: z.string().optional(),
+      price_vs_ema21: z.string().optional(),
+      strength: z.number().optional(),
+    })
+    .optional(),
+  market_context: z
+    .object({
+      vwap: z.number().optional(),
+      pmh: z.number().optional(),
+      pml: z.number().optional(),
+      rsi: z.number().optional(),
+      macd_signal: z.string().optional(),
+      volume_vs_avg: z.number().optional(),
+    })
+    .optional(),
+  ai_score: z
+    .union([
+      z.number(),
+      z.object({
+        bull: z.number().optional(),
+        bear: z.number().optional(),
+        dominant: z.string().optional(),
+      }),
+    ])
+    .optional(),
+  time_context: z
+    .object({
+      market_session: z.string().optional(),
+      day_of_week: z.string().optional(),
+    })
+    .optional(),
+});
+type PhaseLite = z.infer<typeof PhaseLiteSchema>;
+
 // Flexible input schema that matches TradingView indicator output
 export const FlexibleSatySchema = z.object({
   // Meta information - can be minimal from TradingView
@@ -288,6 +363,138 @@ export function adaptSatyToPhaseWebhook(input: FlexibleSaty): SatyPhaseWebhook {
   return adapted;
 }
 
+function phaseNameToEventName(phaseName: string): PhaseEventName {
+  const upper = phaseName.toUpperCase();
+  if (upper.includes('ACCUM')) return 'ENTER_ACCUMULATION';
+  if (upper.includes('DIST')) return 'ENTER_DISTRIBUTION';
+  if (upper.includes('MARKUP')) return 'ZERO_CROSS_UP';
+  if (upper.includes('MARKDOWN')) return 'ZERO_CROSS_DOWN';
+  return 'ENTER_ACCUMULATION';
+}
+
+function toIsoFromTimestamp(ts?: number): string | undefined {
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return undefined;
+  const ms = ts > 1e12 ? ts : ts * 1000; // allow seconds or ms
+  return new Date(ms).toISOString();
+}
+
+function phaseLiteToBias(input: PhaseLite): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+  const a = input.ai_score;
+  if (typeof a === 'object' && a && 'dominant' in a && typeof a.dominant === 'string') {
+    const upper = a.dominant.toUpperCase();
+    if (upper.includes('BULL')) return 'BULLISH';
+    if (upper.includes('BEAR')) return 'BEARISH';
+  }
+  const align = input.trend?.alignment;
+  if (typeof align === 'string') return normalizeBias(align);
+  const p = input.phase.name.toUpperCase();
+  if (p.includes('MARKDOWN')) return 'BEARISH';
+  if (p.includes('MARKUP')) return 'BULLISH';
+  return 'NEUTRAL';
+}
+
+function phaseLiteOscValue(input: PhaseLite): number {
+  const a = input.ai_score;
+  if (typeof a === 'object' && a) {
+    const bull = typeof a.bull === 'number' ? a.bull : 0;
+    const bear = typeof a.bear === 'number' ? a.bear : 0;
+    const v = (bull - bear) * 10;
+    if (Number.isFinite(v) && v !== 0) return v;
+  }
+  // fallback from phase code/name
+  const name = input.phase.name.toUpperCase();
+  if (name.includes('MARKUP')) return 50;
+  if (name.includes('MARKDOWN')) return -50;
+  if (name.includes('ACCUM')) return 20;
+  if (name.includes('DIST')) return -20;
+  return 0;
+}
+
+function phaseLiteDirectionalImplication(input: PhaseLite): 'UPSIDE_POTENTIAL' | 'DOWNSIDE_POTENTIAL' | 'NEUTRAL' {
+  const bias = phaseLiteToBias(input);
+  if (bias === 'BULLISH') return 'UPSIDE_POTENTIAL';
+  if (bias === 'BEARISH') return 'DOWNSIDE_POTENTIAL';
+  return 'NEUTRAL';
+}
+
+function adaptPhaseLiteToPhaseWebhook(input: PhaseLite): SatyPhaseWebhook {
+  const nowIso = new Date().toISOString();
+  const barClose = input.bar_time || toIsoFromTimestamp(input.timestamp) || nowIso;
+
+  const oscValue = phaseLiteOscValue(input);
+  const bias = phaseLiteToBias(input);
+
+  return {
+    meta: {
+      engine: 'SATY_PO',
+      engine_version: '1.0',
+      event_id: generateEventId(),
+      event_type: 'REGIME_PHASE_ENTRY',
+      generated_at: nowIso,
+    },
+    instrument: {
+      symbol: input.instrument.ticker,
+      exchange: input.instrument.exchange || 'AMEX',
+      asset_class: 'EQUITY',
+      session: 'REGULAR',
+    },
+    timeframe: {
+      chart_tf: input.timeframe || '15',
+      event_tf: input.timeframe || '15',
+      tf_role: 'REGIME',
+      bar_close_time: barClose,
+    },
+    event: {
+      name: phaseNameToEventName(input.phase.name),
+      description: input.phase.description || `Phase: ${input.phase.name}`,
+      directional_implication: phaseLiteDirectionalImplication(input),
+      event_priority: input.phase.changed ? 7 : 3,
+    },
+    oscillator_state: {
+      value: oscValue,
+      previous_value: oscValue,
+      zone_from: 'NEUTRAL',
+      zone_to: 'NEUTRAL',
+      distance_from_zero: Math.abs(oscValue),
+      distance_from_extreme: Math.abs(100 - Math.abs(oscValue)),
+      velocity: 'INCREASING',
+    },
+    regime_context: {
+      local_bias: bias,
+      htf_bias: { tf: '4H', bias: 'NEUTRAL', osc_value: 0 },
+      macro_bias: { tf: '1D', bias: 'NEUTRAL' },
+    },
+    market_structure: {
+      mean_reversion_phase: 'NEUTRAL',
+      trend_phase: 'NEUTRAL',
+      is_counter_trend: false,
+      compression_state: 'NORMAL',
+    },
+    confidence: {
+      raw_strength: Math.min(100, Math.max(0, input.trend?.strength ?? 50)),
+      htf_alignment: false,
+      confidence_score: Math.min(100, Math.max(0, input.trend?.strength ?? 50)),
+      confidence_tier: 'MEDIUM',
+    },
+    execution_guidance: {
+      trade_allowed: true,
+      allowed_directions: ['LONG', 'SHORT'],
+      recommended_execution_tf: ['15', '30'],
+      requires_confirmation: [],
+    },
+    risk_hints: {
+      avoid_if: [],
+      time_decay_minutes: 60,
+      cooldown_tf: '15',
+    },
+    audit: {
+      source: 'TradingView',
+      alert_frequency: 'once_per_bar',
+      deduplication_key: generateEventId(),
+    },
+  };
+}
+
 /**
  * Parse and adapt incoming webhook data to SatyPhaseWebhook
  */
@@ -302,8 +509,14 @@ export function parseAndAdaptSaty(
       const adapted = adaptSatyToPhaseWebhook(flexResult.data);
       return { success: true, data: adapted };
     }
+
+    // Second try: phase-lite format (what the indicator is currently emitting)
+    const phaseLiteResult = PhaseLiteSchema.safeParse(rawData);
+    if (phaseLiteResult.success) {
+      return { success: true, data: adaptPhaseLiteToPhaseWebhook(phaseLiteResult.data) };
+    }
     
-    return { success: false, error: flexResult.error };
+    return { success: false, error: { flexible: flexResult.error, phase_lite: phaseLiteResult.error } };
   } catch (error) {
     return { success: false, error };
   }
