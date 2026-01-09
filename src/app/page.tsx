@@ -1,10 +1,11 @@
 'use client';
 
 /**
- * Main Dashboard Page
+ * Main Dashboard Page - Rebuilt Version 2.0
  * Read-only dashboard for monitoring the options trading platform
  * 
  * Requirements: 14.6
+ * Last Updated: 2025-01-08 - Dashboard Rebuild with Error Boundaries
  */
 
 import { useState, useEffect, useCallback, ReactNode } from 'react';
@@ -334,7 +335,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold">Options Trading Platform</h1>
-              <p className="text-gray-400 text-sm">Paper Trading Dashboard (Read-Only)</p>
+              <p className="text-gray-400 text-sm">Paper Trading Dashboard (Read-Only) - v2.0</p>
             </div>
             <div className="flex items-center gap-4">
               {/* Loading Indicator */}
