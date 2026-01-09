@@ -13,6 +13,7 @@ import { PhaseStore } from '@/saty/storage/phaseStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
+import { authenticateWebhook } from '@/webhooks/security';
 
 /**
  * POST /api/webhooks/saty-phase
@@ -21,11 +22,37 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * Accepts either:
  * - `{ "text": "<stringified SatyPhaseWebhook JSON>" }` (legacy/testing wrapper), OR
  * - raw `SatyPhaseWebhook` JSON object (recommended for TradingView).
+ * 
+ * Authentication:
+ * - HMAC-SHA256 signature in x-hub-signature-256, x-signature, or signature header
+ * - OR Bearer token in Authorization header
+ * - Configured via WEBHOOK_SECRET_SATY_PHASE environment variable
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
+  
   try {
     const raw = await request.text();
+    
+    // Authenticate webhook
+    const authResult = authenticateWebhook(request, raw, 'saty-phase');
+    if (!authResult.authenticated) {
+      const entry = {
+        kind: 'saty-phase',
+        ok: false,
+        status: 401,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: `Authentication failed: ${authResult.error}`,
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      return NextResponse.json(
+        { error: 'Unauthorized', details: authResult.error },
+        { status: 401 }
+      );
+    }
+    
     let body: unknown = raw;
     try {
       body = JSON.parse(raw);
@@ -83,6 +110,7 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       symbol: phase.instrument.symbol,
       timeframe: phase.timeframe.chart_tf,
+      message: `Authenticated via ${authResult.method}`,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
@@ -98,6 +126,10 @@ export async function POST(request: NextRequest) {
       decay: {
         minutes: decayMinutes,
         expires_at: Date.now() + decayMinutes * 60 * 1000,
+      },
+      authentication: {
+        method: authResult.method,
+        authenticated: true,
       },
       received_at: Date.now(),
     });

@@ -14,6 +14,7 @@ import { getTimeframeStore } from '@/webhooks/timeframeStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
+import { authenticateWebhook } from '@/webhooks/security';
 
 /**
  * POST /api/webhooks/signals
@@ -22,11 +23,37 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * Accepts either:
  * - `{ "text": "<stringified EnrichedSignal JSON>" }` (legacy/testing wrapper), OR
  * - raw `EnrichedSignal` JSON object (recommended for TradingView).
+ * 
+ * Authentication:
+ * - HMAC-SHA256 signature in x-hub-signature-256, x-signature, or signature header
+ * - OR Bearer token in Authorization header
+ * - Configured via WEBHOOK_SECRET_SIGNALS environment variable
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
+  
   try {
     const raw = await request.text();
+    
+    // Authenticate webhook
+    const authResult = authenticateWebhook(request, raw, 'signals');
+    if (!authResult.authenticated) {
+      const entry = {
+        kind: 'signals',
+        ok: false,
+        status: 401,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: `Authentication failed: ${authResult.error}`,
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      return NextResponse.json(
+        { error: 'Unauthorized', details: authResult.error },
+        { status: 401 }
+      );
+    }
+    
     let body: unknown = raw;
     try {
       body = JSON.parse(raw);
@@ -84,6 +111,7 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: signal.instrument.ticker,
       timeframe: signal.signal.timeframe,
+      message: `Authenticated via ${authResult.method}`,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
@@ -101,6 +129,10 @@ export async function POST(request: NextRequest) {
       validity: {
         minutes: validityMinutes,
         expires_at: Date.now() + validityMinutes * 60 * 1000,
+      },
+      authentication: {
+        method: authResult.method,
+        authenticated: true,
       },
       received_at: Date.now(),
     });
