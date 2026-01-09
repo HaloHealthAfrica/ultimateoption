@@ -1,0 +1,573 @@
+# Implementation Plan: Options Trading Platform
+
+## Overview
+
+This implementation plan follows a phased approach, building the core immutable decision engine first, then adding paper execution, ledger, learning, and UI layers. Each phase builds on the previous, with property tests validating correctness at each step.
+
+## Tasks
+
+- [x] 1. Project Setup and Core Types
+  - [x] 1.1 Initialize Next.js 14 project with TypeScript and App Router
+    - Create project in `optionstrat/` directory
+    - Configure TypeScript strict mode
+    - Install dependencies: zod, fast-check, uuid, pg
+    - _Requirements: All_
+  - [x] 1.2 Create canonical TypeScript types for EnrichedSignal
+    - Create `src/types/signal.ts` with full EnrichedSignal interface
+    - Add Zod schema for runtime validation
+    - _Requirements: 1.1, 1.7_
+  - [x] 1.3 Create canonical TypeScript types for SatyPhaseWebhook
+    - Create `src/types/saty.ts` with full SatyPhaseWebhook interface
+    - Add Zod schema for runtime validation
+    - _Requirements: 18.1, 18.8_
+  - [x] 1.4 Create decision and ledger types
+    - Create `src/types/decision.ts` with Decision, DecisionBreakdown interfaces
+    - Create `src/types/ledger.ts` with LedgerEntry interface
+    - Create `src/types/options.ts` with Greeks, OptionContract, Execution interfaces
+    - _Requirements: 2.2, 2.3, 4.2, 5.7_
+  - [x] 1.5 Write property test for schema validation
+    - **Property 1: Schema Validation Correctness**
+    - **Validates: Requirements 1.1, 1.4**
+
+- [x] 2. Checkpoint - Verify types compile correctly
+  - Ensure all types compile, ask the user if questions arise.
+
+- [x] 3. Webhook Receiver and Timeframe Store
+  - [x] 3.1 Implement webhook receiver for signals
+    - Create `src/webhooks/receiver.ts`
+    - Parse JSON from "text" field wrapper
+    - Validate against Zod schema
+    - Return descriptive errors for invalid payloads
+    - _Requirements: 1.1, 1.4, 1.7_
+  - [x] 3.2 Implement webhook receiver for SATY phases
+    - Create `src/webhooks/phaseReceiver.ts`
+    - Parse JSON from "text" field wrapper
+    - Validate against Zod schema
+    - _Requirements: 18.1, 18.2, 18.8_
+  - [x] 3.3 Implement signal validity calculator
+    - Create `src/webhooks/validityCalculator.ts`
+    - Implement base × role × quality × session formula
+    - Enforce min/max bounds
+    - _Requirements: 1.6, 1.8, 1.9, 1.10, 1.11_
+  - [x] 3.4 Write property test for signal validity calculation
+    - **Property 2: Signal Validity Calculation**
+    - **Validates: Requirements 1.6, 1.8, 1.9, 1.10, 1.11**
+  - [x] 3.5 Implement timeframe store
+    - Create `src/webhooks/timeframeStore.ts`
+    - Store signals with calculated validity
+    - Implement automatic expiry cleanup
+    - Handle signal conflict resolution (higher quality wins)
+    - _Requirements: 1.2, 1.3, 1.12_
+  - [x] 3.6 Write property test for signal expiry
+    - **Property 3: Signal Expiry Enforcement**
+    - **Validates: Requirements 1.2, 1.3**
+  - [x] 3.7 Write property test for conflict resolution
+    - **Property 4: Signal Conflict Resolution**
+    - **Validates: Requirements 1.12**
+  - [x] 3.8 Implement phase store
+    - Create `src/webhooks/phaseStore.ts`
+    - Store phases with decay time based on timeframe
+    - _Requirements: 18.3, 18.7_
+
+- [x] 4. Checkpoint - Verify webhook processing works
+  - Ensure webhook receiver and stores work correctly, ask the user if questions arise.
+
+- [x] 5. Decision Engine (IMMUTABLE)
+  - [x] 5.1 Create frozen decision matrices
+    - Create `src/engine/matrices.ts`
+    - Define CONFLUENCE_WEIGHTS (4H=40%, 1H=25%, etc.)
+    - Define all multiplier matrices (confluence, quality, HTF, R:R, volume, trend, session, day)
+    - Apply Object.freeze() to all matrices
+    - Add ENGINE_VERSION constant
+    - _Requirements: 2.1, 3.2_
+  - [x] 5.2 Implement confluence calculator
+    - Create `src/engine/confluence.ts`
+    - Calculate weighted confluence score
+    - _Requirements: 3.1, 3.2_
+  - [x] 5.3 Write property test for confluence calculation
+    - **Property 8: Confluence Score Calculation**
+    - **Validates: Requirements 3.1, 3.2**
+  - [x] 5.4 Implement position sizing calculator
+    - Create `src/engine/positionSizing.ts`
+    - Apply all multipliers (confluence, quality, HTF, R:R, volume, trend, session, day)
+    - Apply phase boosts
+    - Enforce 0.5-3.0 bounds
+    - _Requirements: 3.6-3.25_
+  - [x] 5.5 Write property test for position multiplier bounds
+    - **Property 11: Position Multiplier Bounds**
+    - **Validates: Requirements 3.24**
+  - [x] 5.6 Write property test for multiplier mappings
+    - **Property 13-16: Confluence, Quality, HTF, R:R Multiplier Mappings**
+    - **Validates: Requirements 3.6-3.19**
+  - [x] 5.7 Implement decision engine core
+    - Create `src/engine/decisionEngine.ts`
+    - Check HTF bias requirement
+    - Check confluence threshold
+    - Calculate final decision (EXECUTE/WAIT/SKIP)
+    - Include full breakdown with ENGINE_VERSION
+    - Select best stop/targets from signals
+    - _Requirements: 2.2, 2.3, 2.4, 3.3, 3.4, 3.5, 3.13, 3.14_
+  - [x] 5.8 Write property test for decision engine determinism
+    - **Property 5: Decision Engine Determinism**
+    - **Validates: Requirements 2.5, 15.3**
+  - [x] 5.9 Write property test for decision output validity
+    - **Property 6: Decision Output Validity**
+    - **Validates: Requirements 2.2**
+  - [x] 5.10 Add ESLint rule to block learning imports
+    - Configure ESLint to prevent /engine from importing /learning
+    - _Requirements: 2.6_
+
+- [x] 6. Checkpoint - Verify decision engine is deterministic
+  - All 62 tests passing
+  - Decision engine produces identical output for identical inputs
+  - ENGINE_VERSION tracked with every decision
+  - Ensure decision engine produces consistent outputs, ask the user if questions arise.
+
+- [x] 7. Paper Executor
+  - [x] 7.1 Implement option contract selector
+    - Create `src/paper/contractSelector.ts`
+    - Select CALL/PUT based on signal direction
+    - Select DTE based on timeframe rules
+    - _Requirements: 5.1, 5.2_
+  - [x] 7.2 Write property test for option type selection
+    - **Property 19: Option Type Selection**
+    - **Validates: Requirements 5.1**
+  - [x] 7.3 Write property test for DTE selection
+    - **Property 20: DTE Selection by Timeframe**
+    - **Validates: Requirements 5.2**
+  - [x] 7.4 Implement Greeks calculator
+    - Create `src/paper/greeksCalculator.ts`
+    - Implement Black-Scholes approximation
+    - Calculate delta, gamma, theta, vega
+    - _Requirements: 5.7_
+  - [x] 7.5 Write property test for Greeks validity
+    - **Property 23: Greeks Mathematical Validity**
+    - **Validates: Requirements 5.7**
+  - [x] 7.6 Implement fill simulator
+    - Create `src/paper/fillSimulator.ts`
+    - Simulate bid/ask spreads by DTE
+    - Simulate slippage (0.5-2%)
+    - Simulate partial fills for orders > 50 contracts
+    - Calculate commission ($0.65 per contract)
+    - _Requirements: 5.3, 5.4, 5.5, 5.6, 5.8, 5.9, 5.10_
+  - [x] 7.7 Write property test for conservative fill pricing
+    - **Property 21: Conservative Fill Pricing**
+    - **Validates: Requirements 5.3**
+  - [x] 7.8 Write property test for partial fills
+    - **Property 22: Partial Fill Simulation**
+    - **Validates: Requirements 5.6**
+  - [x] 7.9 Implement paper executor orchestrator
+    - Create `src/paper/optionsExecutor.ts`
+    - Combine contract selection, Greeks, and fill simulation
+    - Return complete Execution object
+    - _Requirements: 5.1-5.11_
+
+- [x] 8. Checkpoint - Verify paper execution is realistic
+  - All 108 tests passing
+  - Paper executor produces realistic fills with spreads, slippage, and partial fills
+  - Ensure paper executor produces realistic fills, ask the user if questions arise.
+
+- [x] 9. Exit Attribution
+  - [x] 9.1 Implement exit attributor
+    - Create `src/paper/exitAttributor.ts`
+    - Calculate gross and net P&L
+    - Attribute P&L to delta, IV, theta, gamma
+    - Calculate R-multiple
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+  - [x] 9.2 Write property test for P&L attribution sum
+    - **Property 24: P&L Attribution Sum**
+    - **Validates: Requirements 6.1, 6.2**
+  - [x] 9.3 Write property test for R-multiple calculation
+    - **Property 25: R-Multiple Calculation**
+    - **Validates: Requirements 6.4**
+
+- [x] 10. Ledger
+  - [x] 10.1 Create database schema
+    - Create `src/ledger/schema.sql`
+    - Define ledger_entries table with all fields
+    - Create TimescaleDB hypertable
+    - Add indexes on created_at, decision, option_type, dte, timeframe
+    - _Requirements: 4.7, 4.8, 4.9_
+  - [x] 10.2 Implement ledger core
+    - Create `src/ledger/ledger.ts`
+    - Implement append-only insert
+    - Implement exit data update (only allowed field)
+    - Implement hypothetical update
+    - Block delete and overwrite operations
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
+  - [x] 10.3 Write property test for append-only invariant
+    - **Property 17: Ledger Append-Only Invariant**
+    - **Validates: Requirements 4.1**
+  - [x] 10.4 Write property test for entry completeness
+    - **Property 18: Ledger Entry Completeness**
+    - **Validates: Requirements 4.2**
+  - [x] 10.5 Implement ledger queries
+    - Create `src/ledger/queries.ts`
+    - Query by filters (timeframe, quality, status, dte, trade_type, regime)
+    - Limit results to max 1000
+    - _Requirements: 13.3, 13.4_
+
+- [x] 11. Checkpoint - Verify ledger is append-only
+  - All 137 tests passing
+  - Ledger rejects delete/overwrite operations with LedgerError
+  - Exit data can only be added to EXECUTE entries (once)
+  - Hypothetical data can only be added to WAIT/SKIP entries (once)
+  - Query functions support filtering by trade type, DTE bucket, regime, etc.
+
+- [x] 12. Feature Extraction and Metrics
+  - [x] 12.1 Implement feature extractor
+    - Create `src/learning/featureExtractor.ts`
+    - Classify trade_type by timeframe
+    - Bucket DTE, AI score, IV rank, trend strength, volume
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+  - [x] 12.2 Write property test for trade type classification
+    - **Property 26: Trade Type Classification**
+    - **Validates: Requirements 7.1**
+  - [x] 12.3 Write property test for DTE bucketing
+    - **Property 27: DTE Bucketing**
+    - **Validates: Requirements 7.2**
+  - [x] 12.4 Write property test for AI score bucketing
+    - **Property 28: AI Score Bucketing**
+    - **Validates: Requirements 7.3**
+  - [x] 12.5 Implement metrics engine
+    - Create `src/learning/metricsEngine.ts`
+    - Check minimum sample size (30)
+    - Calculate win_rate, avg_win, avg_loss, avg_r, expectancy, max_drawdown, profit_factor
+    - Calculate attribution metrics
+    - Calculate stability metrics
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+  - [x] 12.6 Write property test for minimum sample size
+    - **Property 29: Metrics Minimum Sample Size**
+    - **Validates: Requirements 8.1**
+
+- [x] 13. Regime and Safety Monitoring
+  - [x] 13.1 Implement regime manager
+    - Create `src/learning/regimeManager.ts`
+    - Calculate rolling metrics (30d, 60d, 90d)
+    - Detect performance degradation
+    - Calculate confidence scores
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+  - [x] 13.2 Implement safety monitor
+    - Create `src/safety/safetyMonitor.ts`
+    - Check overtrading (>20 trades/24h)
+    - Check drawdown spike (>$5000)
+    - Check regime mismatch (>50%)
+    - Check learning instability
+    - Generate alerts only (no auto-actions)
+    - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [x] 14. Learning Advisor (ISOLATED)
+  - [x] 14.1 Implement learning advisor
+    - Create `src/learning/learningAdvisor.ts`
+    - Generate suggestions only when sample >= 30
+    - Limit changes to +/- 15%
+    - Skip changes < +/- 5%
+    - Include evidence with each suggestion
+    - Output with PENDING status
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
+  - [x] 14.2 Write property test for suggestion sample size
+    - **Property 30: Learning Suggestion Sample Size**
+    - **Validates: Requirements 10.1**
+  - [x] 14.3 Write property test for suggestion bounds
+    - **Property 31: Learning Suggestion Bounds**
+    - **Validates: Requirements 10.2, 10.3**
+  - [x] 14.4 Implement suggestion exporter
+    - Create `src/learning/suggestionExporter.ts`
+    - Export to learning_suggestions.json
+    - _Requirements: 11.1_
+
+- [x] 15. Event Bus
+  - [x] 15.1 Implement event bus
+    - Create `src/events/eventBus.ts`
+    - Support all event types (SIGNAL_RECEIVED, DECISION_MADE, etc.)
+    - Ensure execution only publishes
+    - Ensure learning only subscribes
+    - _Requirements: 12.1, 12.2, 12.3, 12.4_
+
+- [x] 16. Checkpoint - Verify learning is isolated
+  - All 201 tests passing
+  - ESLint rule blocks engine from importing learning module
+  - Event bus provides typed publishers for execution (publish only)
+  - Event bus provides typed subscribers for learning (subscribe only)
+  - Learning module is completely isolated from execution path
+
+- [x] 17. API Layer
+  - [x] 17.1 Implement decisions API
+    - Create `app/api/decisions/route.ts`
+    - GET only, no writes
+    - Support filtering and pagination
+    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+  - [x] 17.2 Implement ledger API
+    - Create `app/api/ledger/route.ts`
+    - GET only, no writes
+    - _Requirements: 13.1, 13.2_
+  - [x] 17.3 Implement metrics API
+    - Create `app/api/metrics/route.ts`
+    - GET only, no writes
+    - _Requirements: 13.1, 13.2_
+  - [x] 17.4 Implement learning suggestions API
+    - Create `app/api/learning/suggestions/route.ts`
+    - GET only, no writes
+    - _Requirements: 13.1, 13.2_
+  - [x] 17.5 Implement webhook endpoints
+    - Create `app/api/webhooks/signals/route.ts`
+    - Create `app/api/webhooks/saty-phase/route.ts`
+    - _Requirements: 1.1, 18.1_
+
+- [x] 18. Audit and Replay
+  - [x] 18.1 Implement decision replayer
+    - Create `src/audit/replayer.ts`
+    - Load exact engine version
+    - Use exact signal snapshot
+    - Compare and report match/mismatch
+    - _Requirements: 15.1, 15.2, 15.3, 15.4_
+
+- [x] 19. Testing Interface
+  - [x] 19.1 Implement signal generator
+    - Create `src/testing/generators/signalGenerator.ts`
+    - Generate realistic EnrichedSignal with configurable params
+    - Calculate derived values
+    - Support multi-timeframe generation
+    - _Requirements: 19.1, 19.2, 21.1, 21.2_
+  - [x] 19.2 Implement phase generator
+    - Create `src/testing/generators/phaseGenerator.ts`
+    - Generate realistic SatyPhaseWebhook with configurable params
+    - Support multi-timeframe generation
+    - _Requirements: 19.3, 21.3, 21.4_
+  - [x] 19.3 Write property test for generator determinism
+    - **Property 33: Test Generator Determinism**
+    - **Validates: Requirements 19.5, 21.5**
+  - [x] 19.4 Implement webhook sender
+    - Create `src/testing/senders/webhookSender.ts`
+    - Send to configurable endpoints
+    - Return status, latency, data
+    - Support batch sending
+    - _Requirements: 19.4, 19.5_
+  - [x] 19.5 Implement test scenarios
+    - Create `src/testing/scenarios/scenarios.ts`
+    - Perfect Alignment, Counter-Trend, Low Volume, Phase Confirmation, Signal Expiry, Complete Trade Flow
+    - _Requirements: 19.6, 20.5_
+  - [x] 19.6 Implement scenario runner
+    - Create `src/testing/scenarioRunner.ts`
+    - Execute multi-step scenarios
+    - Support mixed signal/phase webhooks
+    - _Requirements: 20.1, 20.2_
+
+- [x] 20. Dashboard UI
+  - [x] 20.1 Create signal monitor component
+    - Create `src/components/dashboard/SignalMonitor.tsx`
+    - Display active signals with expiry countdown
+    - _Requirements: 14.1_
+  - [x] 20.2 Create confluence view component
+    - Create `src/components/dashboard/ConfluenceView.tsx`
+    - Visualize multi-timeframe alignment
+    - _Requirements: 14.2_
+  - [x] 20.3 Create decision breakdown component
+    - Create `src/components/dashboard/DecisionBreakdown.tsx`
+    - Show all multiplier values
+    - _Requirements: 14.3_
+  - [x] 20.4 Create paper trades component
+    - Create `src/components/dashboard/PaperTrades.tsx`
+    - Display open positions with Greeks
+    - _Requirements: 14.4_
+  - [x] 20.5 Create learning insights component
+    - Create `src/components/dashboard/LearningInsights.tsx`
+    - Show suggestions with approve/reject controls
+    - _Requirements: 14.5_
+  - [x] 20.6 Create main dashboard page
+    - Create `app/page.tsx`
+    - Integrate all components
+    - Read-only, no execution controls
+    - _Requirements: 14.6_
+  - [x] 20.7 Create testing dashboard page
+    - Create `app/testing/page.tsx`
+    - Quick action buttons
+    - Scenario list and runner
+    - Results viewer
+    - _Requirements: 22.1, 22.2, 22.3, 22.4, 22.5, 22.6_
+
+- [x] 21. Final Checkpoint - Full system validation
+  - All 211 property tests passing
+  - Decision engine determinism verified with replay
+  - All safety constraints enforced (alerts only, no auto-actions)
+  - Learning module isolated from execution path
+
+- [x] 22. Phase 1B: SATY Phase Integration
+  - [x] 22.1 Create TrendWebhook types
+    - Create `src/types/trend.ts` with TrendWebhook, TimeframeData, TrendAlignment interfaces
+    - Add Zod schema for runtime validation
+    - _Requirements: 24.1, 24.2_
+  - [x] 22.2 Implement SATY Phase Store with regime context
+    - Create `src/saty/storage/phaseStore.ts`
+    - Implement singleton pattern with getInstance()
+    - Store phases keyed by symbol:timeframe
+    - Implement getRegimeContext() for 15M/1H/4H/1D aggregation
+    - Calculate is_aligned when 2+ phases share same local_bias
+    - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
+  - [x] 22.3 Write property test for phase TTL enforcement
+    - **Property 36: Phase Store TTL Enforcement**
+    - **Validates: Requirements 18.7, 25.1**
+  - [x] 22.4 Write property test for regime context alignment
+    - **Property 37: Regime Context Alignment**
+    - **Validates: Requirements 25.2**
+  - [x] 22.5 Implement Trend Store with alignment calculation
+    - Create `src/trend/storage/trendStore.ts`
+    - Implement singleton pattern with getInstance()
+    - Store trends with 1-hour TTL
+    - Calculate alignment_score as (dominant_count / 8) × 100
+    - Classify strength: STRONG (>=75%), MODERATE (>=62.5%), WEAK (>=50%), CHOPPY (<50%)
+    - Extract htf_bias from 4H timeframe, ltf_bias from 3M/5M average
+    - _Requirements: 24.3, 24.4, 24.5, 24.6, 24.7_
+  - [x] 22.6 Write property test for trend alignment calculation
+    - **Property 34: Trend Alignment Score Calculation**
+    - **Validates: Requirements 24.4**
+  - [x] 22.7 Write property test for trend strength classification
+    - **Property 35: Trend Strength Classification**
+    - **Validates: Requirements 24.5**
+
+- [x] 23. Phase 1B: Webhook Endpoints
+  - [x] 23.1 Implement SATY Phase webhook endpoint
+    - Update `app/api/webhooks/saty-phase/route.ts`
+    - Validate SatyPhaseWebhook schema with Zod
+    - Store in PhaseStore with automatic expiry
+    - Publish PHASE_RECEIVED event for learning modules
+    - Return success response with event details
+    - Handle "text" field JSON parsing for TradingView format
+    - _Requirements: 18.1, 18.8_
+  - [x] 23.2 Implement Trend webhook endpoint
+    - Create `app/api/webhooks/trend/route.ts`
+    - Validate TrendWebhook schema with Zod
+    - Store in TrendStore with 1-hour TTL
+    - Calculate and return alignment metrics
+    - Handle "text" field JSON parsing for TradingView format
+    - _Requirements: 24.1, 24.8_
+  - [x] 23.3 Implement Phase query API
+    - Create `app/api/phase/current/route.ts`
+    - Return regime context for symbol (15M/1H/4H/1D phases)
+    - Include is_aligned and active_count
+    - Default to SPY if no symbol provided
+    - _Requirements: 26.1, 26.3_
+  - [x] 23.4 Implement Trend query API
+    - Create `app/api/trend/current/route.ts`
+    - Return trend data and alignment metrics for ticker
+    - Include all 8 timeframe directions and alignment score
+    - Return 404 if no trend data exists
+    - Default to SPY if no ticker provided
+    - _Requirements: 26.2, 26.4, 26.5_
+
+- [x] 24. Phase 1B: Enhanced Decision Engine Integration
+  - [x] 24.1 Update Decision Engine with phase and trend boosts
+    - Modify `src/engine/decisionEngine.ts` to accept TrendStore parameter
+    - Implement getPhaseBoosts() function with phase and trend integration
+    - Apply +20% confidence boost when phase htf_alignment is true
+    - Apply +10% position boost when phase confidence_score >= 70 and htf_alignment is true
+    - Apply +30% position boost when trend strength is STRONG (>=75%)
+    - Apply +15% confidence boost when trend htf_bias matches signal direction
+    - _Requirements: 18.9, 18.10, 24.9, 24.10_
+  - [x] 24.2 Write property test for phase confidence boost
+    - **Property 39: Phase Confidence Boost Application**
+    - **Validates: Requirements 18.9**
+  - [x] 24.3 Write property test for trend position boost
+    - **Property 38: Trend Position Boost Application**
+    - **Validates: Requirements 24.9**
+  - [x] 24.4 Update DecisionBreakdown interface
+    - Add trend_alignment_boost field to DecisionBreakdown
+    - Update position multiplier calculation to include trend boosts
+    - Ensure all multipliers are properly tracked and logged
+    - _Requirements: 2.3, 24.9_
+
+- [x] 25. Phase 1B: Testing and Validation
+  - [x] 25.1 Implement trend generator for testing
+    - Create `src/testing/generators/trendGenerator.ts`
+    - Generate realistic TrendWebhook with configurable alignment
+    - Support deterministic output for same input parameters
+    - Generate multi-ticker trend data sets
+    - _Requirements: 21.1, 21.5_
+  - [x] 25.2 Create Phase 1B test scenarios
+    - Add to `src/testing/scenarios/scenarios.ts`
+    - Phase_Confirmation: SATY phase + signal alignment (should EXECUTE with boost)
+    - Trend_Alignment: Strong trend + signal alignment (should EXECUTE with boost)
+    - Phase_Trend_Perfect: Both phase and trend aligned (should EXECUTE with maximum boost)
+    - Phase_Conflict: Phase against signal direction (should reduce confidence)
+    - Trend_Choppy: Weak trend alignment (should reduce position size)
+    - _Requirements: 20.5_
+  - [x] 25.3 Update webhook sender for Phase 1B
+    - Modify `src/testing/senders/webhookSender.ts`
+    - Add support for SATY phase and trend webhook endpoints
+    - Support batch sending of mixed webhook types
+    - _Requirements: 19.4, 19.5_
+
+- [x] 26. Phase 1B: Dashboard Integration
+  - [x] 26.1 Create Phase Monitor component
+    - Create `src/components/dashboard/PhaseMonitor.tsx`
+    - Display active phases across timeframes (15M/1H/4H/1D)
+    - Show regime context alignment status
+    - Display phase confidence scores and bias
+    - _Requirements: 14.1_
+  - [x] 26.2 Create Trend Alignment component
+    - Create `src/components/dashboard/TrendAlignment.tsx`
+    - Visualize 8-timeframe trend directions
+    - Display alignment score and strength classification
+    - Show HTF vs LTF bias comparison
+    - _Requirements: 14.2_
+  - [x] 26.3 Update Decision Breakdown component
+    - Modify `src/components/dashboard/DecisionBreakdown.tsx`
+    - Add phase confidence boost display
+    - Add trend alignment boost display
+    - Show complete multiplier breakdown including Phase 1B factors
+    - _Requirements: 14.3_
+  - [x] 26.4 Update main dashboard page
+    - Modify `app/page.tsx`
+    - Integrate PhaseMonitor and TrendAlignment components
+    - Ensure real-time updates from Phase and Trend stores
+    - _Requirements: 14.6_
+
+- [x] 27. Phase 1B: Integration Testing
+  - [x] 27.1 Test SATY Phase webhook integration
+    - Send test SATY phase webhook with 4H EXIT_ACCUMULATION event
+    - Verify phase stored in PhaseStore with correct TTL
+    - Verify regime context aggregation works correctly
+    - Test phase expiry after time_decay_minutes
+    - _Requirements: 18.1, 18.3, 18.7_
+  - [x] 27.2 Test Trend webhook integration
+    - Send test trend webhook with 8/8 bullish alignment
+    - Verify trend stored in TrendStore with 1-hour TTL
+    - Verify alignment calculation (should be 100% STRONG)
+    - Test trend expiry after 1 hour
+    - _Requirements: 24.1, 24.3, 24.4, 24.5_
+  - [x] 27.3 Test enhanced decision engine
+    - Send signal + phase + trend data for perfect alignment
+    - Verify decision includes phase confidence boost (+20%)
+    - Verify decision includes trend position boost (+30%)
+    - Verify final multiplier incorporates all Phase 1B factors
+    - _Requirements: 18.9, 18.10, 24.9, 24.10_
+  - [x] 27.4 Test query APIs
+    - Test GET /api/phase/current?symbol=SPY returns regime context
+    - Test GET /api/trend/current?ticker=SPY returns alignment data
+    - Test 404 response when no trend data exists
+    - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5_
+
+- [x] 28. Phase 1B: Final Integration Checkpoint
+  - [x] 28.1 Verify complete Phase 1B integration
+    - All Phase 1B webhook endpoints working (saty-phase, trend)
+    - All Phase 1B stores working (PhaseStore, TrendStore)
+    - All Phase 1B query APIs working (phase/current, trend/current)
+    - Enhanced decision engine with phase and trend boosts
+    - Updated dashboard with phase and trend monitoring
+    - All Phase 1B property tests passing (Properties 34-39)
+  - [x] 28.2 Run complete integration test scenario
+    - Send SATY phase webhook (4H BULLISH regime)
+    - Send trend webhook (8/8 BULLISH alignment)
+    - Send signal webhook (LONG signal)
+    - Verify decision is EXECUTE with maximum confidence and position boosts
+    - Verify all data flows through stores, decision engine, and dashboard
+    - _Requirements: All Phase 1B requirements (18, 24-26)_
+
+## Notes
+
+- All tasks including property-based tests are required for comprehensive correctness validation
+- Each task references specific requirements for traceability
+- Checkpoints ensure incremental validation
+- Property tests validate universal correctness properties using fast-check
+- Unit tests validate specific examples and edge cases
+- The implementation follows the phased approach from the design document
