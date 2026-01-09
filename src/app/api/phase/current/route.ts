@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           local_bias: regimeContext.setup_phase.regime_context.local_bias,
           confidence_score: regimeContext.setup_phase.confidence.confidence_score,
           htf_alignment: regimeContext.setup_phase.confidence.htf_alignment,
-          generated_at: regimeContext.setup_phase.meta.generated_at,
+          generated_at: new Date(regimeContext.setup_phase.meta.generated_at).getTime(),
         } : null,
         
         bias_phase: regimeContext.bias_phase ? {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
           local_bias: regimeContext.bias_phase.regime_context.local_bias,
           confidence_score: regimeContext.bias_phase.confidence.confidence_score,
           htf_alignment: regimeContext.bias_phase.confidence.htf_alignment,
-          generated_at: regimeContext.bias_phase.meta.generated_at,
+          generated_at: new Date(regimeContext.bias_phase.meta.generated_at).getTime(),
         } : null,
         
         regime_phase: regimeContext.regime_phase ? {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
           local_bias: regimeContext.regime_phase.regime_context.local_bias,
           confidence_score: regimeContext.regime_phase.confidence.confidence_score,
           htf_alignment: regimeContext.regime_phase.confidence.htf_alignment,
-          generated_at: regimeContext.regime_phase.meta.generated_at,
+          generated_at: new Date(regimeContext.regime_phase.meta.generated_at).getTime(),
         } : null,
         
         structural_phase: regimeContext.structural_phase ? {
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           local_bias: regimeContext.structural_phase.regime_context.local_bias,
           confidence_score: regimeContext.structural_phase.confidence.confidence_score,
           htf_alignment: regimeContext.structural_phase.confidence.htf_alignment,
-          generated_at: regimeContext.structural_phase.meta.generated_at,
+          generated_at: new Date(regimeContext.structural_phase.meta.generated_at).getTime(),
         } : null,
       },
       alignment: {

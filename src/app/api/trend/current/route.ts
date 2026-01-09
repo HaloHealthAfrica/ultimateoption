@@ -27,14 +27,45 @@ export async function GET(request: NextRequest) {
     const trend = trendStore.getTrend(ticker);
     
     if (!trend) {
-      return NextResponse.json(
-        { 
-          error: 'No trend data found',
-          ticker,
-          message: `No active trend data exists for ticker ${ticker}`,
+      // Return empty state instead of 404 for better UX
+      return NextResponse.json({
+        ticker,
+        exchange: 'NASDAQ',
+        price: 0,
+        timestamp: new Date().toISOString(),
+        timeframes: {
+          tf3min: { direction: 'neutral', open: 0, close: 0 },
+          tf5min: { direction: 'neutral', open: 0, close: 0 },
+          tf15min: { direction: 'neutral', open: 0, close: 0 },
+          tf30min: { direction: 'neutral', open: 0, close: 0 },
+          tf60min: { direction: 'neutral', open: 0, close: 0 },
+          tf240min: { direction: 'neutral', open: 0, close: 0 },
+          tf1week: { direction: 'neutral', open: 0, close: 0 },
+          tf1month: { direction: 'neutral', open: 0, close: 0 },
         },
-        { status: 404 }
-      );
+        alignment: {
+          score: 0,
+          strength: 'CHOPPY',
+          dominant_trend: 'neutral',
+          counts: {
+            bullish: 0,
+            bearish: 0,
+            neutral: 8,
+          },
+          bias: {
+            htf_bias: 'neutral',
+            ltf_bias: 'neutral',
+          },
+        },
+        storage: {
+          ttl_minutes: 60,
+          active_tickers: trendStore.getActiveTickerCount(),
+          last_update: trendStore.getLastUpdateTime(),
+        },
+        retrieved_at: Date.now(),
+        no_data: true,
+        message: `No active trend data for ${ticker}. Send trend webhook to populate.`,
+      });
     }
     
     // Get alignment metrics
