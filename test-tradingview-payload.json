@@ -1,0 +1,17 @@
+{
+  "instrument": {
+    "symbol": "SPY"
+  },
+  "timeframe": {
+    "chart_tf": "15"
+  },
+  "event": {
+    "name": "ENTER_ACCUMULATION"
+  },
+  "oscillator_state": {
+    "value": 25.5
+  },
+  "regime_context": {
+    "local_bias": "BULLISH"
+  }
+}

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { SatyPhaseWebhookSchema, safeParseSatyPhaseWebhook } from '@/types/saty';
+import { parseAndAdaptSaty } from '@/webhooks/satyAdapter';
 import { PhaseStore } from '@/saty/storage/phaseStore';
 import { executionPublisher } from '@/events/eventBus';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
@@ -60,20 +61,53 @@ export async function POST(request: NextRequest) {
       // keep as string
     }
 
-    // Parse and validate the phase
-    const result =
-      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
-        ? safeParseSatyPhaseWebhook(body)
-        : SatyPhaseWebhookSchema.safeParse(body);
+    // Parse and validate the phase - try multiple formats
+    let phase;
+    let parseMethod = 'unknown';
+    let lastError: any = null;
     
-    if (!result.success) {
+    // First try: Expected format with "text" field
+    if (body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)) {
+      const result = safeParseSatyPhaseWebhook(body);
+      if (result.success) {
+        phase = result.data;
+        parseMethod = 'text-wrapped';
+      } else {
+        lastError = { method: 'text-wrapped', error: result.error };
+      }
+    }
+    
+    // Second try: Direct SatyPhaseWebhook format
+    if (!phase) {
+      const result = SatyPhaseWebhookSchema.safeParse(body);
+      if (result.success) {
+        phase = result.data;
+        parseMethod = 'direct-saty';
+      } else {
+        lastError = { method: 'direct-saty', error: result.error };
+      }
+    }
+    
+    // Third try: Flexible SATY adapter (for TradingView format)
+    if (!phase) {
+      const result = parseAndAdaptSaty(body);
+      if (result.success) {
+        phase = result.data;
+        parseMethod = 'adapted-flexible';
+      } else {
+        lastError = { method: 'adapted-flexible', error: result.error };
+      }
+    }
+    
+    // If all parsing attempts failed
+    if (!phase) {
       const entry = {
         kind: 'saty-phase',
         ok: false,
         status: 400,
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
-        message: 'Invalid phase payload',
+        message: `Invalid phase payload - tried ${lastError?.method || 'unknown'} last`,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -81,16 +115,17 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Invalid phase payload',
           received_type: typeof body,
-          details: result.error.issues.map(i => ({
+          message: 'Payload does not match any expected format (text-wrapped, direct-saty, or flexible)',
+          last_attempt: lastError?.method,
+          last_error: lastError?.error?.issues?.slice(0, 5).map((i: any) => ({
             path: i.path.join('.'),
             message: i.message,
           })),
+          raw_sample: typeof body === 'string' ? body.substring(0, 200) : JSON.stringify(body).substring(0, 200),
         },
         { status: 400 }
       );
     }
-    
-    const phase = result.data;
     
     // Calculate decay time based on timeframe
     const decayMinutes = getDecayMinutes(phase.timeframe.chart_tf);
@@ -110,7 +145,7 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       symbol: phase.instrument.symbol,
       timeframe: phase.timeframe.chart_tf,
-      message: `Authenticated via ${authResult.method}`,
+      message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);

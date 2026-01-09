@@ -62,20 +62,46 @@ export async function POST(request: NextRequest) {
       // Keep as string; we'll fail validation and return 400.
     }
 
-    // Parse and validate the signal
-    const result =
-      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
-        ? safeParseEnrichedSignal(body)
-        : EnrichedSignalSchema.safeParse(body);
+    // Parse and validate the signal - try multiple formats
+    let signal;
+    let parseMethod = 'unknown';
     
-    if (!result.success) {
+    // First try: Expected format with "text" field
+    if (body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)) {
+      const result = safeParseEnrichedSignal(body);
+      if (result.success) {
+        signal = result.data;
+        parseMethod = 'text-wrapped';
+      }
+    }
+    
+    // Second try: Direct EnrichedSignal format
+    if (!signal) {
+      const result = EnrichedSignalSchema.safeParse(body);
+      if (result.success) {
+        signal = result.data;
+        parseMethod = 'direct-enriched';
+      }
+    }
+    
+    // Third try: Flexible signal adapter (for TradingView format)
+    if (!signal) {
+      const result = parseAndAdaptSignal(body);
+      if (result.success) {
+        signal = result.data;
+        parseMethod = 'adapted-flexible';
+      }
+    }
+    
+    // If all parsing attempts failed
+    if (!signal) {
       const entry = {
         kind: 'signals',
         ok: false,
         status: 400,
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
-        message: 'Invalid signal payload',
+        message: 'Invalid signal payload - no valid format found',
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -83,16 +109,12 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Invalid signal payload',
           received_type: typeof body,
-          details: result.error.issues.map(i => ({
-            path: i.path.join('.'),
-            message: i.message,
-          })),
+          message: 'Payload does not match any expected format (text-wrapped, direct-enriched, or flexible)',
+          raw_sample: typeof body === 'string' ? body.substring(0, 200) : JSON.stringify(body).substring(0, 200),
         },
         { status: 400 }
       );
     }
-    
-    const signal = result.data;
     
     // Calculate validity
     const validityMinutes = calculateSignalValidityMinutes(signal);
@@ -112,7 +134,7 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: signal.instrument.ticker,
       timeframe: signal.signal.timeframe,
-      message: `Authenticated via ${authResult.method}`,
+      message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
