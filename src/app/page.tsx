@@ -38,7 +38,9 @@ const initialState: DashboardState = {
   ledgerEntries: [],
   metrics: null,
   suggestions: [],
-  lastUpdated: Date.now(),
+  // Important: must be deterministic across SSR + client hydration.
+  // We'll set a real timestamp after mount / first fetch.
+  lastUpdated: 0,
   error: null,
 };
 
@@ -208,6 +210,11 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<DashboardState>(initialState);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -236,13 +243,25 @@ export default function DashboardPage() {
   }, [autoRefresh, refreshMs, refresh]);
 
   const headerStatus = useMemo(() => {
+    const connected = !state.error;
+    const hasSignals = state.signals.size > 0;
+
+    if (!mounted || !state.lastUpdated) {
+      return {
+        updated: '—',
+        ago: '—',
+        connected,
+        hasSignals,
+      };
+    }
+
     return {
       updated: formatTime(state.lastUpdated),
       ago: formatRelative(state.lastUpdated),
-      connected: !state.error,
-      hasSignals: state.signals.size > 0,
+      connected,
+      hasSignals,
     };
-  }, [state.error, state.lastUpdated, state.signals.size]);
+  }, [mounted, state.error, state.lastUpdated, state.signals.size]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
