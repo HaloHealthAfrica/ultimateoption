@@ -103,7 +103,7 @@ export class DecisionEngine {
       decision,
       direction: context.indicator.signalType, // Always include direction
       symbol: context.indicator.symbol, // Add symbol field
-      confidence: decision === 'APPROVE' ? confidence : 0, // Always include confidence, 0 for REJECT
+      confidence: decision === 'APPROVE' ? (confidence ?? 0) : 0, // Always include confidence, 0 for REJECT
       engine_version: this.version,
       timestamp: new Date().toISOString(), // Add timestamp field
       gates: {

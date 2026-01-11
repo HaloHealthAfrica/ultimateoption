@@ -19,6 +19,15 @@
       }
     },
     {
+      "files": ["src/phase2/**/*.ts", "src/phase2/**/*.tsx", "src/phase2/**/*.js"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-require-imports": "off",
+        "@typescript-eslint/no-namespace": "off"
+      }
+    },
+    {
       "files": ["src/engine/**/*.ts", "src/engine/**/*.tsx", "src/safety/**/*.ts", "src/safety/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [

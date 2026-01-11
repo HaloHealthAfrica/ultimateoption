@@ -51,7 +51,7 @@ export class WebhookService {
     this.marketContextBuilder = marketContextBuilder;
     
     // Initialize decision engine and formatter
-    this.decisionEngine = new DecisionEngine(logger);
+    this.decisionEngine = new DecisionEngine();
     this.formatter = new DecisionOutputFormatter();
     
     // Initialize health service
@@ -160,7 +160,7 @@ export class WebhookService {
         req.path,
         res.statusCode,
         duration,
-        req.ip,
+        req.ip || 'unknown',
         requestId,
         req.get('User-Agent')
       );

@@ -8,6 +8,10 @@ import { loadConfig, validateConfig } from './config';
 import { WebhookService } from './services/webhook-service';
 import { Logger } from './services/logger';
 import { ENGINE_VERSION } from './types';
+import { TradierClient } from './providers/tradier-client';
+import { TwelveDataClient } from './providers/twelvedata-client';
+import { AlpacaClient } from './providers/alpaca-client';
+import { MarketContextBuilder } from './services/market-context-builder';
 
 async function startServer(): Promise<void> {
   const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -19,9 +23,37 @@ async function startServer(): Promise<void> {
     validateConfig(config);
     logger.info('Configuration loaded successfully');
 
+    // Initialize provider clients
+    logger.info('Initializing provider clients...');
+    const tradierClient = new TradierClient(
+      config.tradier.apiKey,
+      config.tradier.baseUrl
+    );
+    const twelveDataClient = new TwelveDataClient(
+      config.twelveData.apiKey,
+      config.twelveData.baseUrl
+    );
+    const alpacaClient = new AlpacaClient(
+      config.alpaca.apiKey,
+      config.alpaca.secretKey,
+      config.alpaca.baseUrl
+    );
+    const marketContextBuilder = new MarketContextBuilder(
+      logger,
+      tradierClient,
+      twelveDataClient,
+      alpacaClient
+    );
+
     // Initialize webhook service
     logger.info('Initializing webhook service...');
-    const webhookService = new WebhookService(logger);
+    const webhookService = new WebhookService(
+      logger,
+      tradierClient,
+      twelveDataClient,
+      alpacaClient,
+      marketContextBuilder
+    );
     const app = webhookService.getApp();
 
     // Start server
