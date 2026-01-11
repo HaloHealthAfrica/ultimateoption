@@ -10,30 +10,43 @@
     "db:migrate": "node scripts/db-migrate.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "phase2:dev": "ts-node src/phase2/server.ts",
+    "phase2:build": "tsc --project tsconfig.phase2.json",
+    "phase2:start": "node dist/phase2/server.js",
+    "phase2:test": "jest --testPathPatterns=phase2",
+    "phase2:test:watch": "jest --testPathPatterns=phase2 --watch"
   },
   "dependencies": {
+    "axios": "^1.13.2",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
     "next": "14.2.35",
     "pg": "^8.16.3",
     "react": "^18",
     "react-dom": "^18",
     "uuid": "^13.0.0",
+    "winston": "^3.11.0",
     "zod": "^4.3.4"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "fast-check": "^4.5.3",
     "jest": "^30.2.0",
     "postcss": "^8",
+    "supertest": "^6.3.3",
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
