@@ -16,6 +16,8 @@ interface WebhookEntry {
   symbol?: string;
   timeframe?: string;
   message?: string;
+  raw_payload?: string;
+  headers?: Record<string, string>;
 }
 
 interface RecentResponse {
@@ -46,6 +48,7 @@ export default function WebhookMonitor() {
   const [kind, setKind] = useState<'all' | WebhookKind>('all');
   const [onlyErrors, setOnlyErrors] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<WebhookEntry | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +96,105 @@ export default function WebhookMonitor() {
       return true;
     });
   }, [entries, kind, onlyErrors]);
+
+  // Modal component for showing webhook details
+  const WebhookDetailsModal = ({ entry, onClose }: { entry: WebhookEntry; onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white">
+            Webhook Details - {entry.kind} ({formatTime(entry.received_at)})
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-xl font-bold"
+          >
+            ×
+          </button>
+        </div>
+        
+        <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Basic Info */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">Basic Information</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Status:</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${badgeClass(entry.ok)}`}>
+                    {entry.ok ? 'OK' : 'FAILED'} ({entry.status})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Kind:</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${kindBadge(entry.kind)}`}>
+                    {entry.kind}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">IP Address:</span>
+                  <span className="text-gray-300">{entry.ip || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Ticker:</span>
+                  <span className="text-gray-300">{entry.ticker || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Symbol:</span>
+                  <span className="text-gray-300">{entry.symbol || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Timeframe:</span>
+                  <span className="text-gray-300">{entry.timeframe || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* User Agent */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">User Agent</h4>
+              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 break-all">
+                {entry.user_agent || 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div className="mt-6">
+            <h4 className="text-sm font-semibold text-gray-300 mb-3">Message</h4>
+            <div className="bg-gray-900 rounded p-3 text-sm text-gray-300">
+              {entry.message || 'No message'}
+            </div>
+          </div>
+
+          {/* Raw Payload */}
+          {entry.raw_payload && (
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">Raw Payload</h4>
+              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 font-mono overflow-x-auto">
+                <pre>{entry.raw_payload}</pre>
+              </div>
+            </div>
+          )}
+
+          {/* Headers */}
+          {entry.headers && Object.keys(entry.headers).length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">Headers</h4>
+              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 space-y-1">
+                {Object.entries(entry.headers).map(([key, value]) => (
+                  <div key={key} className="flex">
+                    <span className="text-blue-400 w-32 shrink-0">{key}:</span>
+                    <span className="break-all">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-gray-900 rounded-xl p-6">
@@ -213,8 +315,14 @@ export default function WebhookMonitor() {
                   <td className="px-3 py-2 text-gray-300">{e.ticker ?? '-'}</td>
                   <td className="px-3 py-2 text-gray-300">{e.symbol ?? '-'}</td>
                   <td className="px-3 py-2 text-gray-300">{e.timeframe ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-400 max-w-[280px] truncate" title={e.message ?? ''}>
-                    {e.message ?? '-'}
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => setSelectedEntry(e)}
+                      className="text-blue-400 hover:text-blue-300 underline max-w-[280px] truncate block text-left"
+                      title="Click to view full details"
+                    >
+                      {e.message ?? 'View details'}
+                    </button>
                   </td>
                   <td className="px-3 py-2 text-gray-400">{e.ip ?? '-'}</td>
                   <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={e.user_agent ?? ''}>
@@ -226,6 +334,14 @@ export default function WebhookMonitor() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal for webhook details */}
+      {selectedEntry && (
+        <WebhookDetailsModal 
+          entry={selectedEntry} 
+          onClose={() => setSelectedEntry(null)} 
+        />
+      )}
     </div>
   );
 }

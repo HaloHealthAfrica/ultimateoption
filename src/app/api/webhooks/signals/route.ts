@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
   try {
     const raw = await request.text();
     
+    // Capture headers for debugging (excluding sensitive ones)
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      if (!key.toLowerCase().includes('authorization') && !key.toLowerCase().includes('secret')) {
+        headers[key] = value;
+      }
+    });
+    
     // Authenticate webhook
     const authResult = authenticateWebhook(request, raw, 'signals');
     if (!authResult.authenticated) {
@@ -46,6 +54,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: `Authentication failed: ${authResult.error}`,
+        raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -102,6 +112,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid signal payload - no valid format found',
+        raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -135,6 +147,8 @@ export async function POST(request: NextRequest) {
       ticker: signal.instrument.ticker,
       timeframe: signal.signal.timeframe,
       message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
+      raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+      headers,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
@@ -169,6 +183,8 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
+      raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+      headers,
     } as const;
     audit.add(errEntry);
     await recordWebhookReceipt(errEntry);

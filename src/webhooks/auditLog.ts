@@ -23,6 +23,9 @@ export interface WebhookAuditEntry {
   symbol?: string;
   timeframe?: string;
   message?: string;
+  // Additional debug information
+  raw_payload?: string;
+  headers?: Record<string, string>;
 }
 
 function makeId(): string {
