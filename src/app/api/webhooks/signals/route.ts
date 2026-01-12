@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: `Authentication failed: ${authResult.error}`,
-        raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+        raw_payload: raw, // Store complete payload
         headers,
       } as const;
       audit.add(entry);
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid signal payload - no valid format found',
-        raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+        raw_payload: raw, // Store complete payload
         headers,
       } as const;
       audit.add(entry);
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       ticker: signal.instrument.ticker,
       timeframe: signal.signal.timeframe,
       message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
-      raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+      raw_payload: raw, // Store complete payload
       headers,
     } as const;
     audit.add(okEntry);
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
-      raw_payload: raw.length > 1000 ? raw.substring(0, 1000) + '...[truncated]' : raw,
+      raw_payload: raw, // Store complete payload
       headers,
     } as const;
     audit.add(errEntry);

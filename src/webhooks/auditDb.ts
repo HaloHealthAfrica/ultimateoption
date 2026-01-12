@@ -33,8 +33,8 @@ export async function recordWebhookReceipt(entry: Omit<WebhookAuditEntry, 'id' |
   try {
     await pool.query(
       `INSERT INTO webhook_receipts
-        (kind, ok, status, ip, user_agent, ticker, symbol, timeframe, message)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        (kind, ok, status, ip, user_agent, ticker, symbol, timeframe, message, raw_payload, headers)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         entry.kind,
         entry.ok,
@@ -45,6 +45,8 @@ export async function recordWebhookReceipt(entry: Omit<WebhookAuditEntry, 'id' |
         entry.symbol ?? null,
         entry.timeframe ?? null,
         entry.message ?? null,
+        entry.raw_payload ?? null,
+        entry.headers ? JSON.stringify(entry.headers) : null,
       ]
     );
   } catch {
@@ -69,7 +71,9 @@ export async function listWebhookReceipts(limit: number): Promise<WebhookAuditEn
        ticker,
        symbol,
        timeframe,
-       message
+       message,
+       raw_payload,
+       headers
      FROM webhook_receipts
      ORDER BY received_at DESC
      LIMIT $1`,
@@ -88,6 +92,8 @@ export async function listWebhookReceipts(limit: number): Promise<WebhookAuditEn
     symbol: string | null;
     timeframe: string | null;
     message: string | null;
+    raw_payload: string | null;
+    headers: string | null;
   };
 
   return (res.rows as Row[]).map((r) => ({
@@ -102,6 +108,8 @@ export async function listWebhookReceipts(limit: number): Promise<WebhookAuditEn
     symbol: r.symbol ?? undefined,
     timeframe: r.timeframe ?? undefined,
     message: r.message ?? undefined,
+    raw_payload: r.raw_payload ?? undefined,
+    headers: r.headers ? JSON.parse(r.headers) : undefined,
   }));
 }
 

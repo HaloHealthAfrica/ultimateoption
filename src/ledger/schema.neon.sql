@@ -69,7 +69,9 @@ CREATE TABLE IF NOT EXISTS webhook_receipts (
   ticker TEXT,
   symbol TEXT,
   timeframe TEXT,
-  message TEXT
+  message TEXT,
+  raw_payload TEXT,
+  headers JSONB
 );
 
 CREATE INDEX IF NOT EXISTS idx_webhook_receipts_received_at ON webhook_receipts (received_at DESC);

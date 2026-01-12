@@ -275,7 +275,7 @@ export default function WebhookMonitor() {
       </div>
 
       <div className="overflow-auto border border-gray-800 rounded-lg">
-        <table className="min-w-[1100px] w-full text-sm">
+        <table className="min-w-[1400px] w-full text-sm">
           <thead className="bg-gray-800 text-gray-300">
             <tr>
               <th className="text-left px-3 py-2">Time</th>
@@ -285,7 +285,7 @@ export default function WebhookMonitor() {
               <th className="text-left px-3 py-2">Ticker</th>
               <th className="text-left px-3 py-2">Symbol</th>
               <th className="text-left px-3 py-2">TF</th>
-              <th className="text-left px-3 py-2">Message</th>
+              <th className="text-left px-3 py-2 min-w-[400px]">Message</th>
               <th className="text-left px-3 py-2">IP</th>
               <th className="text-left px-3 py-2">User-Agent</th>
             </tr>
@@ -316,13 +316,18 @@ export default function WebhookMonitor() {
                   <td className="px-3 py-2 text-gray-300">{e.symbol ?? '-'}</td>
                   <td className="px-3 py-2 text-gray-300">{e.timeframe ?? '-'}</td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() => setSelectedEntry(e)}
-                      className="text-blue-400 hover:text-blue-300 underline max-w-[280px] truncate block text-left"
-                      title="Click to view full details"
-                    >
-                      {e.message ?? 'View details'}
-                    </button>
+                    <div className="min-w-[400px] max-w-[600px]">
+                      <div className="text-gray-300 break-words">
+                        {e.message ?? 'No message'}
+                      </div>
+                      <button
+                        onClick={() => setSelectedEntry(e)}
+                        className="text-blue-400 hover:text-blue-300 underline text-xs mt-1"
+                        title="Click to view full details including raw payload"
+                      >
+                        View full details
+                      </button>
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-gray-400">{e.ip ?? '-'}</td>
                   <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={e.user_agent ?? ''}>

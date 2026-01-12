@@ -38,6 +38,13 @@ export async function POST(request: NextRequest) {
     
     // Authenticate webhook
     const authResult = authenticateWebhook(request, raw, 'saty-phase');
+    
+    // Collect headers for audit
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    
     if (!authResult.authenticated) {
       const entry = {
         kind: 'saty-phase',
@@ -46,6 +53,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: `Authentication failed: ${authResult.error}`,
+        raw_payload: raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -109,6 +118,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: `Invalid phase payload - tried ${lastError?.method || 'unknown'} last`,
+        raw_payload: raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -153,6 +164,8 @@ export async function POST(request: NextRequest) {
       symbol: phase.instrument.symbol,
       timeframe: phase.timeframe.chart_tf,
       message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
+      raw_payload: raw,
+      headers,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
@@ -185,6 +198,8 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
+      raw_payload: raw,
+      headers,
     } as const;
     audit.add(errEntry);
     await recordWebhookReceipt(errEntry);

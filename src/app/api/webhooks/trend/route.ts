@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
     
     // Authenticate webhook
     const authResult = authenticateWebhook(request, raw, 'trend');
+    
+    // Collect headers for audit
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    
     if (!authResult.authenticated) {
       const entry = {
         kind: 'trend',
@@ -43,6 +50,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: `Authentication failed: ${authResult.error}`,
+        raw_payload: raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -73,6 +82,8 @@ export async function POST(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') || undefined,
         user_agent: request.headers.get('user-agent') || undefined,
         message: 'Invalid trend payload',
+        raw_payload: raw,
+        headers,
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
@@ -106,6 +117,8 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: trend.ticker,
       message: `Authenticated via ${authResult.method}`,
+      raw_payload: raw,
+      headers,
     } as const;
     audit.add(okEntry);
     await recordWebhookReceipt(okEntry);
@@ -148,6 +161,8 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       message: error instanceof Error ? error.message : 'Unknown error',
+      raw_payload: raw,
+      headers,
     } as const;
     audit.add(errEntry);
     await recordWebhookReceipt(errEntry);
