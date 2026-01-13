@@ -24,6 +24,7 @@ interface RecentResponse {
   success: boolean;
   entries: WebhookEntry[];
   retrieved_at: number;
+  auth_required?: boolean; // Indicates if authentication is required
 }
 
 function formatTime(ts: number): string {
@@ -53,33 +54,49 @@ export default function WebhookMonitor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<WebhookEntry[]>([]);
+  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [retrievedAt, setRetrievedAt] = useState<number | null>(null);
 
   const fetchEntries = useCallback(async () => {
-    if (!token) {
-      setError('Enter your WEBHOOK_DEBUG_TOKEN to view receipts.');
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/webhooks/recent?token=${encodeURIComponent(token)}&limit=${encodeURIComponent(String(limit))}`);
+      // Try without token first, then with token if auth is required
+      const url = token 
+        ? `/api/webhooks/recent?token=${encodeURIComponent(token)}&limit=${encodeURIComponent(String(limit))}`
+        : `/api/webhooks/recent?limit=${encodeURIComponent(String(limit))}`;
+      
+      const res = await fetch(url);
       const data = (await res.json()) as RecentResponse | { error?: string };
 
       if (!res.ok) {
         const msg = 'error' in data && data.error ? data.error : `Request failed (${res.status})`;
+        
+        // If unauthorized and no token provided, indicate auth is required
+        if (res.status === 401 && !token) {
+          setAuthRequired(true);
+          setError('Debug token required to view webhook receipts. Enter your WEBHOOK_DEBUG_TOKEN above.');
+          return;
+        }
+        
         throw new Error(msg);
       }
 
       const ok = data as RecentResponse;
       setEntries(ok.entries || []);
       setRetrievedAt(ok.retrieved_at || Date.now());
+      setAuthRequired(ok.auth_required || false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load webhook receipts');
     } finally {
       setLoading(false);
     }
   }, [token, limit]);
+
+  // Auto-fetch on component mount to check if auth is required
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -202,17 +219,21 @@ export default function WebhookMonitor() {
         <div>
           <h2 className="text-xl font-bold text-white">Webhook Receipts</h2>
           <p className="text-gray-400 text-sm">
-            Shows the most recent webhook hits (TradingView → this app). Requires your debug token.
+            Shows the most recent webhook hits (TradingView → this app).
+            {authRequired && ' Requires debug token for access.'}
+            {authRequired === false && ' No authentication required.'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="WEBHOOK_DEBUG_TOKEN"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white w-64"
-          />
+          {authRequired && (
+            <input
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="WEBHOOK_DEBUG_TOKEN"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white w-64"
+            />
+          )}
 
           <select
             value={kind}

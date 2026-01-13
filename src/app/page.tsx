@@ -404,7 +404,7 @@ export default function DashboardPage() {
 
         {tab === 'webhooks' ? (
           <div className="space-y-6">
-            <Card title="Webhook Receipts" subtitle="Verify TradingView → Vercel hits (requires debug token)">
+            <Card title="Webhook Receipts" subtitle="Verify TradingView → Vercel hits (debug token optional)">
               <WebhookMonitor />
             </Card>
           </div>

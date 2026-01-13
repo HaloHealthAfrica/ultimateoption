@@ -59,11 +59,11 @@ export async function POST(request: NextRequest) {
   try {
     // Get raw body for audit logging
     rawBody = await request.text();
-    let body: any;
+    let body: unknown;
     
     try {
       body = JSON.parse(rawBody);
-    } catch (parseError) {
+    } catch {
       // Log parsing failure
       const entry = {
         kind: 'signals' as const,

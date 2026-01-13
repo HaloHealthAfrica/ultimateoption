@@ -20,16 +20,16 @@ export async function GET(request: NextRequest) {
   const limit = Number.isFinite(Number(limitRaw)) ? Number(limitRaw) : 50;
 
   const requiredToken = process.env.WEBHOOK_DEBUG_TOKEN;
-  if (!requiredToken) {
-    return NextResponse.json(
-      { error: 'WEBHOOK_DEBUG_TOKEN is not set on the server.' },
-      { status: 500 }
-    );
+  
+  // If no debug token is configured, allow access without authentication
+  // This makes webhook monitoring accessible without requiring token setup
+  if (requiredToken) {
+    // Token is configured, so validate it
+    if (token !== requiredToken) {
+      return NextResponse.json({ error: 'Unauthorized - debug token required' }, { status: 401 });
+    }
   }
-
-  if (token !== requiredToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // If no token is configured, allow access without validation
 
   // Prefer durable DB-backed receipts when DATABASE_URL is configured.
   const dbEntries = await listWebhookReceipts(limit).catch(() => null);
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     count: Math.min(limit, 200),
     entries: dbEntries ?? log.list(limit),
     retrieved_at: Date.now(),
+    auth_required: !!requiredToken, // Indicate if auth was required
   });
 }
 
