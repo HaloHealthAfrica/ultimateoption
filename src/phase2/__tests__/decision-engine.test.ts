@@ -375,8 +375,8 @@ describe('DecisionEngine', () => {
             // Property: Confidence is a finite number
             expect(Number.isFinite(result.confidence)).toBe(true);
           } else {
-            // Property: REJECT decisions have confidence 0
-            expect(result.confidence).toBe(0);
+            // Property: REJECT decisions have undefined confidence
+            expect(result.confidence).toBeUndefined();
           }
         }
       ));

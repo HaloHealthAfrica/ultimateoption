@@ -6,7 +6,7 @@
  */
 
 import winston from 'winston';
-import { maskSensitiveData } from '../config';
+import { maskSensitiveData } from '../config/index';
 import { LOG_LEVELS } from '../constants/gates';
 import { DecisionContext, DecisionOutput, ENGINE_VERSION } from '../types';
 

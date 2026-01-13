@@ -26,7 +26,7 @@ import {
   PERFORMANCE_TARGETS,
   PROVIDER_CONFIG,
   NORMALIZATION_RULES
-} from '../config';
+} from '../config/index';
 
 import {
   GATE_NAMES,

@@ -7,7 +7,7 @@
 
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { AlpacaLiquidityData, ProviderResult, TradeVelocity } from '../types';
-import { PROVIDER_CONFIG } from '../config';
+import { PROVIDER_CONFIG } from '../config/index';
 import { Logger } from '../services/logger';
 
 export interface AlpacaQuoteResponse {

@@ -99,9 +99,9 @@ export interface AuditTrail {
 // Decision Output
 export interface DecisionOutput {
   decision: Decision;
-  direction: SignalType; // Always present
+  direction?: SignalType; // Only present for APPROVE decisions
   symbol: string; // Add symbol field
-  confidence: number; // Always present (0 for REJECT)
+  confidence?: number; // Only present for APPROVE decisions
   engine_version: string;
   timestamp: string; // Add timestamp field
   gates: {

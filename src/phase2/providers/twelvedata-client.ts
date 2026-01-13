@@ -7,7 +7,7 @@
 
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { TwelveDataStats, ProviderResult } from '../types';
-import { PROVIDER_CONFIG } from '../config';
+import { PROVIDER_CONFIG } from '../config/index';
 import { Logger } from '../services/logger';
 
 export interface TwelveDataATRResponse {

@@ -7,7 +7,7 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import { TradingViewSignal, SatyPhaseWebhook, DecisionOutput, ENGINE_VERSION } from '../types';
-import { PERFORMANCE_TARGETS } from '../config';
+import { PERFORMANCE_TARGETS } from '../config/index';
 import { RATE_LIMITS, HTTP_STATUS } from '../constants/gates';
 import { Logger } from './logger';
 import { PerformanceMonitor } from './performance-monitor';
@@ -268,6 +268,7 @@ export class WebhookService {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: 'Invalid signal payload',
         type: 'VALIDATION_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error',
         message: error instanceof Error ? error.message : 'Unknown error',
         engineVersion: ENGINE_VERSION,
         requestId

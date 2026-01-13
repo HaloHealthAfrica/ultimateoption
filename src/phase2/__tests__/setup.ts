@@ -84,6 +84,13 @@ beforeAll(() => {
   process.env.NODE_ENV = 'test';
   process.env.LOG_LEVEL = 'error'; // Reduce log noise during tests
   
+  // Set required API keys for Phase 2 providers
+  process.env.TRADIER_API_KEY = 'test_tradier_key';
+  process.env.TWELVEDATA_API_KEY = 'test_twelvedata_key';
+  process.env.ALPACA_API_KEY = 'test_alpaca_key';
+  process.env.ALPACA_SECRET_KEY = 'test_alpaca_secret';
+  process.env.WEBHOOK_SECRET = 'test_webhook_secret';
+  
   // Mock external API calls by default
   jest.setTimeout(30000); // 30 second timeout for integration tests
 });

@@ -6,7 +6,7 @@
  */
 
 import { Logger } from './logger';
-import { PERFORMANCE_TARGETS } from '../config';
+import { PERFORMANCE_TARGETS } from '../config/index';
 
 export interface ThroughputMetrics {
   requestsPerSecond: number;

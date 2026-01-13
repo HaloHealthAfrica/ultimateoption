@@ -8,7 +8,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PerformanceTracker } from '../services/performance-tracker';
 import { Logger } from '../services/logger';
-import { PERFORMANCE_TARGETS } from '../config';
+import { PERFORMANCE_TARGETS } from '../config/index';
 
 export class PerformanceMiddleware {
   private static instance: PerformanceMiddleware;

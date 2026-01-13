@@ -10,7 +10,7 @@ import express from 'express';
 import { PerformanceTracker } from '../services/performance-tracker';
 import { performanceMiddleware } from '../middleware/performance-middleware';
 import { Logger } from '../services/logger';
-import { PERFORMANCE_TARGETS } from '../config';
+import { PERFORMANCE_TARGETS } from '../config/index';
 
 describe('Performance Tests', () => {
   let app: express.Application;

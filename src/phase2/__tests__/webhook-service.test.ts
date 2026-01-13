@@ -52,6 +52,36 @@ describe('WebhookService', () => {
       alpaca: true
     });
 
+    // Mock buildMarketContext to return valid market context
+    mockMarketContextBuilder.buildMarketContext = jest.fn().mockResolvedValue({
+      context: {
+        optionsData: {
+          putCallRatio: 1.0,
+          ivPercentile: 50,
+          gammaBias: 'NEUTRAL',
+          dataSource: 'API'
+        },
+        marketStats: {
+          atr14: 1.0,
+          rv20: 1.0,
+          trendSlope: 0.1,
+          dataSource: 'API'
+        },
+        liquidityData: {
+          spreadBps: 8, // Passes spread gate (< 12)
+          depthScore: 75,
+          tradeVelocity: 'NORMAL',
+          dataSource: 'API'
+        }
+      },
+      providerResults: {
+        tradier: { success: true, source: 'API', duration: 100 },
+        twelveData: { success: true, source: 'API', duration: 100 },
+        alpaca: { success: true, source: 'API', duration: 100 }
+      },
+      totalDuration: 300
+    });
+
     webhookService = new WebhookService(
       logger,
       mockTradierClient,
@@ -141,6 +171,10 @@ describe('WebhookService', () => {
           timestamp: Date.now(),
           symbol: 'SPY'
         },
+        satyPhase: {
+          phase: 75, // Above 65 threshold to pass phase gate
+          confidence: 85
+        },
         marketSession: 'OPEN'
       };
 
@@ -150,7 +184,7 @@ describe('WebhookService', () => {
         .expect(200); // Should succeed with clamped value
 
       expect(response.body.decision).toBe('APPROVE');
-      expect(response.body.confidence).toBe(10.5); // Clamped to max
+      expect(response.body.confidence).toBe(10.0); // Clamped to max (10.5 -> 10.0)
     });
 
     test('should handle invalid market session with default', async () => {
@@ -160,6 +194,10 @@ describe('WebhookService', () => {
           aiScore: 8.5,
           timestamp: Date.now(),
           symbol: 'SPY'
+        },
+        satyPhase: {
+          phase: 75, // Above 65 threshold to pass phase gate
+          confidence: 85
         },
         marketSession: 'INVALID_SESSION' // Invalid session - should default to OPEN
       };
@@ -430,6 +468,62 @@ describe('WebhookService', () => {
 
       expect(response.body.audit.processing_time_ms).toBeGreaterThanOrEqual(0);
       expect(response.body.audit.processing_time_ms).toBeLessThan(1000); // Should be fast
+    });
+  });
+
+  // Debug test to see what's happening with the HTTP request
+  describe('Debug Tests', () => {
+    test('should debug HTTP request processing', async () => {
+      console.log('Starting debug test...');
+      
+      const validSignal: TradingViewSignal = {
+        signal: {
+          type: 'LONG',
+          aiScore: 8.5,
+          timestamp: Date.now(),
+          symbol: 'SPY'
+        },
+        satyPhase: {
+          phase: 75,
+          confidence: 85
+        },
+        marketSession: 'OPEN'
+      };
+
+      console.log('Sending request with payload:', JSON.stringify(validSignal, null, 2));
+
+      try {
+        const response = await request(app)
+          .post('/api/webhooks/signals')
+          .send(validSignal);
+
+        console.log('Response status:', response.status);
+        console.log('Response body:', JSON.stringify(response.body, null, 2));
+        
+        // This test is just for debugging - we expect it might fail
+        // but we want to see what the actual error is
+      } catch (error) {
+        console.error('Request failed with error:', error);
+      }
+    });
+
+    test('should test WebhookService instantiation directly', () => {
+      console.log('Testing WebhookService instantiation...');
+      
+      try {
+        const service = new WebhookService(
+          logger,
+          mockTradierClient,
+          mockTwelveDataClient,
+          mockAlpacaClient,
+          mockMarketContextBuilder
+        );
+        console.log('WebhookService instantiated successfully');
+        expect(service).toBeDefined();
+      } catch (error) {
+        console.error('WebhookService instantiation failed:', error);
+        throw error;
+      }
     });
   });
 });

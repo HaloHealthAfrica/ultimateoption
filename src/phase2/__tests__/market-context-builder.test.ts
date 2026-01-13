@@ -11,7 +11,7 @@ import { TwelveDataClient } from '../providers/twelvedata-client';
 import { AlpacaClient } from '../providers/alpaca-client';
 import { Logger } from '../services/logger';
 import { PerformanceMonitor } from '../services/performance-monitor';
-import { PROVIDER_CONFIG } from '../config';
+import { PROVIDER_CONFIG } from '../config/index';
 import * as fc from 'fast-check';
 
 // Mock the provider clients and services
@@ -343,9 +343,9 @@ describe('MarketContextBuilder', () => {
       expect(result.context.liquidityData.dataSource).toBe('FALLBACK');
 
       // Should match fallback configuration
-      expect(result.context.options.putCallRatio).toBe(PROVIDER_CONFIG.tradier.fallback.putCallRatio);
-      expect(result.context.stats.atr14).toBe(PROVIDER_CONFIG.twelveData.fallback.atr14);
-      expect(result.context.liquidity.spreadBps).toBe(PROVIDER_CONFIG.alpaca.fallback.spreadBps);
+      expect(result.context.optionsData.putCallRatio).toBe(PROVIDER_CONFIG.tradier.fallback.putCallRatio);
+      expect(result.context.marketStats.atr14).toBe(PROVIDER_CONFIG.twelveData.fallback.atr14);
+      expect(result.context.liquidityData.spreadBps).toBe(PROVIDER_CONFIG.alpaca.fallback.spreadBps);
     });
   });
 
@@ -444,9 +444,9 @@ describe('MarketContextBuilder', () => {
           expect(result.context.liquidityData).toBeDefined();
 
           // Property: Data sources are correctly marked
-          expect(['API', 'FALLBACK']).toContain(result.context.options.dataSource);
-          expect(['API', 'FALLBACK']).toContain(result.context.stats.dataSource);
-          expect(['API', 'FALLBACK']).toContain(result.context.liquidity.dataSource);
+          expect(['API', 'FALLBACK']).toContain(result.context.optionsData.dataSource);
+          expect(['API', 'FALLBACK']).toContain(result.context.marketStats.dataSource);
+          expect(['API', 'FALLBACK']).toContain(result.context.liquidityData.dataSource);
 
           // Property: Provider results match expectations
           expect(result.providerResults.tradier.success).toBe(tradierSuccess);
@@ -455,13 +455,13 @@ describe('MarketContextBuilder', () => {
 
           // Property: Fallback data is used when providers fail
           if (!tradierSuccess) {
-            expect(result.context.options.dataSource).toBe('FALLBACK');
+            expect(result.context.optionsData.dataSource).toBe('FALLBACK');
           }
           if (!twelveDataSuccess) {
-            expect(result.context.stats.dataSource).toBe('FALLBACK');
+            expect(result.context.marketStats.dataSource).toBe('FALLBACK');
           }
           if (!alpacaSuccess) {
-            expect(result.context.liquidity.dataSource).toBe('FALLBACK');
+            expect(result.context.liquidityData.dataSource).toBe('FALLBACK');
           }
 
           // Property: All numeric values are valid

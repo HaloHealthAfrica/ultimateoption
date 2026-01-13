@@ -13,7 +13,7 @@ import {
   SignalType, 
   MarketSession 
 } from '../types';
-import { NORMALIZATION_RULES } from '../config';
+import { NORMALIZATION_RULES } from '../config/index';
 import { VALIDATION_CONSTANTS } from '../constants/gates';
 
 export class Normalizer {

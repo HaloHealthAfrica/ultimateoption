@@ -70,9 +70,9 @@ export class DecisionOutputFormatter {
     // Build the complete decision output
     const output: DecisionOutput = {
       decision,
-      direction: context.indicator.signalType, // Always include direction
+      direction: decision === 'APPROVE' ? context.indicator.signalType : undefined, // Only include for APPROVE
       symbol: context.indicator.symbol, // Always include symbol
-      confidence: decision === 'APPROVE' ? (confidence ?? 0) : 0, // Always include confidence, 0 for REJECT
+      confidence: decision === 'APPROVE' ? (confidence ?? 0) : undefined, // Only include for APPROVE
       timestamp: new Date().toISOString(), // Add timestamp
       engine_version: ENGINE_VERSION,
       gates: {

@@ -101,9 +101,9 @@ export class DecisionEngine {
 
     return {
       decision,
-      direction: context.indicator.signalType, // Always include direction
+      direction: decision === 'APPROVE' ? context.indicator.signalType : undefined, // Only for APPROVE
       symbol: context.indicator.symbol, // Add symbol field
-      confidence: decision === 'APPROVE' ? (confidence ?? 0) : 0, // Always include confidence, 0 for REJECT
+      confidence: decision === 'APPROVE' ? (confidence ?? 0) : undefined, // Only for APPROVE
       engine_version: this.version,
       timestamp: new Date().toISOString(), // Add timestamp field
       gates: {

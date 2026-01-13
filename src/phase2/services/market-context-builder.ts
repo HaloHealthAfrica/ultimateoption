@@ -9,7 +9,7 @@ import { MarketContext, DecisionContext, DataSource } from '../types';
 import { TradierClient } from '../providers/tradier-client';
 import { TwelveDataClient } from '../providers/twelvedata-client';
 import { AlpacaClient } from '../providers/alpaca-client';
-import { PROVIDER_CONFIG } from '../config';
+import { PROVIDER_CONFIG } from '../config/index';
 import { Logger } from './logger';
 import { PerformanceMonitor } from './performance-monitor';
 

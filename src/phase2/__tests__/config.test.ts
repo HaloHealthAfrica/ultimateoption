@@ -4,7 +4,7 @@
  * Unit tests for configuration loading, validation, and security.
  */
 
-import { loadConfig, validateConfig, maskSensitiveData, PROVIDER_CONFIG, NORMALIZATION_RULES } from '../config';
+import { loadConfig, validateConfig, maskSensitiveData, PROVIDER_CONFIG, NORMALIZATION_RULES } from '../config/index';
 
 describe('Phase 2 Configuration Management', () => {
   // Store original environment variables

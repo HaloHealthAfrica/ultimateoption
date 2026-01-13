@@ -15,10 +15,18 @@
     "phase2:build": "tsc --project tsconfig.phase2.json",
     "phase2:start": "node dist/phase2/server.js",
     "phase2:test": "jest --testPathPatterns=phase2",
-    "phase2:test:watch": "jest --testPathPatterns=phase2 --watch"
+    "phase2:test:watch": "jest --testPathPatterns=phase2 --watch",
+    "phase25:test": "jest --testPathPatterns=phase25",
+    "phase25:test:watch": "jest --testPathPatterns=phase25 --watch",
+    "phase25:test:pbt": "jest --testPathPatterns=phase25 --testNamePattern='\\[PBT\\]'",
+    "phase25:lint": "eslint src/phase25/**/*.ts",
+    "phase25:typecheck": "tsc --noEmit --project tsconfig.json",
+    "phase25:dev": "ts-node src/phase25/server.ts",
+    "phase25:start": "node dist/phase25/server.js"
   },
   "dependencies": {
     "axios": "^1.13.2",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "next": "14.2.35",
@@ -30,6 +38,7 @@
     "zod": "^4.3.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",

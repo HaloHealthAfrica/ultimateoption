@@ -6,7 +6,7 @@
  */
 
 import { Normalizer } from '../services/normalizer';
-import { NORMALIZATION_RULES } from '../config';
+import { NORMALIZATION_RULES } from '../config/index';
 import * as fc from 'fast-check';
 
 describe('Normalizer', () => {

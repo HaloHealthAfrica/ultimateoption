@@ -5,7 +5,7 @@
  */
 
 import { Logger } from './logger';
-import { PERFORMANCE_TARGETS } from '../config';
+import { PERFORMANCE_TARGETS } from '../config/index';
 import { PerformanceMetrics } from '../types';
 
 export class PerformanceMonitor {
