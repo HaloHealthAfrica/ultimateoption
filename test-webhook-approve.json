@@ -1,13 +1,13 @@
 {
   "signal": {
     "type": "LONG",
-    "aiScore": 8.5,
+    "aiScore": 9.5,
     "timestamp": 1642000000000,
-    "symbol": "SPY"
+    "symbol": "AAPL"
   },
   "marketSession": "OPEN",
   "satyPhase": {
-    "phase": 75,
-    "confidence": 85
+    "phase": 85,
+    "confidence": 95
   }
 }

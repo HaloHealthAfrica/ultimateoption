@@ -17,6 +17,8 @@ import { AlpacaClient } from '@/phase2/providers/alpaca-client';
 import { Logger } from '@/phase2/services/logger';
 import { ENGINE_VERSION } from '@/phase2/types';
 import { HTTP_STATUS } from '@/phase2/constants/gates';
+import { WebhookAuditLog } from '@/webhooks/auditLog';
+import { recordWebhookReceipt } from '@/webhooks/auditDb';
 
 /**
  * POST /api/webhooks/signals
@@ -27,6 +29,9 @@ import { HTTP_STATUS } from '@/phase2/constants/gates';
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Initialize audit logging
+  const audit = WebhookAuditLog.getInstance();
   
   // Initialize services
   const logger = new Logger();
@@ -41,20 +46,81 @@ export async function POST(request: NextRequest) {
   );
   const decisionEngine = new DecisionEngine();
   
+  // Capture headers for debugging (excluding sensitive ones)
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    if (!key.toLowerCase().includes('authorization') && !key.toLowerCase().includes('secret')) {
+      headers[key] = value;
+    }
+  });
+  
+  let rawBody = '';
+  
   try {
+    // Get raw body for audit logging
+    rawBody = await request.text();
+    let body: any;
+    
+    try {
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      // Log parsing failure
+      const entry = {
+        kind: 'signals' as const,
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Invalid JSON payload',
+        raw_payload: rawBody,
+        headers,
+      };
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: HTTP_STATUS.BAD_REQUEST }
+      );
+    }
+    
     // Validate Content-Type
     const contentType = request.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
+      const entry = {
+        kind: 'signals' as const,
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Content-Type must be application/json',
+        raw_payload: rawBody,
+        headers,
+      };
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
       return NextResponse.json(
         { error: 'Content-Type must be application/json' },
         { status: HTTP_STATUS.BAD_REQUEST }
       );
     }
-
-    const body = await request.json();
     
     // Validate JSON body exists
     if (!body || typeof body !== 'object') {
+      const entry = {
+        kind: 'signals' as const,
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Request body must be valid JSON',
+        raw_payload: rawBody,
+        headers,
+      };
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
       return NextResponse.json(
         { error: 'Request body must be valid JSON' },
         { status: HTTP_STATUS.BAD_REQUEST }
@@ -91,6 +157,21 @@ export async function POST(request: NextRequest) {
       Date.now() - startTime
     );
 
+    // Log successful webhook receipt
+    const successEntry = {
+      kind: 'signals' as const,
+      ok: true,
+      status: 200,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      ticker: context.indicator.symbol,
+      message: `Phase 2 decision: ${decisionOutput.decision} (${requestId})`,
+      raw_payload: rawBody,
+      headers,
+    };
+    audit.add(successEntry);
+    await recordWebhookReceipt(successEntry);
+
     // Add response headers
     const response = NextResponse.json(decisionOutput, { status: HTTP_STATUS.OK });
     response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -106,6 +187,20 @@ export async function POST(request: NextRequest) {
       url: request.url,
       requestId
     });
+
+    // Log error to audit system
+    const errorEntry = {
+      kind: 'signals' as const,
+      ok: false,
+      status: 400,
+      ip: request.headers.get('x-forwarded-for') || undefined,
+      user_agent: request.headers.get('user-agent') || undefined,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      raw_payload: rawBody,
+      headers,
+    };
+    audit.add(errorEntry);
+    await recordWebhookReceipt(errorEntry);
 
     return NextResponse.json({
       error: 'Invalid signal payload',
