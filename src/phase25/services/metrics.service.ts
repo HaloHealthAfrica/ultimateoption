@@ -5,7 +5,7 @@
  * and system health indicators for monitoring and analysis.
  */
 
-import { DecisionPacket } from '../types';
+import { DecisionPacket, EngineAction } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
 
 export interface DecisionMetrics {
@@ -233,9 +233,9 @@ export class MetricsService {
     const providerKey = providerMap[provider];
     
     if (success) {
-      this.performanceMetrics.marketFeeds[`${providerKey}Success`]++;
+      (this.performanceMetrics.marketFeeds as Record<string, number>)[`${providerKey}Success`]++;
     } else {
-      this.performanceMetrics.marketFeeds[`${providerKey}Failures`]++;
+      (this.performanceMetrics.marketFeeds as Record<string, number>)[`${providerKey}Failures`]++;
     }
     
     if (completeness !== undefined) {
@@ -319,7 +319,7 @@ export class MetricsService {
     issues: string[];
   } {
     const issues: string[] = [];
-    const score = 100;
+    let score = 100;
 
     // Check error rate
     if (this.performanceMetrics.errors.errorRate > 0.1) {
@@ -435,7 +435,7 @@ export class MetricsService {
 
   private updateThroughputMetrics(): void {
     const now = Date.now();
-    const timeSinceStart = (now - this._startTime) / 1000; // seconds
+    const timeSinceStart = (now - this.startTime) / 1000; // seconds
     
     if (timeSinceStart > 0) {
       this.performanceMetrics.throughput.avgRPS = 

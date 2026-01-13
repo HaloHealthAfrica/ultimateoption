@@ -288,7 +288,7 @@ export class ConfigManagerService implements IConfigManager {
     if (!config.feeds) {
       errors.push('Configuration must include feeds section');
     } else {
-      const requiredFeeds = ['tradier', 'twelveData', 'alpaca'];
+      const requiredFeeds = ['tradier', 'twelveData', 'alpaca'] as const;
       for (const feedName of requiredFeeds) {
         const feed = config.feeds[feedName];
         if (!feed) {
@@ -405,9 +405,17 @@ export class ConfigManagerService implements IConfigManager {
   }
 
   private deepFreeze(obj: unknown): void {
+    // Only process objects and arrays
+    if (!obj || typeof obj !== 'object') {
+      return;
+    }
+
+    // Type assertion since we've checked it's an object
+    const objectToFreeze = obj as Record<string, unknown>;
+    
     // Retrieve the property names defined on obj
-    Object.getOwnPropertyNames(obj).forEach((name) => {
-      const value = obj[name];
+    Object.getOwnPropertyNames(objectToFreeze).forEach((name) => {
+      const value = objectToFreeze[name];
 
       // Freeze properties before freezing self
       if (value && typeof value === 'object') {
@@ -415,6 +423,6 @@ export class ConfigManagerService implements IConfigManager {
       }
     });
 
-    return Object.freeze(obj);
+    Object.freeze(objectToFreeze);
   }
 }

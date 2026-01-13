@@ -8,7 +8,7 @@
 
 import { IContextStore, 
   StoredContext, 
-  CompletenessRules, WebhookSource } from '../types';
+  CompletenessRules, WebhookSource, DecisionContext } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
 
 export class ContextStoreService implements IContextStore {

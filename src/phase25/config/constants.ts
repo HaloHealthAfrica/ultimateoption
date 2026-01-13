@@ -10,10 +10,10 @@ export const ENGINE_VERSION = "2.5.0";
 
 // Phase rules for SATY market cycle phases
 export const PHASE_RULES = Object.freeze({
-  1: { allowed: ["LONG", "SHORT"], sizeCap: 1.0 }, // ACCUMULATION
-  2: { allowed: ["LONG"], sizeCap: 2.0 },          // MARKUP  
-  3: { allowed: [], sizeCap: 0.5 },                // DISTRIBUTION
-  4: { allowed: ["SHORT"], sizeCap: 2.0 }          // MARKDOWN
+  1: { allowed: ["LONG", "SHORT"] as const, sizeCap: 1.0 }, // ACCUMULATION
+  2: { allowed: ["LONG"] as const, sizeCap: 2.0 },          // MARKUP  
+  3: { allowed: [] as const, sizeCap: 0.5 },                // DISTRIBUTION
+  4: { allowed: ["SHORT"] as const, sizeCap: 2.0 }          // MARKDOWN
 } as const);
 
 // Volatility-based position size caps

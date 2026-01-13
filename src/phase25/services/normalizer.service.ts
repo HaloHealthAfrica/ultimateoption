@@ -7,7 +7,7 @@
 
 import { INormalizer, 
   WebhookSource, DecisionContext,
-  TradeDirection } from '../types';
+  TradeDirection, NormalizedPayload } from '../types';
 
 export class NormalizerService implements INormalizer {
   
@@ -19,36 +19,38 @@ export class NormalizerService implements INormalizer {
       throw new Error('Invalid payload: must be an object');
     }
 
+    const data = payload as Record<string, unknown>;
+
     // SATY Phase detection - has meta.engine = "SATY_PO"
-    if (payload.meta?.engine === 'SATY_PO') {
+    if ((data.meta as Record<string, unknown>)?.engine === 'SATY_PO') {
       return "SATY_PHASE";
     }
 
     // MTF Dots detection - has timeframes object with tf3min, tf5min, etc.
-    if (payload.timeframes && 
-        typeof payload.timeframes === 'object' &&
-        payload.timeframes.tf3min &&
-        payload.timeframes.tf5min) {
+    if (data.timeframes && 
+        typeof data.timeframes === 'object' &&
+        (data.timeframes as Record<string, unknown>).tf3min &&
+        (data.timeframes as Record<string, unknown>).tf5min) {
       return "MTF_DOTS";
     }
 
     // TradingView Signal detection - has signal with timeframe (check first)
-    if (payload.signal?.type && 
-        payload.signal?.timeframe &&
-        payload.instrument?.ticker) {
+    if ((data.signal as Record<string, unknown>)?.type && 
+        (data.signal as Record<string, unknown>)?.timeframe &&
+        (data.instrument as Record<string, unknown>)?.ticker) {
       return "TRADINGVIEW_SIGNAL";
     }
 
     // Ultimate Options detection - has signal with ai_score and quality but no timeframe
-    if (payload.signal?.ai_score !== undefined && 
-        payload.signal?.quality &&
-        !payload.signal?.timeframe) {
+    if ((data.signal as Record<string, unknown>)?.ai_score !== undefined && 
+        (data.signal as Record<string, unknown>)?.quality &&
+        !(data.signal as Record<string, unknown>)?.timeframe) {
       return "ULTIMATE_OPTIONS";
     }
 
     // STRAT Execution detection - has setup_valid and liquidity_ok
-    if (payload.setup_valid !== undefined && 
-        payload.liquidity_ok !== undefined) {
+    if (data.setup_valid !== undefined && 
+        data.liquidity_ok !== undefined) {
       return "STRAT_EXEC";
     }
 
@@ -94,30 +96,30 @@ export class NormalizerService implements INormalizer {
    * Map SATY phase webhook to regime context
    */
   private mapSatyPhase(payload: unknown): Partial<DecisionContext> {
+    const data = payload as Record<string, unknown>;
+    
     // Extract phase information from data.phase or event.name (fallback)
-    const phaseName = payload.data?.phase || this.extractPhaseName(payload.event?.name);
-    const phase = this.getPhaseNumber(phaseName);
+    const phaseName = (data.data as Record<string, unknown>)?.phase || this.extractPhaseName((data.event as Record<string, unknown>)?.name as string);
+    const phase = this.getPhaseNumber(phaseName as "ACCUMULATION" | "MARKUP" | "MARKDOWN" | "DISTRIBUTION");
     
     // Extract volatility from regime context or default to NORMAL
-    const volatility = this.extractVolatility(payload.regime_context);
+    const volatility = this.extractVolatility(data.regime_context);
     
     // Extract bias from data.bias or regime_context.local_bias (fallback)
-    const bias = this.mapBias(payload.data?.bias || payload.regime_context?.local_bias);
+    const bias = this.mapBias(((data.data as Record<string, unknown>)?.bias || (data.regime_context as Record<string, unknown>)?.local_bias) as string);
 
     return {
       instrument: {
-        symbol: payload.data?.symbol || payload.instrument?.symbol || '',
-        exchange: payload.instrument?.exchange || '',
-        price: 0, // Will be updated from other sources
-        timestamp: Date.now()
+        symbol: (data.data as Record<string, unknown>)?.symbol as string || (data.instrument as Record<string, unknown>)?.symbol as string || '',
+        exchange: (data.instrument as Record<string, unknown>)?.exchange as string || '',
+        price: 0 // Will be updated from other sources
       },
       regime: {
         phase,
-        phaseName,
+        phaseName: phaseName as "ACCUMULATION" | "MARKUP" | "MARKDOWN" | "DISTRIBUTION",
         volatility,
-        confidence: payload.data?.confidence || payload.confidence?.confidence_score || 0,
-        bias,
-        timestamp: Date.now()
+        confidence: (data.data as Record<string, unknown>)?.confidence as number || (data.confidence as Record<string, unknown>)?.confidence_score as number || 0,
+        bias
       }
     };
   }

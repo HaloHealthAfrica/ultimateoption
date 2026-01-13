@@ -8,7 +8,8 @@
 
 import { IDecisionOrchestrator, MarketContext,
   DecisionPacket,
-  WebhookSource } from '../types';
+  WebhookSource,
+  DecisionContext } from '../types';
 import { SourceRouterService } from './source-router.service';
 import { NormalizerService } from './normalizer.service';
 import { ContextStoreService } from './context-store.service';
@@ -135,10 +136,10 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         processingTime
       };
 
-    } catch {
+    } catch (error) {
       console.error('Decision orchestration error:', error);
       
-      const errorResponse = this.errorHandler.createErrorResponse(_error);
+      const errorResponse = this.errorHandler.createErrorResponse(error as Error);
       this.metricsService.recordError('orchestration_error');
       
       const processingTime = Date.now() - startTime;
@@ -146,7 +147,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
 
       return {
         success: false,
-        message: `Processing failed: ${errorResponse.message}`,
+        message: `Processing failed: ${errorResponse.error}`,
         processingTime
       };
     }
@@ -172,7 +173,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
 
       return decision;
 
-    } catch {
+    } catch (error) {
       console.error('Decision-only processing error:', error);
       throw error;
     }
@@ -232,7 +233,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         this.decisionEngine &&
         this.errorHandler
       );
-    } catch {
+    } catch (error) {
       console.error('Readiness check failed:', error);
       return false;
     }
@@ -395,7 +396,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         default:
           console.warn(`Unknown decision action: ${decision.action}`);
       }
-    } catch {
+    } catch (error) {
       console.error('Decision forwarding error:', error);
       // Don't throw - we still want to return the decision even if forwarding fails
     }

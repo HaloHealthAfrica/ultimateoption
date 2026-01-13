@@ -8,7 +8,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { IMarketContextBuilder, FeedConfig,
   FeedError,
-  FeedErrorType } from '../types';
+  FeedErrorType,
+  MarketContext } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 
 export class MarketContextBuilder implements IMarketContextBuilder {
@@ -140,7 +141,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       
       // Get options volume
       const optionVolume = chainData.options?.reduce((sum: number, opt: unknown) => 
-        sum + (opt.volume || 0), 0) || 0;
+        sum + ((opt as Record<string, unknown>).volume as number || 0), 0) || 0;
       
       // Calculate max pain level
       const maxPain = this.calculateMaxPain(chainData);
@@ -259,16 +260,18 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   // Helper methods for data processing
 
   private calculatePutCallRatio(chainData: unknown): number {
-    if (!chainData.options) return 1.0;
+    const data = chainData as Record<string, unknown>;
+    if (!data.options) return 1.0;
     
     let putVolume = 0;
-    const callVolume = 0;
+    let callVolume = 0;
     
-    chainData.options.forEach((option: unknown) => {
-      if (option.option_type === 'put') {
-        putVolume += option.volume || 0;
-      } else if (option.option_type === 'call') {
-        callVolume += option.volume || 0;
+    (data.options as unknown[]).forEach((option: unknown) => {
+      const opt = option as Record<string, unknown>;
+      if (opt.option_type === 'put') {
+        putVolume += (opt.volume as number) || 0;
+      } else if (opt.option_type === 'call') {
+        callVolume += (opt.volume as number) || 0;
       }
     });
     
@@ -288,10 +291,11 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   private calculateMaxPain(chainData: unknown): number {
     // Simplified max pain calculation
     // In a real implementation, this would calculate the strike with maximum open interest
-    if (!chainData.options || chainData.options.length === 0) return 0;
+    const data = chainData as Record<string, unknown>;
+    if (!data.options || (data.options as unknown[]).length === 0) return 0;
     
     // Return the middle strike as a placeholder
-    const strikes = chainData.options.map((opt: unknown) => opt.strike).sort((a: number, b: number) => a - b);
+    const strikes = (data.options as unknown[]).map((opt: unknown) => (opt as Record<string, unknown>).strike as number).sort((a: number, b: number) => a - b);
     return strikes[Math.floor(strikes.length / 2)] || 0;
   }
 
@@ -300,9 +304,9 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     
     // Calculate 20-day realized volatility from price returns
     const returns = [];
-    for (const i = 1; i < Math.min(priceData.length, 21); i++) {
-      const currentPrice = parseFloat(priceData[i - 1].close);
-      const previousPrice = parseFloat(priceData[i].close);
+    for (let i = 1; i < Math.min(priceData.length, 21); i++) {
+      const currentPrice = parseFloat((priceData[i - 1] as Record<string, unknown>).close as string);
+      const previousPrice = parseFloat((priceData[i] as Record<string, unknown>).close as string);
       if (currentPrice > 0 && previousPrice > 0) {
         returns.push(Math.log(currentPrice / previousPrice));
       }
@@ -322,7 +326,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     if (!priceData || priceData.length < 2) return 0;
     
     // Simple linear regression slope over last 20 days
-    const prices = priceData.slice(0, 20).map((d: unknown) => parseFloat(d.close)).filter(p => p > 0);
+    const prices = priceData.slice(0, 20).map((d: unknown) => parseFloat((d as Record<string, unknown>).close as string)).filter(p => p > 0);
     if (prices.length < 2) return 0;
     
     const n = prices.length;
@@ -343,7 +347,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   private calculateAverageVolume(volumeData: unknown[]): number {
     if (!volumeData || volumeData.length === 0) return 0;
     
-    const volumes = volumeData.slice(1, 21).map((d: unknown) => parseFloat(d.volume)).filter(v => v > 0);
+    const volumes = volumeData.slice(1, 21).map((d: unknown) => parseFloat((d as Record<string, unknown>).volume as string)).filter(v => v > 0);
     return volumes.length > 0 ? volumes.reduce((sum, vol) => sum + vol, 0) / volumes.length : 0;
   }
 
@@ -354,24 +358,28 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   }
 
   private handleApiError(provider: string, error: unknown): FeedError {
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return this.createFeedError(provider as unknown, FeedErrorType.TIMEOUT, `Request timeout: ${error.message}`);
+    const err = error as Record<string, unknown>;
+    const providerName = provider as "tradier" | "twelvedata" | "alpaca";
+    
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      return this.createFeedError(providerName, FeedErrorType.TIMEOUT, `Request timeout: ${err.message}`);
     }
     
-    if (error.response?.status === 429) {
-      return this.createFeedError(provider as unknown, FeedErrorType.RATE_LIMITED, 'API rate limit exceeded');
+    const response = err.response as Record<string, unknown>;
+    if (response?.status === 429) {
+      return this.createFeedError(providerName, FeedErrorType.RATE_LIMITED, 'API rate limit exceeded');
     }
     
-    if (error.response?.status >= 400 && error.response?.status < 500) {
-      return this.createFeedError(provider as unknown, FeedErrorType.API_ERROR, `API error: ${error.response.status}`);
+    if (response?.status && (response.status as number) >= 400 && (response.status as number) < 500) {
+      return this.createFeedError(providerName, FeedErrorType.API_ERROR, `API error: ${response.status}`);
     }
     
-    return this.createFeedError(provider as unknown, FeedErrorType.NETWORK_ERROR, error.message || 'Unknown network error');
+    return this.createFeedError(providerName, FeedErrorType.NETWORK_ERROR, (err.message as string) || 'Unknown network error');
   }
 
   private createFeedError(provider: "tradier" | "twelvedata" | "alpaca", type: FeedErrorType, message: string): FeedError {
     return {
-      _provider,
+      provider,
       type,
       message,
       timestamp: Date.now(),

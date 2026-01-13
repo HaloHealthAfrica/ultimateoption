@@ -10,13 +10,16 @@ import { IDecisionEngine, MarketContext,
   DecisionPacket,
   GateResult,
   EngineAction,
-  TradeDirection } from '../types';
+  TradeDirection,
+  DecisionContext } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 import { PHASE_RULES,
   VOLATILITY_CAPS,
   QUALITY_BOOSTS,
   CONFIDENCE_THRESHOLDS,
-  AI_SCORE_THRESHOLDS, SIZE_BOUNDS } from '../config/constants';
+  AI_SCORE_THRESHOLDS, 
+  ALIGNMENT_THRESHOLDS,
+  SIZE_BOUNDS } from '../config/constants';
 
 export class DecisionEngineService implements IDecisionEngine {
   private configManager: ConfigManagerService;
@@ -103,7 +106,7 @@ export class DecisionEngineService implements IDecisionEngine {
     const phaseRules = PHASE_RULES[phase];
     
     // Check if direction is allowed in current phase
-    if (!phaseRules || !phaseRules.allowed.includes(direction)) {
+    if (!phaseRules || !(phaseRules.allowed as readonly TradeDirection[]).includes(direction)) {
       return {
         passed: false,
         reason: `${direction} trades not allowed in phase ${phase} (${context.regime.phaseName})`,
@@ -261,7 +264,7 @@ export class DecisionEngineService implements IDecisionEngine {
    */
   calculateConfidence(context: DecisionContext, marketContext: MarketContext): number {
     let confidence = 0;
-    const weightSum = 0;
+    let weightSum = 0;
     
     // Base confidence from regime (weight: 30%)
     const regimeWeight = 0.3;
@@ -271,7 +274,7 @@ export class DecisionEngineService implements IDecisionEngine {
     // Expert AI score contribution (weight: 25%)
     const expertWeight = 0.25;
     const aiScoreNormalized = Math.min(100, (context.expert.aiScore / 10.5) * 100);
-    const expertScore = aiScoreNormalized;
+    let expertScore = aiScoreNormalized;
     
     // Apply quality boost
     const qualityMultiplier = QUALITY_BOOSTS[context.expert.quality];
@@ -290,7 +293,7 @@ export class DecisionEngineService implements IDecisionEngine {
     const direction = context.expert.direction;
     const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
     
-    const alignmentScore = alignmentPct;
+    let alignmentScore = alignmentPct;
     if (alignmentPct >= ALIGNMENT_THRESHOLDS.STRONG_ALIGNMENT) {
       alignmentScore *= ALIGNMENT_THRESHOLDS.BONUS_MULTIPLIER;
     }

@@ -11,7 +11,8 @@ import { DecisionContext,
   WebhookError,
   EngineError,
   WebhookErrorType,
-  EngineErrorType } from '../types';
+  EngineErrorType,
+  MarketContext } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 import { AuditLoggerService } from './audit-logger.service';
 
@@ -104,7 +105,7 @@ export class ErrorHandlerService {
         symbol,
         degradationStatus,
         feedErrors: feedErrors.map(e => ({
-          provider: e._provider,
+          provider: e.provider,
           type: e.type,
           message: e.message
         })),
@@ -219,14 +220,14 @@ export class ErrorHandlerService {
     retryCount: number = 0
   ): Promise<ErrorResponse> {
     // Log the error
-    await this.auditLogger.logError(_error, {
+    await this.auditLogger.logError(error, {
       payload: this.sanitizePayload(payload),
       retryCount,
       timestamp: Date.now()
     });
 
     // Determine if error is retryable
-    const isRetryable = this.isRetryableError(_error);
+    const isRetryable = this.isRetryableError(error);
     
     if (isRetryable && retryCount < this.config.retryAttempts) {
       // Wait before retry
@@ -238,7 +239,7 @@ export class ErrorHandlerService {
 
     // Create structured error response
     const webhookError: WebhookError = {
-      type: this.classifyWebhookError(_error),
+      type: this.classifyWebhookError(error),
       message: error.message,
       details: {
         retryCount,
@@ -260,8 +261,8 @@ export class ErrorHandlerService {
     marketContext?: MarketContext
   ): Promise<ErrorResponse> {
     // Create engine-specific error
-    const engineError: EngineError = Object.assign(_error, {
-      type: this.classifyEngineError(_error),
+    const engineError: EngineError = Object.assign(error, {
+      type: this.classifyEngineError(error),
       context,
       marketContext,
       timestamp: Date.now()
@@ -345,7 +346,7 @@ export class ErrorHandlerService {
 
   private async buildFallbackMarketContext(symbol: string, feedErrors: FeedError[]): Promise<MarketContext> {
     const config = this.configManager.getConfig();
-    const failedProviders = new Set(feedErrors.map(e => e._provider));
+    const failedProviders = new Set(feedErrors.map(e => e.provider));
     
     // Build context with fallback values for failed providers
     const context: MarketContext = {
@@ -356,15 +357,15 @@ export class ErrorHandlerService {
 
     // Use fallback values from configuration
     if (failedProviders.has('tradier')) {
-      context.options = config.feeds.tradier.fallbackValues.options;
+      context.options = (config.feeds.tradier.fallbackValues as Record<string, unknown>).options as MarketContext['options'];
     }
     
     if (failedProviders.has('twelvedata')) {
-      context.stats = config.feeds.twelveData.fallbackValues.stats;
+      context.stats = (config.feeds.twelveData.fallbackValues as Record<string, unknown>).stats as MarketContext['stats'];
     }
     
     if (failedProviders.has('alpaca')) {
-      context.liquidity = config.feeds.alpaca.fallbackValues.liquidity;
+      context.liquidity = (config.feeds.alpaca.fallbackValues as Record<string, unknown>).liquidity as MarketContext['liquidity'];
     }
 
     // Calculate completeness based on available data
@@ -431,7 +432,7 @@ export class ErrorHandlerService {
       return payload;
     }
     
-    const sanitized = { ...payload };
+    const sanitized = { ...payload } as Record<string, unknown>;
     
     // Remove sensitive fields
     const sensitiveFields = ['api_key', 'apiKey', 'secret', 'token', 'password', 'auth'];
