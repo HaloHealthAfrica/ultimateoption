@@ -7,7 +7,7 @@
 
 import { DecisionOrchestratorService } from '../services/decision-orchestrator.service';
 import { ServiceFactory } from '../services/service-factory';
-import { WebhookSource, DecisionContext, MarketContext } from '../types';
+import { WebhookSource, MarketContext } from '../types';
 
 describe('Phase 2.5 End-to-End Integration Tests', () => {
   let orchestrator: DecisionOrchestratorService;

@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       total_active: signalsArray.length,
       retrieved_at: Date.now(),
     });
-  } catch (error) {
-    console.error('Error in GET /api/signals/current:', error);
+  } catch {
+    console.error('Error in GET /api/signals/current:');
     
     return NextResponse.json(
       { error: 'Internal server error' },

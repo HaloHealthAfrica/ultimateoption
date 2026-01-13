@@ -12,7 +12,7 @@ import { MarketContextBuilder } from '../services/market-context-builder';
 
 describe('Debug Webhook Service', () => {
   let webhookService: WebhookService;
-  let app: any;
+  let app: unknown;
 
   beforeAll(async () => {
     try {
@@ -40,7 +40,7 @@ describe('Debug Webhook Service', () => {
 
       app = webhookService.getApp();
       console.log('Webhook service initialized successfully');
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to initialize webhook service:', error);
       throw error;
     }
@@ -57,7 +57,7 @@ describe('Debug Webhook Service', () => {
       
       // Accept either 200 or 503 for now
       expect([200, 503]).toContain(response.status);
-    } catch (error) {
+    } catch (_error) {
       console.error('Health check failed:', error);
       throw error;
     }
@@ -84,7 +84,7 @@ describe('Debug Webhook Service', () => {
       
       // Accept either 200 or 400 for now to see what's happening
       expect([200, 400, 500]).toContain(response.status);
-    } catch (error) {
+    } catch (_error) {
       console.error('Signal test failed:', error);
       throw error;
     }

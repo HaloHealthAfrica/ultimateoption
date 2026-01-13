@@ -5,15 +5,11 @@
  */
 
 import fc from 'fast-check';
-import { 
-  ENGINE_VERSION,
-  PHASE_RULES,
-  DecisionContext,
-  MarketContext,
+import { ENGINE_VERSION,
+  PHASE_RULES, MarketContext,
   getConfluenceMultiplier,
   getRRMultiplier,
-  clamp
-} from '../types';
+  clamp } from '../types';
 import { 
   PBT_CONFIG,
   createPropertyTag,

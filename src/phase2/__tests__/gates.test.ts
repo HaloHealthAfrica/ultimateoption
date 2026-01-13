@@ -13,7 +13,7 @@ import {
   PhaseGate, 
   SessionGate 
 } from '../gates';
-import { DecisionContext, MarketContext, SignalType, MarketSession, GammaBias } from '../types';
+import { MarketContext, SignalType, MarketSession, GammaBias, DecisionContext } from '../types';
 import { GATE_THRESHOLDS, GATE_REASONS } from '../constants/gates';
 
 // Test data generators
@@ -381,7 +381,7 @@ describe('PhaseGate', () => {
 
     test('uses default value of 0 when phase data missing', () => {
       const context = createBaseContext();
-      context.indicator.satyPhase = undefined as any;
+      context.indicator.satyPhase = undefined as unknown;
 
       const result = gate.evaluate(context);
 

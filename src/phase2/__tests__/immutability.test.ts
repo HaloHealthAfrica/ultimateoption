@@ -51,11 +51,11 @@ describe('Immutability System', () => {
       
       // Test nested objects are frozen
       expect(() => {
-        (PERFORMANCE_TARGETS as any).webhookResponse = 1000;
+        (PERFORMANCE_TARGETS as unknown).webhookResponse = 1000;
       }).toThrow();
       
       expect(() => {
-        (PERFORMANCE_TARGETS as any).newProperty = 'test';
+        (PERFORMANCE_TARGETS as unknown).newProperty = 'test';
       }).toThrow();
     });
 
@@ -66,11 +66,11 @@ describe('Immutability System', () => {
       
       // Test modification attempts throw errors
       expect(() => {
-        (PROVIDER_CONFIG.tradier as any).timeout = 1000;
+        (PROVIDER_CONFIG.tradier as unknown).timeout = 1000;
       }).toThrow();
       
       expect(() => {
-        (PROVIDER_CONFIG.tradier.fallback as any).putCallRatio = 2.0;
+        (PROVIDER_CONFIG.tradier.fallback as unknown).putCallRatio = 2.0;
       }).toThrow();
     });
 
@@ -79,7 +79,7 @@ describe('Immutability System', () => {
       expect(Object.isFrozen(NORMALIZATION_RULES.aiScore)).toBe(true);
       
       expect(() => {
-        (NORMALIZATION_RULES.aiScore as any).max = 15;
+        (NORMALIZATION_RULES.aiScore as unknown).max = 15;
       }).toThrow();
     });
 
@@ -92,11 +92,11 @@ describe('Immutability System', () => {
       
       // Test modification attempts
       expect(() => {
-        (GATE_THRESHOLDS as any).SPREAD_BPS = 20;
+        (GATE_THRESHOLDS as unknown).SPREAD_BPS = 20;
       }).toThrow();
       
       expect(() => {
-        (CONFIDENCE_BOOSTS as any).SATY_PHASE_BOOST = 1.0;
+        (CONFIDENCE_BOOSTS as unknown).SATY_PHASE_BOOST = 1.0;
       }).toThrow();
     });
 
@@ -105,11 +105,11 @@ describe('Immutability System', () => {
       expect(Object.isFrozen(GATE_REGISTRY.SPREAD_GATE)).toBe(true);
       
       expect(() => {
-        (GATE_REGISTRY.SPREAD_GATE as any).threshold = 20;
+        (GATE_REGISTRY.SPREAD_GATE as unknown).threshold = 20;
       }).toThrow();
       
       expect(() => {
-        (GATE_REGISTRY as any).NEW_GATE = {};
+        (GATE_REGISTRY as unknown).NEW_GATE = {};
       }).toThrow();
     });
 
@@ -119,7 +119,7 @@ describe('Immutability System', () => {
       expect(Object.isFrozen(CONFIDENCE_MATRIX.boosts.satyPhase)).toBe(true);
       
       expect(() => {
-        (CONFIDENCE_MATRIX.boosts.satyPhase as any).boost = 1.0;
+        (CONFIDENCE_MATRIX.boosts.satyPhase as unknown).boost = 1.0;
       }).toThrow();
     });
 
@@ -128,7 +128,7 @@ describe('Immutability System', () => {
       expect(Object.isFrozen(FALLBACK_MATRIX.tradier)).toBe(true);
       
       expect(() => {
-        (FALLBACK_MATRIX.tradier as any).putCallRatio = 2.0;
+        (FALLBACK_MATRIX.tradier as unknown).putCallRatio = 2.0;
       }).toThrow();
     });
 
@@ -138,7 +138,7 @@ describe('Immutability System', () => {
       expect(Object.isFrozen(PERFORMANCE_CONSTRAINTS.validation)).toBe(true);
       
       expect(() => {
-        (PERFORMANCE_CONSTRAINTS.validation as any).maxPayloadSize = 2048;
+        (PERFORMANCE_CONSTRAINTS.validation as unknown).maxPayloadSize = 2048;
       }).toThrow();
     });
   });
@@ -154,11 +154,11 @@ describe('Immutability System', () => {
       const protectedConfig = getImmutableConfig(testConfig, 'testConfig');
       
       expect(() => {
-        (protectedConfig as any).value = 100;
+        (protectedConfig as unknown).value = 100;
       }).toThrow(/Attempted to modify frozen configuration/);
       
       expect(() => {
-        delete (protectedConfig as any).value;
+        delete (protectedConfig as unknown).value;
       }).toThrow(/Attempted to delete property/);
       
       expect(() => {
@@ -261,11 +261,11 @@ describe('Immutability System', () => {
       const frozenArray = Object.freeze(['a', 'b', 'c']);
       
       expect(() => {
-        (frozenArray as any).push('d');
+        (frozenArray as unknown).push('d');
       }).toThrow();
       
       expect(() => {
-        (frozenArray as any)[0] = 'modified';
+        (frozenArray as unknown)[0] = 'modified';
       }).toThrow();
     });
 
@@ -279,7 +279,7 @@ describe('Immutability System', () => {
       });
       
       expect(() => {
-        (nestedConfig.level1.level2 as any).value = 100;
+        (nestedConfig.level1.level2 as unknown).value = 100;
       }).toThrow();
     });
 
@@ -287,8 +287,8 @@ describe('Immutability System', () => {
       const originalThreshold = GATE_THRESHOLDS.SPREAD_BPS;
       
       try {
-        (GATE_THRESHOLDS as any).SPREAD_BPS = 999;
-      } catch (error) {
+        (GATE_THRESHOLDS as unknown).SPREAD_BPS = 999;
+      } catch (_error) {
         // Expected to throw
       }
       
@@ -361,7 +361,7 @@ describe('Immutability System', () => {
     });
 
     test('should handle circular references gracefully', () => {
-      const obj: any = { name: 'test' };
+      const obj: unknown = { name: 'test' };
       obj.self = obj;
       
       // Should not throw when freezing circular references

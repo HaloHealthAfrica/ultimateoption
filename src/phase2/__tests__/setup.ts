@@ -24,7 +24,7 @@ expect.extend({
     }
   },
   
-  toBeValidDecision(received: any) {
+  toBeValidDecision(received: unknown) {
     const validDecisions = ['APPROVE', 'REJECT'];
     const pass = validDecisions.includes(received);
     if (pass) {
@@ -40,7 +40,7 @@ expect.extend({
     }
   },
   
-  toHaveValidAuditTrail(received: any) {
+  toHaveValidAuditTrail(received: unknown) {
     const requiredFields = [
       'context_snapshot',
       'gate_results',
@@ -122,7 +122,7 @@ global.console = {
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
-  error: originalConsole.error, // Keep errors visible
+  error: originalConsole._error, // Keep errors visible
   debug: jest.fn()
 };
 
@@ -131,7 +131,7 @@ export const testUtils = {
   /**
    * Create a valid test signal payload
    */
-  createValidSignal: (overrides: any = {}) => ({
+  createValidSignal: (overrides: unknown = {}) => ({
     signal: {
       type: 'LONG',
       aiScore: 7.5,
@@ -151,7 +151,7 @@ export const testUtils = {
   /**
    * Create a valid SATY phase payload
    */
-  createValidSatyPhase: (overrides: any = {}) => ({
+  createValidSatyPhase: (overrides: unknown = {}) => ({
     phase: 80,
     confidence: 85,
     symbol: 'TEST',
@@ -196,7 +196,7 @@ export const testUtils = {
   /**
    * Validate decision output structure
    */
-  validateDecisionOutput: (output: any) => {
+  validateDecisionOutput: (output: unknown) => {
     expect(output).toEqual(expect.objectContaining({
       decision: expect.stringMatching(/^(APPROVE|REJECT)$/),
       direction: expect.stringMatching(/^(LONG|SHORT)$/),

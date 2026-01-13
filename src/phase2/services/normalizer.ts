@@ -6,13 +6,9 @@
  * No business logic - pure data transformation only.
  */
 
-import { 
-  TradingViewSignal, 
-  SatyPhaseWebhook, 
-  DecisionContext, 
-  SignalType, 
-  MarketSession 
-} from '../types';
+import { TradingViewSignal, 
+  SatyPhaseWebhook, SignalType, 
+  MarketSession, DecisionContext } from '../types';
 import { NORMALIZATION_RULES } from '../config/index';
 import { VALIDATION_CONSTANTS } from '../constants/gates';
 
@@ -20,38 +16,40 @@ export class Normalizer {
   /**
    * Normalize TradingView signal webhook to DecisionContext
    */
-  static normalizeSignal(payload: any): DecisionContext {
+  static normalizeSignal(payload: unknown): DecisionContext {
+    const data = payload as any;
+    
     // Validate required fields
-    if (!payload.signal) {
+    if (!data.signal) {
       throw new Error('Missing required field: signal');
     }
     
-    if (!payload.signal.type) {
+    if (!data.signal.type) {
       throw new Error('Missing required field: signal.type');
     }
     
-    if (typeof payload.signal.aiScore !== 'number') {
+    if (typeof data.signal.aiScore !== 'number') {
       throw new Error('Missing or invalid field: signal.aiScore must be a number');
     }
     
-    if (!payload.signal.symbol) {
+    if (!data.signal.symbol) {
       throw new Error('Missing required field: signal.symbol');
     }
     
     // Validate and normalize signal type
-    const signalType = this.normalizeSignalType(payload.signal.type);
+    const signalType = this.normalizeSignalType(data.signal.type);
     
     // Validate and clamp aiScore (0-10.5)
-    const aiScore = this.clampAiScore(payload.signal.aiScore);
+    const aiScore = this.clampAiScore(data.signal.aiScore);
     
     // Extract and validate satyPhase
-    const satyPhase = this.normalizeSatyPhaseFromSignal(payload.satyPhase);
+    const satyPhase = this.normalizeSatyPhaseFromSignal(data.satyPhase);
     
     // Validate and normalize market session
-    const marketSession = this.normalizeMarketSession(payload.marketSession);
+    const marketSession = this.normalizeMarketSession(data.marketSession);
     
     // Extract timestamp (use current time if not provided)
-    const timestamp = payload.signal.timestamp || Date.now();
+    const timestamp = data.signal.timestamp || Date.now();
     
     const context: DecisionContext = {
       indicator: {
@@ -59,7 +57,7 @@ export class Normalizer {
         aiScore,
         satyPhase,
         marketSession,
-        symbol: payload.signal.symbol.toString().toUpperCase(),
+        symbol: data.signal.symbol.toString().toUpperCase(),
         timestamp
       }
     };
@@ -70,30 +68,32 @@ export class Normalizer {
   /**
    * Normalize SATY phase webhook payload
    */
-  static normalizeSatyPhase(payload: any): SatyPhaseWebhook {
+  static normalizeSatyPhase(payload: unknown): SatyPhaseWebhook {
+    const data = payload as any;
+    
     // Validate required fields
-    if (typeof payload.phase !== 'number') {
+    if (typeof data.phase !== 'number') {
       throw new Error('Missing or invalid field: phase must be a number');
     }
     
-    if (!payload.symbol) {
+    if (!data.symbol) {
       throw new Error('Missing required field: symbol');
     }
     
     // Clamp phase value (-100 to 100)
-    const phase = this.clampSatyPhaseValue(payload.phase);
+    const phase = this.clampSatyPhaseValue(data.phase);
     
     // Extract confidence (default to phase absolute value if not provided)
-    const confidence = typeof payload.confidence === 'number' 
-      ? Math.abs(payload.confidence) 
+    const confidence = typeof data.confidence === 'number' 
+      ? Math.abs(data.confidence) 
       : Math.abs(phase);
     
-    const timestamp = payload.timestamp || Date.now();
+    const timestamp = data.timestamp || Date.now();
     
     return {
       phase,
       confidence,
-      symbol: payload.symbol.toString().toUpperCase(),
+      symbol: data.symbol.toString().toUpperCase(),
       timestamp
     };
   }
@@ -101,7 +101,7 @@ export class Normalizer {
   /**
    * Validate and normalize signal type
    */
-  private static normalizeSignalType(type: any): SignalType {
+  private static normalizeSignalType(type: unknown): SignalType {
     if (typeof type !== 'string') {
       throw new Error('signal.type must be a string');
     }
@@ -139,13 +139,15 @@ export class Normalizer {
   /**
    * Extract and normalize SATY phase value from signal payload
    */
-  private static normalizeSatyPhaseFromSignal(satyPhase: any): number {
+  private static normalizeSatyPhaseFromSignal(satyPhase: unknown): number {
+    const data = satyPhase as any;
+    
     // If no satyPhase provided, use default
-    if (!satyPhase || typeof satyPhase.phase !== 'number') {
+    if (!satyPhase || typeof data.phase !== 'number') {
       return NORMALIZATION_RULES.satyPhase.default;
     }
     
-    return this.clampSatyPhaseValue(satyPhase.phase);
+    return this.clampSatyPhaseValue(data.phase);
   }
   
   /**
@@ -168,7 +170,7 @@ export class Normalizer {
   /**
    * Validate and normalize market session
    */
-  private static normalizeMarketSession(session: any): MarketSession {
+  private static normalizeMarketSession(session: unknown): MarketSession {
     // If no session provided, default to OPEN
     if (!session) {
       return 'OPEN';

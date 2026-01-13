@@ -9,7 +9,7 @@ import { Phase25Server } from '../server';
 
 describe('Phase 2.5 Webhook Integration', () => {
   let server: Phase25Server;
-  let app: any;
+  let app: unknown;
 
   beforeAll(() => {
     server = new Phase25Server(3002);

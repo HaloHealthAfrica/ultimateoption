@@ -5,7 +5,7 @@
  * Threshold: ATR14/RV20 ratio must not exceed 2.0
  */
 
-import { DecisionContext, GateResult } from '../types';
+import { GateResult, DecisionContext } from '../types';
 import { GATE_NAMES, GATE_THRESHOLDS, GATE_REASONS } from '../constants/gates';
 import { BaseRiskGate } from './base-gate';
 

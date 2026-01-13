@@ -6,12 +6,8 @@
  */
 
 import { NormalizerService } from './normalizer.service';
-import { 
-  WebhookSource, 
-  NormalizedPayload, 
-  WebhookError, 
-  WebhookErrorType 
-} from '../types';
+import { WebhookSource, WebhookError, 
+  WebhookErrorType } from '../types';
 
 export class SourceRouterService {
   private normalizer: NormalizerService;
@@ -23,7 +19,7 @@ export class SourceRouterService {
   /**
    * Route webhook payload to appropriate normalizer
    */
-  routeWebhook(payload: any): {
+  routeWebhook(payload: unknown): {
     success: boolean;
     source?: WebhookSource;
     normalized?: NormalizedPayload;
@@ -89,7 +85,7 @@ export class SourceRouterService {
   /**
    * Get source detection hints for debugging
    */
-  getSourceDetectionHints(payload: any): Record<string, boolean> {
+  getSourceDetectionHints(payload: unknown): Record<string, boolean> {
     if (!payload || typeof payload !== 'object') {
       return {};
     }
@@ -111,7 +107,7 @@ export class SourceRouterService {
   /**
    * Create appropriate error for routing failures
    */
-  private createRoutingError(error: any, payload: any): WebhookError {
+  private createRoutingError(error: unknown, payload: unknown): WebhookError {
     if (error.message?.includes('Unknown webhook source')) {
       return {
         type: WebhookErrorType.UNKNOWN_SOURCE,
@@ -152,7 +148,7 @@ export class SourceRouterService {
   /**
    * Generate helpful text for source detection failures
    */
-  private getDetectionHelpText(payload: any): string {
+  private getDetectionHelpText(payload: unknown): string {
     const hints = this.getSourceDetectionHints(payload);
     const suggestions: string[] = [];
 
@@ -186,7 +182,7 @@ export class SourceRouterService {
   /**
    * Sanitize payload for safe logging (remove sensitive data)
    */
-  private sanitizePayloadForLogging(payload: any): any {
+  private sanitizePayloadForLogging(payload: unknown): unknown {
     if (!payload || typeof payload !== 'object') {
       return payload;
     }

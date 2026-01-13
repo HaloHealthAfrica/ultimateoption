@@ -99,7 +99,7 @@ function entryToStoredSignal(entry: LedgerEntry): StoredSignal {
  * @returns Replay result with match/mismatch status
  */
 export function replayDecision(entry: LedgerEntry): ReplayResult {
-  const startTime = Date.now();
+  const _startTime = Date.now();
   
   try {
     // Check engine version
@@ -114,7 +114,7 @@ export function replayDecision(entry: LedgerEntry): ReplayResult {
         original_confluence: entry.confluence_score,
         original_breakdown: entry.decision_breakdown,
         replayed_at: Date.now(),
-        replay_duration_ms: Date.now() - startTime,
+        replay_duration_ms: Date.now() - _startTime,
       };
     }
     
@@ -205,7 +205,7 @@ export function replayDecision(entry: LedgerEntry): ReplayResult {
       replayed_breakdown: replayedResult.breakdown,
       mismatches: mismatches.length > 0 ? mismatches : undefined,
       replayed_at: Date.now(),
-      replay_duration_ms: Date.now() - startTime,
+      replay_duration_ms: Date.now() - _startTime,
     };
   } catch (error) {
     return {
@@ -218,7 +218,7 @@ export function replayDecision(entry: LedgerEntry): ReplayResult {
       original_breakdown: entry.decision_breakdown,
       error: error instanceof Error ? error.message : 'Unknown error',
       replayed_at: Date.now(),
-      replay_duration_ms: Date.now() - startTime,
+      replay_duration_ms: Date.now() - _startTime,
     };
   }
 }

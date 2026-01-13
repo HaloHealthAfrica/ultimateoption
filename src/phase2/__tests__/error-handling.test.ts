@@ -75,7 +75,7 @@ describe('Error Handling System', () => {
       
       expect(error.type).toBe(ErrorType.PROVIDER_ERROR);
       expect(error.statusCode).toBe(HTTP_STATUS.OK);
-      expect(error.context.provider).toBe('tradier');
+      expect(error.context._provider).toBe('tradier');
     });
 
     test('TimeoutError should create proper error with timeout context', () => {
@@ -105,7 +105,7 @@ describe('Error Handling System', () => {
   describe('Error Handler Middleware', () => {
     
     test('should handle ValidationError with HTTP 400', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ValidationError('Missing required field: symbol', { field: 'symbol' }));
       });
       app.use(errorHandler);
@@ -113,14 +113,14 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body._error).toBe('VALIDATION_ERROR');
       expect(response.body.message).toBe('Missing required field: symbol');
       expect(response.body.engineVersion).toBe(ENGINE_VERSION);
       expect(response.body.details.field).toBe('symbol');
     });
 
     test('should handle InternalError with HTTP 500', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new InternalError('Database connection failed'));
       });
       app.use(errorHandler);
@@ -128,12 +128,12 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('INTERNAL_ERROR');
+      expect(response.body._error).toBe('INTERNAL_ERROR');
       expect(response.body.message).toBe('Database connection failed');
     });
 
     test('should handle ServiceUnavailableError with HTTP 503', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ServiceUnavailableError('System overloaded'));
       });
       app.use(errorHandler);
@@ -141,11 +141,11 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toBe('SERVICE_UNAVAILABLE');
+      expect(response.body._error).toBe('SERVICE_UNAVAILABLE');
     });
 
     test('should handle RateLimitError with Retry-After header', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new RateLimitError('Rate limit exceeded', 60));
       });
       app.use(errorHandler);
@@ -157,7 +157,7 @@ describe('Error Handling System', () => {
     });
 
     test('should convert generic errors to InternalError', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new Error('Unexpected error'));
       });
       app.use(errorHandler);
@@ -165,12 +165,12 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('INTERNAL_ERROR');
+      expect(response.body._error).toBe('INTERNAL_ERROR');
       expect(response.body.message).toBe('An internal error occurred. Please try again later.');
     });
 
     test('should include request ID in response', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ValidationError('Test error'));
       });
       app.use(errorHandler);
@@ -217,7 +217,7 @@ describe('Error Handling System', () => {
         .send({ name: 123, age: 'invalid' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body._error).toBe('VALIDATION_ERROR');
       expect(response.body.message).toContain('Name must be a string');
       expect(response.body.message).toContain('Age must be a number');
     });
@@ -243,7 +243,7 @@ describe('Error Handling System', () => {
   describe('Async Handler Wrapper', () => {
     
     test('should handle async errors properly', async () => {
-      app.get('/test', asyncHandler(async (req, res, next) => {
+      app.get('/test', asyncHandler(async (req, res, _next) => {
         await new Promise(resolve => setTimeout(resolve, 10));
         throw new ValidationError('Async validation error');
       }));
@@ -252,11 +252,11 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body._error).toBe('VALIDATION_ERROR');
     });
 
     test('should handle async promise rejections', async () => {
-      app.get('/test', asyncHandler(async (req, res, next) => {
+      app.get('/test', asyncHandler(async (req, res, _next) => {
         await Promise.reject(new Error('Promise rejection'));
       }));
       app.use(errorHandler);
@@ -264,7 +264,7 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('INTERNAL_ERROR');
+      expect(response.body._error).toBe('INTERNAL_ERROR');
     });
   });
 
@@ -272,7 +272,7 @@ describe('Error Handling System', () => {
     
     test('should handle request timeouts', async () => {
       app.use(timeoutHandler(100)); // 100ms timeout
-      app.get('/test', asyncHandler(async (req, res, next) => {
+      app.get('/test', asyncHandler(async (req, res, _next) => {
         await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay
         res.json({ success: true });
       }));
@@ -281,7 +281,7 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toBe('TIMEOUT_ERROR');
+      expect(response.body._error).toBe('TIMEOUT_ERROR');
     }, 10000);
 
     test('should not timeout for fast requests', async () => {
@@ -350,7 +350,7 @@ describe('Error Handling System', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(mockFn);
-        } catch (error) {
+        } catch (_error) {
           // Expected failures
         }
       }
@@ -374,7 +374,7 @@ describe('Error Handling System', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(mockFn);
-        } catch (error) {
+        } catch (_error) {
           // Expected failures
         }
       }
@@ -395,7 +395,7 @@ describe('Error Handling System', () => {
   describe('Integration Error Scenarios', () => {
     
     test('should handle provider timeout with fallback', async () => {
-      app.get('/test', asyncHandler(async (req, res, next) => {
+      app.get('/test', asyncHandler(async (req, res, _next) => {
         // Simulate provider timeout
         throw new ProviderError('Tradier API timeout - using fallback data', 'tradier', {
           timeout: 600,
@@ -407,13 +407,13 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(200); // Provider errors return 200 with fallback
-      expect(response.body.error).toBe('PROVIDER_ERROR');
-      expect(response.body.details.provider).toBe('tradier');
+      expect(response.body._error).toBe('PROVIDER_ERROR');
+      expect(response.body.details._provider).toBe('tradier');
       expect(response.body.details.fallbackUsed).toBe(true);
     });
 
     test('should handle system overload scenario', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ServiceUnavailableError('System overloaded - too many concurrent requests', {
           activeRequests: 100,
           maxConcurrent: 50
@@ -424,12 +424,12 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toBe('SERVICE_UNAVAILABLE');
+      expect(response.body._error).toBe('SERVICE_UNAVAILABLE');
       expect(response.body.details.activeRequests).toBe(100);
     });
 
     test('should handle immutability violation', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ImmutabilityViolationError('Attempted to modify frozen configuration', {
           object: 'GATE_THRESHOLDS',
           property: 'SPREAD_BPS'
@@ -440,7 +440,7 @@ describe('Error Handling System', () => {
       const response = await request(app).get('/test');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('IMMUTABILITY_VIOLATION');
+      expect(response.body._error).toBe('IMMUTABILITY_VIOLATION');
       expect(response.body.details.object).toBe('GATE_THRESHOLDS');
     });
 
@@ -478,7 +478,7 @@ describe('Error Handling System', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body._error).toBe('VALIDATION_ERROR');
       expect(response.body.message).toContain('Signal type must be LONG or SHORT');
       expect(response.body.message).toContain('aiScore must be a number');
     });
@@ -487,7 +487,7 @@ describe('Error Handling System', () => {
   describe('Error Response Format', () => {
     
     test('should include all required fields in error response', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ValidationError('Test validation error', { field: 'test' }));
       });
       app.use(errorHandler);
@@ -507,7 +507,7 @@ describe('Error Handling System', () => {
     });
 
     test('should include proper headers in error response', async () => {
-      app.get('/test', (req, res, next) => {
+      app.get('/test', (req, res, _next) => {
         next(new ValidationError('Test error'));
       });
       app.use(errorHandler);

@@ -5,7 +5,7 @@
  * request sanitization, and suspicious activity detection.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import {
   apiKeyValidation,
   securityHeaders,
@@ -74,9 +74,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
 
     it('should require API key for protected paths', async () => {
@@ -92,9 +92,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Missing API key');
     });
@@ -111,9 +111,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Invalid API key format');
     });
@@ -130,9 +130,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Invalid API key format');
     });
@@ -150,9 +150,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Invalid API key');
     });
@@ -170,10 +170,10 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
-      expect((req as any).apiKeyInfo).toEqual({
+      expect(_next).toHaveBeenCalledWith();
+      expect((req as unknown).apiKeyInfo).toEqual({
         key: 'valid-key-...',
         valid: true
       });
@@ -194,9 +194,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
   });
 
@@ -208,13 +208,13 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
       expect(res.set).toHaveBeenCalledWith('Content-Security-Policy', expect.any(String));
       expect(res.set).toHaveBeenCalledWith('Strict-Transport-Security', expect.any(String));
       expect(res.set).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
       expect(res.set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
 
     it('should allow custom headers', async () => {
@@ -228,10 +228,10 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
       expect(res.set).toHaveBeenCalledWith('X-Custom-Header', 'custom-value');
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
 
     it('should allow disabling specific headers', async () => {
@@ -244,11 +244,11 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
       expect(res.set).not.toHaveBeenCalledWith('Content-Security-Policy', expect.any(String));
       expect(res.set).not.toHaveBeenCalledWith('Strict-Transport-Security', expect.any(String));
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
   });
 
@@ -264,10 +264,10 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
-      expect((req as any).sanitized).toBe(true);
+      expect(_next).toHaveBeenCalledWith();
+      expect((req as unknown).sanitized).toBe(true);
     });
 
     it('should reject invalid content types', async () => {
@@ -281,9 +281,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Unsupported content type');
     });
@@ -299,9 +299,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Request body too large');
     });
@@ -317,9 +317,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Invalid request headers');
     });
@@ -336,9 +336,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('Invalid request headers');
     });
@@ -352,10 +352,10 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
-      expect((req as any).fingerprint).toEqual(expect.objectContaining({
+      expect(_next).toHaveBeenCalledWith();
+      expect((req as unknown).fingerprint).toEqual(expect.objectContaining({
         ip: '127.0.0.1',
         userAgent: 'test-agent/1.0',
         method: 'POST',
@@ -373,10 +373,10 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
-      expect((req as any).fingerprint).toBeDefined();
+      expect(_next).toHaveBeenCalledWith();
+      expect((req as unknown).fingerprint).toBeDefined();
     });
   });
 
@@ -386,7 +386,7 @@ describe('Security Middleware', () => {
     beforeEach(() => {
       detector = SuspiciousActivityDetector.getInstance();
       // Clear any existing data
-      (detector as any).suspiciousIPs.clear();
+      (detector as unknown).suspiciousIPs.clear();
     });
 
     it('should detect and block suspicious IPs', async () => {
@@ -401,9 +401,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+      expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
       const error = (next as jest.Mock).mock.calls[0][0];
       expect(error.message).toContain('suspicious activity');
     });
@@ -420,9 +420,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
       // Should record the activity but not block immediately
     });
 
@@ -436,9 +436,9 @@ describe('Security Middleware', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      middleware(req as Request, res as Response, next);
+      middleware(req as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
       // Should record the activity
     });
 
@@ -507,10 +507,10 @@ describe('Security Middleware', () => {
           const res = createMockResponse();
           const next = createMockNext();
 
-          middleware(req as Request, res as Response, next);
+          middleware(req as Request, res as Response, _next);
 
           // Property: Invalid keys always result in errors
-          expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+          expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
         }
       ), { numRuns: 50 });
     });
@@ -530,14 +530,14 @@ describe('Security Middleware', () => {
           const res = createMockResponse();
           const next = createMockNext();
 
-          middleware(req as Request, res as Response, next);
+          middleware(req as Request, res as Response, _next);
 
           const isAllowed = allowedTypes.some(type => contentType.includes(type));
           
           if (isAllowed) {
-            expect(next).toHaveBeenCalledWith();
+            expect(_next).toHaveBeenCalledWith();
           } else {
-            expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+            expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
           }
         }
       ), { numRuns: 30 });
@@ -561,10 +561,10 @@ describe('Security Middleware', () => {
           const res = createMockResponse();
           const next = createMockNext();
 
-          middleware(req as Request, res as Response, next);
+          middleware(req as Request, res as Response, _next);
 
           // Property: Header injection always results in error
-          expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+          expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
         }
       ), { numRuns: 30 });
     });
@@ -584,12 +584,12 @@ describe('Security Middleware', () => {
           const res = createMockResponse();
           const next = createMockNext();
 
-          middleware(req as Request, res as Response, next);
+          middleware(req as Request, res as Response, _next);
 
           if (actualSize <= maxSize) {
-            expect(next).toHaveBeenCalledWith();
+            expect(_next).toHaveBeenCalledWith();
           } else {
-            expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+            expect(_next).toHaveBeenCalledWith(expect.any(ValidationError));
           }
         }
       ), { numRuns: 50 });
@@ -601,7 +601,7 @@ describe('Security Middleware', () => {
         fc.integer({ min: 1, max: 20 }),
         (ip, activityCount) => {
           const detector = SuspiciousActivityDetector.getInstance();
-          (detector as any).suspiciousIPs.clear(); // Clear for test
+          (detector as unknown).suspiciousIPs.clear(); // Clear for test
 
           // Record activities
           for (let i = 0; i < activityCount; i++) {

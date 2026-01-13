@@ -6,14 +6,11 @@
  */
 
 import * as fc from 'fast-check';
-import { 
-  DecisionContext, 
-  MarketContext, 
+import { MarketContext, 
   TradeDirection, 
   WebhookSource,
   NormalizedPayload,
-  EngineAction
-} from '../types';
+  EngineAction } from '../types';
 
 // ============================================================================
 // BASIC GENERATORS

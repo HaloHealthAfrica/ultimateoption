@@ -6,16 +6,11 @@
  */
 
 import fc from 'fast-check';
-import { 
-  DecisionContext, 
-  MarketContext, 
+import { MarketContext, 
   TradeDirection, 
   WebhookSource,
-  SatyPhaseWebhook,
-  MtfDotsWebhook,
-  UltimateOptionsWebhook,
-  StratExecutionWebhook
-} from '../types';
+  SatyPhaseWebhook } from '../types';
+  // MtfDotsWebhook, UltimateOptionsWebhook, StratExecutionWebhook unused
 
 // ============================================================================
 // PROPERTY-BASED TEST CONFIGURATION

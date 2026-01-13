@@ -154,7 +154,7 @@ describe('PhaseStore Property Tests', () => {
             const now = Date.now();
             storedPhases.forEach(({ config }) => {
               const key = `${config.symbol}:${config.timeframe}`;
-              const stored = (store as any).phases.get(key);
+              const stored = (store as unknown).phases.get(key);
               if (stored && config.decayMinutes <= 2) {
                 // Set expiry to past for short TTL phases
                 stored.expires_at = now - 1000;

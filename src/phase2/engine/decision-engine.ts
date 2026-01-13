@@ -5,7 +5,7 @@
  * auditable APPROVE/REJECT decisions with complete audit trails.
  */
 
-import { DecisionContext, DecisionOutput, Decision, GateResult, AuditTrail, ENGINE_VERSION } from '../types';
+import { DecisionOutput, DecisionContext, Decision, GateResult, AuditTrail, ENGINE_VERSION } from '../types';
 import { GATE_THRESHOLDS, CONFIDENCE_BOOSTS } from '../constants/gates';
 import { 
   SpreadGate, 

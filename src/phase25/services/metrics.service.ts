@@ -5,12 +5,7 @@
  * and system health indicators for monitoring and analysis.
  */
 
-import { 
-  DecisionPacket, 
-  EngineAction, 
-  MarketContext,
-  DecisionContext
-} from '../types';
+import { DecisionPacket } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
 
 export interface DecisionMetrics {
@@ -324,7 +319,7 @@ export class MetricsService {
     issues: string[];
   } {
     const issues: string[] = [];
-    let score = 100;
+    const score = 100;
 
     // Check error rate
     if (this.performanceMetrics.errors.errorRate > 0.1) {
@@ -440,7 +435,7 @@ export class MetricsService {
 
   private updateThroughputMetrics(): void {
     const now = Date.now();
-    const timeSinceStart = (now - this.startTime) / 1000; // seconds
+    const timeSinceStart = (now - this._startTime) / 1000; // seconds
     
     if (timeSinceStart > 0) {
       this.performanceMetrics.throughput.avgRPS = 
@@ -448,7 +443,7 @@ export class MetricsService {
     }
 
     // Calculate current RPS (requests in last 60 seconds)
-    const oneMinuteAgo = now - 60000;
+    const _oneMinuteAgo = now - 60000;
     if (now - this.lastRPSCalculation > 10000) { // Update every 10 seconds
       // This is a simplified calculation - in production you'd want a sliding window
       this.performanceMetrics.throughput.currentRPS = 

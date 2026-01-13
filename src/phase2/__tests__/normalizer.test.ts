@@ -373,8 +373,8 @@ describe('Normalizer', () => {
       const context = {
         indicator: {
           signalType: 'LONG' as const,
-          aiScore: undefined as any,
-          satyPhase: undefined as any,
+          aiScore: undefined as unknown,
+          satyPhase: undefined as unknown,
           marketSession: 'OPEN' as const,
           symbol: 'SPX',
           timestamp: 1641859200000

@@ -178,8 +178,8 @@ class EventBusImpl {
       for (const handler of handlers) {
         try {
           handler(event as Event);
-        } catch (error) {
-          console.error(`Error in event handler for ${eventType}:`, error);
+        } catch {
+          console.error(`Error in event handler for ${eventType}:`);
         }
       }
     }

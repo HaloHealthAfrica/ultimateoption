@@ -7,7 +7,7 @@
 
 import fc from 'fast-check';
 import { DecisionEngine } from '../engine/decision-engine';
-import { DecisionContext, MarketContext, SignalType, MarketSession, GammaBias, ENGINE_VERSION } from '../types';
+import { MarketContext, SignalType, MarketSession, GammaBias, ENGINE_VERSION, DecisionContext } from '../types';
 import { GATE_THRESHOLDS, CONFIDENCE_BOOSTS } from '../constants/gates';
 
 // Test data generators

@@ -236,7 +236,7 @@ export interface FeedConfig {
   retries: number;
   apiKey?: string;
   baseUrl: string;
-  fallbackValues: any;
+  fallbackValues: unknown;
 }
 
 // ============================================================================
@@ -254,7 +254,7 @@ export enum WebhookErrorType {
 export interface WebhookError {
   type: WebhookErrorType;
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: number;
 }
 

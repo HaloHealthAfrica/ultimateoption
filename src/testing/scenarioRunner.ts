@@ -96,7 +96,7 @@ async function executeStep(
           step_type: 'SIGNAL',
           description: step.description,
           success: result.success,
-          duration_ms: Date.now() - startTime,
+          duration_ms: Date.now() - _startTime,
           webhook_result: result,
         };
       }
@@ -110,7 +110,7 @@ async function executeStep(
           step_type: 'PHASE',
           description: step.description,
           success: result.success,
-          duration_ms: Date.now() - startTime,
+          duration_ms: Date.now() - _startTime,
           webhook_result: result,
         };
       }
@@ -125,7 +125,7 @@ async function executeStep(
           step_type: 'TREND',
           description: step.description,
           success: result.success,
-          duration_ms: Date.now() - startTime,
+          duration_ms: Date.now() - _startTime,
           webhook_result: result,
         };
       }
@@ -151,7 +151,7 @@ async function executeStep(
           step_type: 'VERIFY',
           description: step.description,
           success: verifyResult,
-          duration_ms: Date.now() - startTime,
+          duration_ms: Date.now() - _startTime,
           verify_result: verifyResult,
         };
       }
@@ -162,7 +162,7 @@ async function executeStep(
           step_type: step.type,
           description: step.description,
           success: false,
-          duration_ms: Date.now() - startTime,
+          duration_ms: Date.now() - _startTime,
           error: `Unknown step type: ${step.type}`,
         };
     }
@@ -172,7 +172,7 @@ async function executeStep(
       step_type: step.type,
       description: step.description,
       success: false,
-      duration_ms: Date.now() - startTime,
+      duration_ms: Date.now() - _startTime,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
@@ -219,7 +219,7 @@ export async function runScenario(
     total_steps: scenario.steps.length,
     completed_steps: stepResults.length,
     failed_steps: failedSteps,
-    total_duration_ms: Date.now() - startTime,
+    total_duration_ms: Date.now() - _startTime,
     step_results: stepResults,
     expected_decision: scenario.expected_decision,
     // actual_decision would be populated by checking the system state

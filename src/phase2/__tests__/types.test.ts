@@ -4,21 +4,17 @@
  * Unit tests for TypeScript interface validation and type safety.
  */
 
-import {
-  ENGINE_VERSION,
+import { ENGINE_VERSION,
   Decision,
   SignalType,
   MarketSession,
   GammaBias,
   TradeVelocity,
   DataSource,
-  TradingViewSignal,
-  DecisionContext,
-  MarketContext,
+  TradingViewSignal, MarketContext,
   GateResult,
   DecisionOutput,
-  AuditTrail
-} from '../types';
+  AuditTrail, DecisionContext } from '../types';
 
 describe('Phase 2 Type Definitions', () => {
   describe('Engine Version', () => {

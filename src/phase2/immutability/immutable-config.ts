@@ -32,7 +32,7 @@ function deepFreeze<T>(obj: T): T {
 
   // Freeze properties before freezing self
   for (const name of propNames) {
-    const value = (obj as any)[name];
+    const value = (obj as Record<string, unknown>)[name];
 
     if (value && typeof value === 'object') {
       deepFreeze(value);
@@ -45,7 +45,7 @@ function deepFreeze<T>(obj: T): T {
 /**
  * Verify that an object is frozen (including nested objects)
  */
-function verifyFrozen(obj: any, path = 'root'): void {
+function verifyFrozen(obj: unknown, path = 'root'): void {
   if (!Object.isFrozen(obj)) {
     throw new Error(`Object at path '${path}' is not frozen`);
   }

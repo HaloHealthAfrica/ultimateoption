@@ -29,15 +29,19 @@ import { authenticateWebhook } from '@/webhooks/security';
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
+  let raw = '';
+  
+  // Collect headers for audit
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
   
   try {
-    const raw = await request.text();
+    raw = await request.text();
     
     // Authenticate webhook
     const authResult = authenticateWebhook(request, raw, 'trend');
-    
-    // Collect headers for audit
-    const headers: Record<string, string> = {};
     request.headers.forEach((value, key) => {
       headers[key] = value;
     });

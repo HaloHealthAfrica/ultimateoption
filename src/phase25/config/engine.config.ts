@@ -5,7 +5,7 @@
  * All values are immutable in production to ensure deterministic behavior.
  */
 
-import { EngineConfig } from '../types';
+import { EngineConfig, WebhookSource } from '../types';
 import {
   ENGINE_VERSION,
   GATE_THRESHOLDS,
@@ -48,6 +48,30 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = Object.freeze({
   sizeBounds: { 
     min: SIZE_BOUNDS.MIN, 
     max: SIZE_BOUNDS.MAX 
+  },
+  
+  // Confidence and scoring thresholds
+  confidenceThresholds: {
+    execute: 75,
+    wait: 60,
+    skip: 40
+  },
+  
+  aiScoreThresholds: {
+    minimum: 5.0,
+    penaltyBelow: 4.0
+  },
+  
+  alignmentThresholds: {
+    strongAlignment: 0.8,
+    bonusMultiplier: 1.2
+  },
+  
+  // Context rules
+  contextRules: {
+    maxAge: 300000, // 5 minutes
+    requiredSources: ['TRADINGVIEW_SIGNAL'] as WebhookSource[],
+    optionalSources: ['SATY_PHASE', 'MTF_DOTS', 'ULTIMATE_OPTIONS', 'STRAT_EXEC'] as WebhookSource[]
   },
   
   // API configuration

@@ -6,17 +6,10 @@
  * risk thresholds with clear rejection reasons.
  */
 
-import { 
-  IRiskGates,
-  DecisionContext,
-  MarketContext,
-  GateResult
-} from '../types';
+import { IRiskGates, MarketContext,
+  GateResult } from '../types';
 import { ConfigManagerService } from './config-manager.service';
-import { 
-  RISK_GATES,
-  ALIGNMENT_THRESHOLDS
-} from '../config/constants';
+// import { ALIGNMENT_THRESHOLDS } from '../config/constants'; // Unused
 
 export class RiskGatesService implements IRiskGates {
   private configManager: ConfigManagerService;
@@ -298,7 +291,7 @@ export class RiskGatesService implements IRiskGates {
   /**
    * Get risk gate configuration for debugging
    */
-  getGateConfiguration(): any {
+  getGateConfiguration(): unknown {
     const config = this.configManager.getConfig();
     return {
       maxSpreadBps: config.gates.maxSpreadBps,

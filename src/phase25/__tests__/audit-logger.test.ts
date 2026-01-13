@@ -7,12 +7,8 @@
 
 import { AuditLoggerService } from '../services/audit-logger.service';
 import { ConfigManagerService } from '../services/config-manager.service';
-import { 
-  DecisionPacket,
-  MarketContext,
-  DecisionContext,
-  WebhookSource
-} from '../types/core';
+import { DecisionPacket, DecisionContext,
+  WebhookSource } from '../types/core';
 import { AuditFilters, TimeRange } from '../types/interfaces';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -174,7 +170,7 @@ describe('AuditLoggerService', () => {
     it('should maintain memory limit', async () => {
       // Create logger with small memory limit for testing
       const smallLogger = new AuditLoggerService(configManager, tempLogDir);
-      (smallLogger as any).maxMemoryEntries = 3;
+      (smallLogger as unknown).maxMemoryEntries = 3;
       
       // Log 5 decisions
       for (let i = 0; i < 5; i++) {

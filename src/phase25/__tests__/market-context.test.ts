@@ -6,7 +6,7 @@
 
 import { MarketContextBuilder } from '../services/market-context.service';
 import { MARKET_FEEDS_CONFIG } from '../config/market-feeds.config';
-import { FeedErrorType } from '../types';
+import { MarketContext, DecisionPacket } from '../types';
 import axios from 'axios';
 
 // Mock axios
@@ -15,9 +15,9 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('MarketContextBuilder', () => {
   let marketContextBuilder: MarketContextBuilder;
-  let mockTradierClient: any;
-  let mockTwelveDataClient: any;
-  let mockAlpacaClient: any;
+  let mockTradierClient: unknown;
+  let mockTwelveDataClient: unknown;
+  let mockAlpacaClient: unknown;
 
   beforeEach(() => {
     // Reset all mocks
@@ -253,7 +253,7 @@ describe('MarketContextBuilder', () => {
     it('should handle API errors correctly', async () => {
       const error = new Error('API timeout');
       error.code = 'ECONNABORTED';
-      mockTradierClient.get.mockRejectedValue(error);
+      mockTradierClient.get.mockRejectedValue(_error);
 
       await expect(marketContextBuilder.getTradierOptions('SPY')).rejects.toMatchObject({
         provider: 'tradier',
@@ -264,7 +264,7 @@ describe('MarketContextBuilder', () => {
 
     it('should handle rate limiting', async () => {
       const error = { response: { status: 429 } };
-      mockTradierClient.get.mockRejectedValue(error);
+      mockTradierClient.get.mockRejectedValue(_error);
 
       await expect(marketContextBuilder.getTradierOptions('SPY')).rejects.toMatchObject({
         provider: 'tradier',

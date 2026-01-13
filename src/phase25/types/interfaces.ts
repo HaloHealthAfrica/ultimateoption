@@ -6,18 +6,20 @@
  */
 
 import { 
-  DecisionContext, 
-  MarketContext, 
   DecisionPacket, 
   NormalizedPayload,
   WebhookResponse,
   ValidationResult,
   WebhookSource,
   GateResult,
-  EngineConfig
-} from './core';
+  EngineConfig } from './core';
 
-import { AnyWebhook } from './webhooks';
+// Webhook types are imported but not used in interfaces - removing for now
+// import { 
+//   MtfDotsWebhook,
+//   UltimateOptionsWebhook,
+//   StratExecutionWebhook
+// } from './webhooks';
 
 // ============================================================================
 // WEBHOOK SERVICE INTERFACES
@@ -25,12 +27,12 @@ import { AnyWebhook } from './webhooks';
 
 export interface IWebhookService {
   // Main webhook endpoints
-  handleSignalWebhook(payload: any): Promise<WebhookResponse>;
-  handleSatyPhaseWebhook(payload: any): Promise<WebhookResponse>;
+  handleSignalWebhook(payload: unknown): Promise<WebhookResponse>;
+  handleSatyPhaseWebhook(payload: unknown): Promise<WebhookResponse>;
   
   // Authentication and validation
   validateSignature(payload: string, signature: string): boolean;
-  validateSchema(payload: any, source: WebhookSource): ValidationResult;
+  validateSchema(payload: unknown, source: WebhookSource): ValidationResult;
 }
 
 export interface AuthConfig {
@@ -44,24 +46,24 @@ export interface AuthConfig {
 // ============================================================================
 
 export interface INormalizer {
-  detectSource(payload: any): WebhookSource;
-  normalize(payload: any, source: WebhookSource): NormalizedPayload;
+  detectSource(payload: unknown): WebhookSource;
+  normalize(payload: unknown, source: WebhookSource): NormalizedPayload;
 }
 
 export interface ISatyMapper {
-  mapToRegime(payload: any): DecisionContext['regime'];
+  mapToRegime(payload: unknown): DecisionContext['regime'];
 }
 
 export interface IMtfMapper {
-  mapToAlignment(payload: any): DecisionContext['alignment'];
+  mapToAlignment(payload: unknown): DecisionContext['alignment'];
 }
 
 export interface IOptionsMapper {
-  mapToExpert(payload: any): DecisionContext['expert'];
+  mapToExpert(payload: unknown): DecisionContext['expert'];
 }
 
 export interface IStratMapper {
-  mapToStructure(payload: any): DecisionContext['structure'];
+  mapToStructure(payload: unknown): DecisionContext['structure'];
 }
 
 // ============================================================================
@@ -147,9 +149,9 @@ export interface GateDefinition {
 
 export interface IAuditLogger {
   logDecision(packet: DecisionPacket): Promise<void>;
-  logWebhookReceived(source: WebhookSource, payload: any): Promise<void>;
+  logWebhookReceived(source: WebhookSource, payload: unknown): Promise<void>;
   logMarketContext(context: MarketContext): Promise<void>;
-  logError(error: Error, context?: any): Promise<void>;
+  logError(error: Error, context?: unknown): Promise<void>;
   
   // Query methods for analysis
   getDecisionHistory(filters: AuditFilters): Promise<AuditEntry[]>;
@@ -166,7 +168,7 @@ export interface AuditEntry {
   processingTime: number;
   
   // Context snapshots
-  inputSources: Record<WebhookSource, any>;
+  inputSources: Record<WebhookSource, unknown>;
   marketContext: MarketContext;
   
   // Outcome tracking (updated later)
@@ -216,15 +218,15 @@ export interface IConfigManager {
 // ============================================================================
 
 export interface IErrorHandler {
-  handleMarketFeedDegradation(symbol: string, feedErrors: any[]): Promise<{
+  handleMarketFeedDegradation(symbol: string, feedErrors: unknown[]): Promise<{
     context: MarketContext;
-    degradationStatus: any;
+    degradationStatus: unknown;
   }>;
-  applyConservativeBias(decision: DecisionPacket, degradationStatus: any): DecisionPacket;
-  createErrorResponse(error: Error): any;
-  handleWebhookError(error: Error, payload: any, retryCount?: number): Promise<any>;
-  handleDecisionEngineError(error: Error, context?: DecisionContext, marketContext?: MarketContext): Promise<any>;
-  getSystemHealthStatus(): any;
+  applyConservativeBias(decision: DecisionPacket, degradationStatus: unknown): DecisionPacket;
+  createErrorResponse(error: Error): unknown;
+  handleWebhookError(error: Error, payload: unknown, retryCount?: number): Promise<unknown>;
+  handleDecisionEngineError(error: Error, context?: DecisionContext, marketContext?: MarketContext): Promise<unknown>;
+  getSystemHealthStatus(): unknown;
   recordFeedFailure(provider: string): void;
   resetFailureCounts(): void;
 }
@@ -234,7 +236,7 @@ export interface IErrorHandler {
 // ============================================================================
 
 export interface IDecisionOrchestrator {
-  processWebhook(payload: any): Promise<{
+  processWebhook(payload: unknown): Promise<{
     success: boolean;
     decision?: DecisionPacket;
     message: string;
@@ -274,9 +276,9 @@ export interface IDecisionOrchestrator {
   
   // Metrics methods
   getMetricsReport(): {
-    decisions: any;
-    performance: any;
-    system: any;
+    decisions: unknown;
+    performance: unknown;
+    system: unknown;
     timestamp: number;
   };
   
@@ -292,9 +294,9 @@ export interface IDecisionOrchestrator {
       configuration: boolean;
     };
     metrics: {
-      decisions: any;
-      performance: any;
-      system: any;
+      decisions: unknown;
+      performance: unknown;
+      system: unknown;
     };
     timestamp: number;
   }>;

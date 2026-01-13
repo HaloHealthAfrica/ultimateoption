@@ -161,7 +161,7 @@ export interface ImmutabilityCheckpoint {
   isValid: boolean;
   violationCount: number;
   lastValidation: string;
-  status: any;
+  status: unknown;
   engineVersion: string;
 }
 

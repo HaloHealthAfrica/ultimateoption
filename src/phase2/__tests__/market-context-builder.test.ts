@@ -43,7 +43,7 @@ describe('MarketContextBuilder', () => {
       warn: jest.fn(),
       error: jest.fn(),
       debug: jest.fn()
-    } as any));
+    } as unknown));
 
     // Mock PerformanceMonitor
     MockedPerformanceMonitor.mockImplementation(() => ({
@@ -55,23 +55,23 @@ describe('MarketContextBuilder', () => {
         metrics: {},
         issues: []
       })
-    } as any));
+    } as unknown));
 
     // Create fresh mock instances for each test
     mockTradierClient = {
       getOptionsData: jest.fn(),
       testConnection: jest.fn()
-    } as any;
+    } as unknown;
 
     mockTwelveDataClient = {
       getMarketStats: jest.fn(),
       testConnection: jest.fn()
-    } as any;
+    } as unknown;
 
     mockAlpacaClient = {
       getLiquidityData: jest.fn(),
       testConnection: jest.fn()
-    } as any;
+    } as unknown;
 
     // Mock constructors to return our mocked instances
     MockedTradierClient.mockImplementation(() => mockTradierClient);

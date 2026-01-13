@@ -6,15 +6,9 @@
  * and conditional forwarding to paper execution.
  */
 
-import { 
-  IDecisionOrchestrator,
-  DecisionContext,
-  MarketContext,
+import { IDecisionOrchestrator, MarketContext,
   DecisionPacket,
-  WebhookSource,
-  NormalizedPayload,
-  EngineAction
-} from '../types';
+  WebhookSource } from '../types';
 import { SourceRouterService } from './source-router.service';
 import { NormalizerService } from './normalizer.service';
 import { ContextStoreService } from './context-store.service';
@@ -60,7 +54,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
   /**
    * Process a webhook through the complete decision pipeline
    */
-  async processWebhook(payload: any): Promise<{
+  async processWebhook(payload: unknown): Promise<{
     success: boolean;
     decision?: DecisionPacket;
     message: string;
@@ -118,7 +112,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       const marketContext = await this.marketContextBuilder.buildContext(
         decisionContext.instrument.symbol
       );
-      const marketContextTime = Date.now() - marketContextStart;
+      const _marketContextTime = Date.now() - marketContextStart;
 
       // Record market feed performance
       this.metricsService.recordMarketFeed('tradier', true, marketContext.completeness);
@@ -141,10 +135,10 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         processingTime
       };
 
-    } catch (error) {
+    } catch {
       console.error('Decision orchestration error:', error);
       
-      const errorResponse = this.errorHandler.createErrorResponse(error);
+      const errorResponse = this.errorHandler.createErrorResponse(_error);
       this.metricsService.recordError('orchestration_error');
       
       const processingTime = Date.now() - startTime;
@@ -178,7 +172,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
 
       return decision;
 
-    } catch (error) {
+    } catch {
       console.error('Decision-only processing error:', error);
       throw error;
     }
@@ -238,7 +232,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         this.decisionEngine &&
         this.errorHandler
       );
-    } catch (error) {
+    } catch {
       console.error('Readiness check failed:', error);
       return false;
     }
@@ -270,7 +264,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       // Test market feeds with a quick health check
       const testContext = await this.marketContextBuilder.buildContext('SPY');
       details.marketFeeds = testContext.completeness > 0;
-    } catch (error) {
+    } catch {
       details.marketFeeds = false;
     }
 
@@ -331,9 +325,9 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       configuration: boolean;
     };
     metrics: {
-      decisions: any;
-      performance: any;
-      system: any;
+      decisions: unknown;
+      performance: unknown;
+      system: unknown;
     };
     timestamp: number;
   }> {
@@ -401,7 +395,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         default:
           console.warn(`Unknown decision action: ${decision.action}`);
       }
-    } catch (error) {
+    } catch {
       console.error('Decision forwarding error:', error);
       // Don't throw - we still want to return the decision even if forwarding fails
     }

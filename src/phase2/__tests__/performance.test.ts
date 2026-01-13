@@ -27,7 +27,7 @@ describe('Performance Tests', () => {
     // Reset performance middleware and set new tracker
     performanceMiddleware.reset();
     // Force the middleware to use our test tracker
-    (performanceMiddleware as any).tracker = tracker;
+    (performanceMiddleware as unknown).tracker = tracker;
     
     // Add performance middleware
     app.use(performanceMiddleware.trackRequest());
@@ -202,7 +202,7 @@ describe('Performance Tests', () => {
       
       await Promise.all(promises);
       
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - _startTime) / 1000;
       const expectedRPS = requestCount / duration;
       
       const metrics = performanceMiddleware.getTracker().getThroughputMetrics();
@@ -245,7 +245,7 @@ describe('Performance Tests', () => {
       // Wait for all requests to complete
       await Promise.all(promises);
       
-      const actualDuration = (Date.now() - startTime) / 1000;
+      const actualDuration = (Date.now() - _startTime) / 1000;
       const actualRPS = promises.length / actualDuration;
       
       expect(actualRPS).toBeGreaterThan(targetRPS * 0.8); // Allow 20% tolerance

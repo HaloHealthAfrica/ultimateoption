@@ -142,7 +142,7 @@ describe('SATY Phase Webhook Integration', () => {
 
       // Manually expire the phase by setting expires_at to past
       const key = 'SPY:4H';
-      const stored = (phaseStore as any).phases.get(key);
+      const stored = (phaseStore as unknown).phases.get(key);
       if (stored) {
         stored.expires_at = Date.now() - 1000; // 1 second ago
       }

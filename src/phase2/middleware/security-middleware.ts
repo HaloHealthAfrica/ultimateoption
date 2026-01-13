@@ -131,8 +131,8 @@ export function apiKeyValidation(config: ApiKeyConfig = {}) {
       };
 
       next();
-    } catch (error) {
-      next(error);
+    } catch (_error) {
+      next(_error);
     }
   };
 }
@@ -188,8 +188,8 @@ export function securityHeaders(config: SecurityHeadersConfig = {}) {
       }
 
       next();
-    } catch (error) {
-      next(error);
+    } catch (_error) {
+      next(_error);
     }
   };
 }
@@ -259,8 +259,8 @@ export function requestSanitization(config: SanitizationConfig = {}) {
       (req as any).sanitized = true;
 
       next();
-    } catch (error) {
-      next(error);
+    } catch (_error) {
+      next(_error);
     }
   };
 }
@@ -295,8 +295,8 @@ export function requestFingerprinting() {
       }
 
       next();
-    } catch (error) {
-      next(error);
+    } catch (_error) {
+      next(_error);
     }
   };
 }
@@ -420,8 +420,8 @@ export function suspiciousActivityMonitoring() {
       };
 
       next();
-    } catch (error) {
-      next(error);
+    } catch (_error) {
+      next(_error);
     }
   };
 }

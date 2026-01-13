@@ -59,8 +59,8 @@ describe('Webhook Sender - Phase 1B', () => {
 
   describe('Mixed Batch Sending', () => {
     it('should send mixed webhook types in correct order', async () => {
-      const signal = generateSignal(11111, { ticker: 'SPY' });
-      const phase = generatePhase(22222, { symbol: 'SPY' });
+      const signal = generateSignal({ seed: 11111, ticker: "SPY" });
+      const phase = generatePhase({ seed: 22222, symbol: "SPY" });
       const trend = generateTrend(33333, { ticker: 'SPY' });
 
       const mixedItems: MixedWebhookItem[] = [
@@ -101,7 +101,7 @@ describe('Webhook Sender - Phase 1B', () => {
 
     it('should handle mixed batch with delays', async () => {
       const mixedItems: MixedWebhookItem[] = [
-        { type: 'signal', data: generateSignal(11111) },
+        { type: 'signal', data: generateSignal({ seed: 11111 }) },
         { type: 'trend', data: generateTrend(22222) },
       ];
 
@@ -118,7 +118,7 @@ describe('Webhook Sender - Phase 1B', () => {
 
       expect(result.total).toBe(2);
       expect(result.successful).toBe(2);
-      expect(endTime - startTime).toBeGreaterThanOrEqual(100); // Should have delay
+      expect(endTime - _startTime).toBeGreaterThanOrEqual(100); // Should have delay
     });
   });
 
@@ -132,13 +132,13 @@ describe('Webhook Sender - Phase 1B', () => {
       const result = await sendTrendWebhook(trend, mockConfig);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Network error');
+      expect(result._error).toBe('Network error');
       expect(result.status).toBe(0);
     });
 
     it('should handle HTTP errors in mixed batch', async () => {
       const mixedItems: MixedWebhookItem[] = [
-        { type: 'signal', data: generateSignal(11111) },
+        { type: 'signal', data: generateSignal({ seed: 11111 }) },
         { type: 'trend', data: generateTrend(22222) },
       ];
 

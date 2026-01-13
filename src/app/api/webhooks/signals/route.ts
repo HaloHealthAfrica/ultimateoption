@@ -27,7 +27,7 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
  * Validates payload, builds market context, and returns decision output.
  */
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
+  const _startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   // Initialize audit logging
@@ -35,14 +35,14 @@ export async function POST(request: NextRequest) {
   
   // Initialize services
   const logger = new Logger();
-  const tradierClient = new TradierClient();
-  const twelveDataClient = new TwelveDataClient();
-  const alpacaClient = new AlpacaClient();
+  const tradierClient = new TradierClient(logger);
+  const twelveDataClient = new TwelveDataClient(logger);
+  const alpacaClient = new AlpacaClient(logger);
   const marketContextBuilder = new MarketContextBuilder(
+    logger,
     tradierClient,
     twelveDataClient,
-    alpacaClient,
-    logger
+    alpacaClient
   );
   const decisionEngine = new DecisionEngine();
   
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     logger.logDecisionEvent(
       completeContext,
       decisionOutput,
-      Date.now() - startTime
+      Date.now() - _startTime
     );
 
     // Log successful webhook receipt
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.logError('Signal processing failed', error as Error, {
       method: request.method,
-      url: request.url,
+      path: request.url,
       requestId
     });
 

@@ -94,7 +94,7 @@ export class PerformanceMiddleware {
     return (req: Request, res: Response, next: NextFunction) => {
       const originalSend = res.send;
       
-      res.send = function(body: any) {
+      res.send = function(body: unknown) {
         // Extract decision timing from response if available
         if (typeof body === 'string') {
           try {

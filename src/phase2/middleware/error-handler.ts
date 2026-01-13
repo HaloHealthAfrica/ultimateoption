@@ -32,14 +32,14 @@ export enum ErrorType {
 export class Phase2Error extends Error {
   public readonly type: ErrorType;
   public readonly statusCode: number;
-  public readonly context?: any;
+  public readonly context?: unknown;
   public readonly timestamp: string;
 
   constructor(
     type: ErrorType,
     message: string,
     statusCode: number,
-    context?: any
+    context?: unknown
   ) {
     super(message);
     this.name = 'Phase2Error';
@@ -54,7 +54,7 @@ export class Phase2Error extends Error {
  * Validation error for HTTP 400 responses
  */
 export class ValidationError extends Phase2Error {
-  constructor(message: string, context?: any) {
+  constructor(message: string, context?: unknown) {
     super(ErrorType.VALIDATION_ERROR, message, HTTP_STATUS.BAD_REQUEST, context);
   }
 }
@@ -63,7 +63,7 @@ export class ValidationError extends Phase2Error {
  * Internal error for HTTP 500 responses
  */
 export class InternalError extends Phase2Error {
-  constructor(message: string, context?: any) {
+  constructor(message: string, context?: unknown) {
     super(ErrorType.INTERNAL_ERROR, message, HTTP_STATUS.INTERNAL_SERVER_ERROR, context);
   }
 }
@@ -72,7 +72,7 @@ export class InternalError extends Phase2Error {
  * Service unavailable error for HTTP 503 responses
  */
 export class ServiceUnavailableError extends Phase2Error {
-  constructor(message: string, context?: any) {
+  constructor(message: string, context?: unknown) {
     super(ErrorType.SERVICE_UNAVAILABLE, message, HTTP_STATUS.SERVICE_UNAVAILABLE, context);
   }
 }
@@ -81,12 +81,12 @@ export class ServiceUnavailableError extends Phase2Error {
  * Provider error for external API failures
  */
 export class ProviderError extends Phase2Error {
-  constructor(message: string, provider: string, context?: any) {
+  constructor(message: string, provider: string, context?: unknown) {
     super(
       ErrorType.PROVIDER_ERROR,
       message,
       HTTP_STATUS.OK, // Return 200 with fallback data
-      { provider, ...context }
+      { provider, ...(context as Record<string, unknown> || {}) }
     );
   }
 }
@@ -95,12 +95,12 @@ export class ProviderError extends Phase2Error {
  * Timeout error for request timeouts
  */
 export class TimeoutError extends Phase2Error {
-  constructor(message: string, timeoutMs: number, context?: any) {
+  constructor(message: string, timeoutMs: number, context?: unknown) {
     super(
       ErrorType.TIMEOUT_ERROR,
       message,
       HTTP_STATUS.SERVICE_UNAVAILABLE,
-      { timeoutMs, ...context }
+      { timeoutMs, ...(context as Record<string, unknown> || {}) }
     );
   }
 }
@@ -109,12 +109,12 @@ export class TimeoutError extends Phase2Error {
  * Rate limit error for HTTP 429 responses
  */
 export class RateLimitError extends Phase2Error {
-  constructor(message: string, retryAfter: number, context?: any) {
+  constructor(message: string, retryAfter: number, context?: unknown) {
     super(
       ErrorType.RATE_LIMIT_ERROR,
       message,
       HTTP_STATUS.TOO_MANY_REQUESTS,
-      { retryAfter, ...context }
+      { retryAfter, ...(context as Record<string, unknown> || {}) }
     );
   }
 }
@@ -123,7 +123,7 @@ export class RateLimitError extends Phase2Error {
  * Immutability violation error
  */
 export class ImmutabilityViolationError extends Phase2Error {
-  constructor(message: string, context?: any) {
+  constructor(message: string, context?: unknown) {
     super(
       ErrorType.IMMUTABILITY_VIOLATION,
       message,
@@ -143,7 +143,7 @@ interface ErrorResponse {
   timestamp: string;
   engineVersion: string;
   requestId?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -173,8 +173,8 @@ function logError(error: Phase2Error, req: Request): void {
     message: error.message,
     statusCode: error.statusCode,
     method: req.method,
-    path: req.path,
-    userAgent: req.get('User-Agent'),
+    path: req.url,
+    userAgent: req.headers['user-agent'],
     ip: req.ip,
     timestamp: error.timestamp,
     context: error.context
@@ -250,7 +250,8 @@ export function errorHandler(
 
   // Handle rate limiting
   if (phase2Error.type === ErrorType.RATE_LIMIT_ERROR) {
-    res.set('Retry-After', phase2Error.context?.retryAfter?.toString() || '60');
+    const context = phase2Error.context as { retryAfter?: number } | undefined;
+    res.set('Retry-After', context?.retryAfter?.toString() || '60');
   }
 
   // Send error response
@@ -272,7 +273,7 @@ export function asyncHandler(
  * Validation middleware for request validation
  */
 export function validateRequest(
-  validationRules: Record<string, (value: any) => boolean | string>
+  validationRules: Record<string, (value: unknown) => boolean | string>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     const errors: string[] = [];

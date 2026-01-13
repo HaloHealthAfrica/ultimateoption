@@ -21,7 +21,7 @@ jest.mock('../services/market-context-builder');
 
 describe('WebhookService', () => {
   let webhookService: WebhookService;
-  let app: any;
+  let app: unknown;
   let logger: Logger;
   let mockTradierClient: jest.Mocked<TradierClient>;
   let mockTwelveDataClient: jest.Mocked<TwelveDataClient>;
@@ -32,9 +32,9 @@ describe('WebhookService', () => {
     logger = new Logger('error'); // Suppress logs during tests
     
     // Create mock instances
-    mockTradierClient = new TradierClient({} as any, logger) as jest.Mocked<TradierClient>;
-    mockTwelveDataClient = new TwelveDataClient({} as any, logger) as jest.Mocked<TwelveDataClient>;
-    mockAlpacaClient = new AlpacaClient({} as any, logger) as jest.Mocked<AlpacaClient>;
+    mockTradierClient = new TradierClient({} as unknown, logger) as jest.Mocked<TradierClient>;
+    mockTwelveDataClient = new TwelveDataClient({} as unknown, logger) as jest.Mocked<TwelveDataClient>;
+    mockAlpacaClient = new AlpacaClient({} as unknown, logger) as jest.Mocked<AlpacaClient>;
     mockMarketContextBuilder = new MarketContextBuilder(
       mockTradierClient,
       mockTwelveDataClient,
@@ -126,7 +126,7 @@ describe('WebhookService', () => {
         .send('invalid json')
         .expect(400);
 
-      expect(response.body.error).toBe('Content-Type must be application/json');
+      expect(response.body._error).toBe('Content-Type must be application/json');
     });
 
     test('should reject missing signal field', async () => {
@@ -140,7 +140,7 @@ describe('WebhookService', () => {
         .send(invalidPayload)
         .expect(400);
 
-      expect(response.body.error).toBe('Invalid signal payload');
+      expect(response.body._error).toBe('Invalid signal payload');
       expect(response.body.details).toContain('Missing required field: signal');
     });
 
@@ -379,7 +379,7 @@ describe('WebhookService', () => {
   describe('GET /health', () => {
     test('should return health status', async () => {
       // Reset performance tracker to ensure clean state
-      const performanceTracker = (webhookService as any).healthService.performanceTracker;
+      const performanceTracker = (webhookService as unknown).healthService.performanceTracker;
       if (performanceTracker && performanceTracker.reset) {
         performanceTracker.reset();
       }
@@ -427,7 +427,7 @@ describe('WebhookService', () => {
         .send('{"invalid": json}')
         .expect(500); // Express JSON parser throws 500 for malformed JSON
 
-      expect(response.body.error).toBe('Internal server error');
+      expect(response.body._error).toBe('Internal server error');
     });
 
     test('should handle missing Content-Type header', async () => {
@@ -436,7 +436,7 @@ describe('WebhookService', () => {
         .send('some data')
         .expect(400);
 
-      expect(response.body.error).toBe('Content-Type must be application/json');
+      expect(response.body._error).toBe('Content-Type must be application/json');
     });
 
     test('should handle empty request body', async () => {
@@ -445,7 +445,7 @@ describe('WebhookService', () => {
         .send()
         .expect(400);
 
-      expect(response.body.error).toBe('Content-Type must be application/json');
+      expect(response.body._error).toBe('Content-Type must be application/json');
     });
   });
 
@@ -502,7 +502,7 @@ describe('WebhookService', () => {
         
         // This test is just for debugging - we expect it might fail
         // but we want to see what the actual error is
-      } catch (error) {
+      } catch (_error) {
         console.error('Request failed with error:', error);
       }
     });
@@ -520,7 +520,7 @@ describe('WebhookService', () => {
         );
         console.log('WebhookService instantiated successfully');
         expect(service).toBeDefined();
-      } catch (error) {
+      } catch (_error) {
         console.error('WebhookService instantiation failed:', error);
         throw error;
       }

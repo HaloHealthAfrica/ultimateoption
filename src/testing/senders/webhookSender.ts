@@ -179,15 +179,15 @@ async function sendWebhook(
       status: response.status,
       latency_ms: latency,
       response: responseData,
-      sent_at: startTime,
+      sent_at: _startTime,
     };
   } catch (error) {
     return {
       success: false,
       status: 0,
-      latency_ms: Date.now() - startTime,
+      latency_ms: Date.now() - _startTime,
       error: error instanceof Error ? error.message : 'Unknown error',
-      sent_at: startTime,
+      sent_at: _startTime,
     };
   }
 }

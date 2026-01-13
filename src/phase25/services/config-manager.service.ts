@@ -10,19 +10,16 @@ import {
   EngineConfig, 
   ValidationResult 
 } from '../types';
-import { 
-  ENGINE_VERSION,
+import { ENGINE_VERSION,
   PHASE_RULES,
   VOLATILITY_CAPS,
-  QUALITY_BOOSTS,
-  RISK_GATES,
-  SIZE_BOUNDS,
+  QUALITY_BOOSTS, SIZE_BOUNDS,
   CONFIDENCE_THRESHOLDS,
   AI_SCORE_THRESHOLDS,
   ALIGNMENT_THRESHOLDS,
   CONTEXT_RULES,
-  API_TIMEOUTS
-} from '../config/constants';
+  API_TIMEOUTS,
+  RISK_GATES } from '../config/constants';
 import * as crypto from 'crypto';
 
 export class ConfigManagerService implements IConfigManager {
@@ -279,8 +276,9 @@ export class ConfigManagerService implements IConfigManager {
       errors.push('Configuration must include timeouts section');
     } else {
       const requiredTimeouts = ['webhookProcessing', 'marketContext', 'decisionEngine'];
+      const timeouts = config.timeouts as Record<string, unknown>;
       for (const timeout of requiredTimeouts) {
-        if (typeof config.timeouts[timeout] !== 'number' || config.timeouts[timeout] <= 0) {
+        if (typeof timeouts[timeout] !== 'number' || (timeouts[timeout] as number) <= 0) {
           errors.push(`timeouts.${timeout} must be a positive number`);
         }
       }
@@ -406,7 +404,7 @@ export class ConfigManagerService implements IConfigManager {
     return crypto.createHash('sha256').update(configString).digest('hex').substring(0, 16);
   }
 
-  private deepFreeze(obj: any): void {
+  private deepFreeze(obj: unknown): void {
     // Retrieve the property names defined on obj
     Object.getOwnPropertyNames(obj).forEach((name) => {
       const value = obj[name];

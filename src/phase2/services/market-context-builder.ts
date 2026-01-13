@@ -5,7 +5,7 @@
  * Implements graceful degradation when providers fail and ensures deterministic fallback behavior.
  */
 
-import { MarketContext, DecisionContext, DataSource } from '../types';
+import { DecisionContext, DataSource, MarketContext } from '../types';
 import { TradierClient } from '../providers/tradier-client';
 import { TwelveDataClient } from '../providers/twelvedata-client';
 import { AlpacaClient } from '../providers/alpaca-client';
@@ -307,11 +307,11 @@ export class MarketContextBuilder {
    */
   private recordProviderPerformance(providerResults: MarketContextResult['providerResults']) {
     // Record individual provider performance
-    Object.entries(providerResults).forEach(([provider, result]) => {
+    Object.entries(providerResults).forEach(([providerName, result]) => {
       if (result.success) {
-        this.performanceMonitor.recordProviderSuccess(provider as 'tradier' | 'twelveData' | 'alpaca');
+        this.performanceMonitor.recordProviderSuccess(providerName as 'tradier' | 'twelveData' | 'alpaca');
       } else {
-        this.performanceMonitor.recordProviderFailure(provider as 'tradier' | 'twelveData' | 'alpaca');
+        this.performanceMonitor.recordProviderFailure(providerName as 'tradier' | 'twelveData' | 'alpaca');
       }
     });
   }

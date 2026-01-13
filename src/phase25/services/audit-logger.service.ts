@@ -12,11 +12,7 @@ import {
   TimeRange,
   PerformanceMetrics
 } from '../types';
-import { 
-  DecisionPacket,
-  MarketContext,
-  WebhookSource
-} from '../types/core';
+import { DecisionPacket, WebhookSource, MarketContext } from '../types/core';
 import { ConfigManagerService } from './config-manager.service';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
@@ -39,7 +35,7 @@ export class AuditLoggerService implements IAuditLogger {
    * This is the primary audit method for decision tracking
    */
   async logDecision(packet: DecisionPacket): Promise<void> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     
     try {
       const auditId = this.generateAuditId(packet);
@@ -80,7 +76,7 @@ export class AuditLoggerService implements IAuditLogger {
   /**
    * Log incoming webhook data for audit trail
    */
-  async logWebhookReceived(source: WebhookSource, payload: any): Promise<void> {
+  async logWebhookReceived(source: WebhookSource, payload: unknown): Promise<void> {
     try {
       const logEntry = {
         timestamp: Date.now(),
@@ -123,7 +119,7 @@ export class AuditLoggerService implements IAuditLogger {
   /**
    * Log errors with context for debugging
    */
-  async logError(error: Error, context?: any): Promise<void> {
+  async logError(error: Error, context?: unknown): Promise<void> {
     try {
       const logEntry = {
         timestamp: Date.now(),
@@ -277,12 +273,12 @@ export class AuditLoggerService implements IAuditLogger {
     };
   }
 
-  private sanitizePayload(payload: any): any {
+  private sanitizePayload(payload: unknown): unknown {
     if (typeof payload !== 'object' || payload === null) {
       return payload;
     }
     
-    const sanitized = { ...payload };
+    const sanitized = { ...payload } as Record<string, unknown>;
     
     // Remove common sensitive fields
     const sensitiveFields = ['api_key', 'apiKey', 'secret', 'token', 'password'];
@@ -295,14 +291,15 @@ export class AuditLoggerService implements IAuditLogger {
     return sanitized;
   }
 
-  private extractInputSources(context: any): Record<WebhookSource, any> {
+  private extractInputSources(context: unknown): Record<WebhookSource, unknown> {
     // Extract the original webhook data that contributed to this context
     // This is a simplified version - in production, we'd track source attribution
+    const ctx = context as Record<string, unknown>;
     return {
-      SATY_PHASE: context.regime || null,
-      MTF_DOTS: context.alignment || null,
-      ULTIMATE_OPTIONS: context.expert || null,
-      STRAT_EXEC: context.structure || null,
+      SATY_PHASE: ctx.regime || null,
+      MTF_DOTS: ctx.alignment || null,
+      ULTIMATE_OPTIONS: ctx.expert || null,
+      STRAT_EXEC: ctx.structure || null,
       TRADINGVIEW_SIGNAL: null // Not used in current implementation
     };
   }
@@ -344,11 +341,12 @@ export class AuditLoggerService implements IAuditLogger {
     await fs.appendFile(filename, logLine, 'utf8');
   }
 
-  private async writeLogEntry(category: string, entry: any): Promise<void> {
-    const date = new Date(entry.timestamp).toISOString().split('T')[0];
+  private async writeLogEntry(category: string, entry: unknown): Promise<void> {
+    const entryData = entry as Record<string, unknown>;
+    const date = new Date(entryData.timestamp as string).toISOString().split('T')[0];
     const filename = path.join(this.logDirectory, `${category}-${date}.jsonl`);
     
-    const logLine = JSON.stringify(entry) + '\n';
+    const logLine = JSON.stringify(entryData) + '\n';
     await fs.appendFile(filename, logLine, 'utf8');
   }
 
@@ -381,7 +379,7 @@ export class AuditLoggerService implements IAuditLogger {
             if (this.matchesFilters(entry, filters)) {
               results.push(entry);
             }
-          } catch (parseError) {
+          } catch {
             // Skip malformed lines
           }
         }
@@ -408,7 +406,7 @@ export class AuditLoggerService implements IAuditLogger {
             if (entry.id === auditId) {
               return entry;
             }
-          } catch (parseError) {
+          } catch {
             // Skip malformed lines
           }
         }

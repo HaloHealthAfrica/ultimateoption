@@ -28,7 +28,7 @@ const generateSignal = (
 ): EnrichedSignal => ({
   signal: {
     type: direction,
-    timeframe: timeframe as any, // Cast to Timeframe type
+    timeframe: timeframe as unknown, // Cast to Timeframe type
     quality,
     ai_score: aiScore,
     timestamp: Date.now(),
@@ -199,7 +199,7 @@ const generateTrend = (
     tf15min: { direction: 'bullish', open: 100, close: 102 },
     tf30min: { direction: 'bullish', open: 100, close: 102 },
     tf60min: { direction: 'bullish', open: 100, close: 102 },
-    tf240min: { direction: htfBias.toLowerCase() as any, open: 100, close: htfBias === 'BULLISH' ? 102 : 98 },
+    tf240min: { direction: htfBias.toLowerCase() as unknown, open: 100, close: htfBias === 'BULLISH' ? 102 : 98 },
     tf1week: { direction: 'bullish', open: 100, close: 102 },
     tf1month: { direction: 'bullish', open: 100, close: 102 },
   },

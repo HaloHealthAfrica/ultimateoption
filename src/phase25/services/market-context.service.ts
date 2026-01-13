@@ -5,14 +5,10 @@
  * in parallel with timeout protection and fallback handling.
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { 
-  IMarketContextBuilder, 
-  MarketContext, 
-  FeedConfig,
+import axios, { AxiosInstance } from 'axios';
+import { IMarketContextBuilder, FeedConfig,
   FeedError,
-  FeedErrorType
-} from '../types';
+  FeedErrorType } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 
 export class MarketContextBuilder implements IMarketContextBuilder {
@@ -76,7 +72,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
    * Build complete market context by fetching from all providers in parallel
    */
   async buildContext(symbol: string): Promise<MarketContext> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     const errors: string[] = [];
 
     // Execute all API calls in parallel for minimum latency
@@ -143,7 +139,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const gammaBias = this.determineGammaBias(chainData);
       
       // Get options volume
-      const optionVolume = chainData.options?.reduce((sum: number, opt: any) => 
+      const optionVolume = chainData.options?.reduce((sum: number, opt: unknown) => 
         sum + (opt.volume || 0), 0) || 0;
       
       // Calculate max pain level
@@ -229,7 +225,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       ]);
 
       const quoteData = quoteResponse.data;
-      const tradesData = tradesResponse.data;
+      const _tradesData = tradesResponse.data;
 
       // Calculate bid-ask spread in basis points
       const bid = quoteData.quote?.bid_price || 0;
@@ -245,7 +241,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const depthScore = Math.min(100, Math.sqrt(bidSize + askSize) * 10);
 
       // Determine trade velocity based on recent trade frequency
-      const tradeVelocity = this.determineTradeVelocity(tradesData);
+      const tradeVelocity = this.determineTradeVelocity(_tradesData);
 
       return {
         spreadBps,
@@ -262,13 +258,13 @@ export class MarketContextBuilder implements IMarketContextBuilder {
 
   // Helper methods for data processing
 
-  private calculatePutCallRatio(chainData: any): number {
+  private calculatePutCallRatio(chainData: unknown): number {
     if (!chainData.options) return 1.0;
     
     let putVolume = 0;
-    let callVolume = 0;
+    const callVolume = 0;
     
-    chainData.options.forEach((option: any) => {
+    chainData.options.forEach((option: unknown) => {
       if (option.option_type === 'put') {
         putVolume += option.volume || 0;
       } else if (option.option_type === 'call') {
@@ -279,7 +275,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     return callVolume > 0 ? putVolume / callVolume : 1.0;
   }
 
-  private determineGammaBias(chainData: any): "POSITIVE" | "NEGATIVE" | "NEUTRAL" {
+  private determineGammaBias(chainData: unknown): "POSITIVE" | "NEGATIVE" | "NEUTRAL" {
     // Simplified gamma bias calculation based on options flow
     // In a real implementation, this would be more sophisticated
     const putCallRatio = this.calculatePutCallRatio(chainData);
@@ -289,22 +285,22 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     return 'NEUTRAL';
   }
 
-  private calculateMaxPain(chainData: any): number {
+  private calculateMaxPain(chainData: unknown): number {
     // Simplified max pain calculation
     // In a real implementation, this would calculate the strike with maximum open interest
     if (!chainData.options || chainData.options.length === 0) return 0;
     
     // Return the middle strike as a placeholder
-    const strikes = chainData.options.map((opt: any) => opt.strike).sort((a: number, b: number) => a - b);
+    const strikes = chainData.options.map((opt: unknown) => opt.strike).sort((a: number, b: number) => a - b);
     return strikes[Math.floor(strikes.length / 2)] || 0;
   }
 
-  private calculateRealizedVolatility(priceData: any[]): number {
+  private calculateRealizedVolatility(priceData: unknown[]): number {
     if (!priceData || priceData.length < 2) return 0;
     
     // Calculate 20-day realized volatility from price returns
     const returns = [];
-    for (let i = 1; i < Math.min(priceData.length, 21); i++) {
+    for (const i = 1; i < Math.min(priceData.length, 21); i++) {
       const currentPrice = parseFloat(priceData[i - 1].close);
       const previousPrice = parseFloat(priceData[i].close);
       if (currentPrice > 0 && previousPrice > 0) {
@@ -322,11 +318,11 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     return Math.sqrt(variance * 252) * 100;
   }
 
-  private calculateTrendSlope(priceData: any[]): number {
+  private calculateTrendSlope(priceData: unknown[]): number {
     if (!priceData || priceData.length < 2) return 0;
     
     // Simple linear regression slope over last 20 days
-    const prices = priceData.slice(0, 20).map((d: any) => parseFloat(d.close)).filter(p => p > 0);
+    const prices = priceData.slice(0, 20).map((d: unknown) => parseFloat(d.close)).filter(p => p > 0);
     if (prices.length < 2) return 0;
     
     const n = prices.length;
@@ -344,38 +340,38 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     return Math.max(-1, Math.min(1, slope / 10));
   }
 
-  private calculateAverageVolume(volumeData: any[]): number {
+  private calculateAverageVolume(volumeData: unknown[]): number {
     if (!volumeData || volumeData.length === 0) return 0;
     
-    const volumes = volumeData.slice(1, 21).map((d: any) => parseFloat(d.volume)).filter(v => v > 0);
+    const volumes = volumeData.slice(1, 21).map((d: unknown) => parseFloat(d.volume)).filter(v => v > 0);
     return volumes.length > 0 ? volumes.reduce((sum, vol) => sum + vol, 0) / volumes.length : 0;
   }
 
-  private determineTradeVelocity(tradesData: any): "SLOW" | "NORMAL" | "FAST" {
+  private determineTradeVelocity(_tradesData: unknown): "SLOW" | "NORMAL" | "FAST" {
     // Simplified trade velocity determination
     // In a real implementation, this would analyze recent trade frequency
     return "NORMAL";
   }
 
-  private handleApiError(provider: string, error: any): FeedError {
+  private handleApiError(provider: string, error: unknown): FeedError {
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return this.createFeedError(provider as any, FeedErrorType.TIMEOUT, `Request timeout: ${error.message}`);
+      return this.createFeedError(provider as unknown, FeedErrorType.TIMEOUT, `Request timeout: ${error.message}`);
     }
     
     if (error.response?.status === 429) {
-      return this.createFeedError(provider as any, FeedErrorType.RATE_LIMITED, 'API rate limit exceeded');
+      return this.createFeedError(provider as unknown, FeedErrorType.RATE_LIMITED, 'API rate limit exceeded');
     }
     
     if (error.response?.status >= 400 && error.response?.status < 500) {
-      return this.createFeedError(provider as any, FeedErrorType.API_ERROR, `API error: ${error.response.status}`);
+      return this.createFeedError(provider as unknown, FeedErrorType.API_ERROR, `API error: ${error.response.status}`);
     }
     
-    return this.createFeedError(provider as any, FeedErrorType.NETWORK_ERROR, error.message || 'Unknown network error');
+    return this.createFeedError(provider as unknown, FeedErrorType.NETWORK_ERROR, error.message || 'Unknown network error');
   }
 
   private createFeedError(provider: "tradier" | "twelvedata" | "alpaca", type: FeedErrorType, message: string): FeedError {
     return {
-      provider,
+      _provider,
       type,
       message,
       timestamp: Date.now(),

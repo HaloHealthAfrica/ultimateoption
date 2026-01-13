@@ -6,7 +6,7 @@
  */
 
 import { DecisionOutputFormatter } from '../formatters/decision-output-formatter';
-import { DecisionContext, MarketContext, GateResult, SignalType, MarketSession, GammaBias, ENGINE_VERSION } from '../types';
+import { MarketContext, GateResult, SignalType, MarketSession, GammaBias, ENGINE_VERSION, DecisionContext } from '../types';
 
 // Test data generators
 const createBaseContext = (): DecisionContext => ({
@@ -301,7 +301,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      (output as any).decision = 'INVALID';
+      (output as unknown).decision = 'INVALID';
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('Invalid decision: must be APPROVE or REJECT');
     });
@@ -311,7 +311,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      delete (output as any).engine_version;
+      delete (output as unknown).engine_version;
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('Invalid engine_version');
     });
@@ -321,7 +321,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      delete (output as any).direction;
+      delete (output as unknown).direction;
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('APPROVE decisions must include valid direction');
     });
@@ -331,7 +331,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      delete (output as any).confidence;
+      delete (output as unknown).confidence;
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('APPROVE decisions must include confidence');
     });
@@ -341,7 +341,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      (output as any).confidence = 15; // Above maximum
+      (output as unknown).confidence = 15; // Above maximum
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('APPROVE decisions must include confidence between 0 and 10');
     });
@@ -351,7 +351,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createFailingGateResults();
       const output = formatter.formatRejectDecision(context, gateResults);
       
-      delete (output as any).reasons;
+      delete (output as unknown).reasons;
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('REJECT decisions must include non-empty reasons array');
     });
@@ -361,7 +361,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createFailingGateResults();
       const output = formatter.formatRejectDecision(context, gateResults);
       
-      (output as any).direction = 'LONG';
+      (output as unknown).direction = 'LONG';
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('REJECT decisions should not include direction');
     });
@@ -371,7 +371,7 @@ describe('DecisionOutputFormatter', () => {
       const gateResults = createPassingGateResults();
       const output = formatter.formatApproveDecision(context, gateResults, 7.5);
       
-      delete (output as any).audit;
+      delete (output as unknown).audit;
 
       expect(() => formatter.validateDecisionOutput(output)).toThrow('Invalid audit: audit trail is required');
     });

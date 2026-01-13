@@ -253,31 +253,31 @@ export class PostgresLedger implements ILedger {
       let paramIndex = 1;
 
       if (filters.timeframe) {
-        conditions.push(`signal->'signal'->>'timeframe' = $${paramIndex++}`);
+        conditions.push(`signal->'signal'->>'timeframe' = ${paramIndex++}`);
         params.push(filters.timeframe);
       }
       if (filters.quality) {
-        conditions.push(`signal->'signal'->>'quality' = $${paramIndex++}`);
+        conditions.push(`signal->'signal'->>'quality' = ${paramIndex++}`);
         params.push(filters.quality);
       }
       if (filters.decision) {
-        conditions.push(`decision = $${paramIndex++}`);
+        conditions.push(`decision = ${paramIndex++}`);
         params.push(filters.decision);
       }
       if (filters.dte_bucket) {
-        conditions.push(`execution->>'dte_bucket' = $${paramIndex++}`);
+        conditions.push(`execution->>'dte_bucket' = ${paramIndex++}`);
         params.push(filters.dte_bucket);
       }
       if (filters.regime_volatility) {
-        conditions.push(`regime->>'volatility' = $${paramIndex++}`);
+        conditions.push(`regime->>'volatility' = ${paramIndex++}`);
         params.push(filters.regime_volatility);
       }
       if (filters.from_date) {
-        conditions.push(`created_at >= to_timestamp($${paramIndex++}/1000.0)`);
+        conditions.push(`created_at >= to_timestamp(${paramIndex++}/1000.0)`);
         params.push(filters.from_date);
       }
       if (filters.to_date) {
-        conditions.push(`created_at <= to_timestamp($${paramIndex++}/1000.0)`);
+        conditions.push(`created_at <= to_timestamp(${paramIndex++}/1000.0)`);
         params.push(filters.to_date);
       }
 
@@ -291,7 +291,7 @@ export class PostgresLedger implements ILedger {
       const result = await client.query(
         `SELECT * FROM ledger_entries ${whereClause} 
          ORDER BY created_at DESC 
-         LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+         LIMIT ${paramIndex++} OFFSET ${paramIndex}`,
         [...params, limit, offset]
       );
 

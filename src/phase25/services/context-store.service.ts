@@ -6,13 +6,9 @@
  * and completeness validation.
  */
 
-import { 
-  IContextStore, 
+import { IContextStore, 
   StoredContext, 
-  CompletenessRules,
-  DecisionContext,
-  WebhookSource
-} from '../types';
+  CompletenessRules, WebhookSource } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
 
 export class ContextStoreService implements IContextStore {

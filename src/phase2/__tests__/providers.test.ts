@@ -13,7 +13,7 @@ import * as fc from 'fast-check';
 
 // Mock axios to control API responses
 jest.mock('axios');
-const mockedAxios = jest.mocked(require('axios'));
+const mockedAxios = jest.mocked(import('axios'));
 
 describe('Provider Integration Tests', () => {
   beforeEach(() => {
@@ -103,7 +103,7 @@ describe('Provider Integration Tests', () => {
 
       expect(result.source).toBe('FALLBACK');
       expect(result.data).toEqual(PROVIDER_CONFIG.tradier.fallback);
-      expect(result.error).toContain('timeout');
+      expect(result._error).toContain('timeout');
     });
 
     it('should handle authentication failure', async () => {
@@ -124,7 +124,7 @@ describe('Provider Integration Tests', () => {
       const result = await client.getOptionsData('SPY');
 
       expect(result.source).toBe('FALLBACK');
-      expect(result.error).toBeDefined();
+      expect(result._error).toBeDefined();
     });
 
     it('should test connection successfully', async () => {
@@ -237,7 +237,7 @@ describe('Provider Integration Tests', () => {
 
       expect(result.source).toBe('FALLBACK');
       expect(result.data.atr.value).toBe(PROVIDER_CONFIG.twelveData.fallback.atr14);
-      expect(result.error).toBeDefined();
+      expect(result._error).toBeDefined();
     });
   });
 
@@ -404,7 +404,7 @@ describe('Provider Integration Tests', () => {
           
           if (!apiSuccess) {
             expect(tradierResult.source).toBe('FALLBACK');
-            expect(tradierResult.error).toBeDefined();
+            expect(tradierResult._error).toBeDefined();
           }
         }
       ), { numRuns: 10 }); // Reduced runs for async test
@@ -449,7 +449,7 @@ describe('Provider Integration Tests', () => {
         // Tradier and TwelveData should definitely be FALLBACK
         if (index < 2) { // Tradier and TwelveData
           expect(result.source).toBe('FALLBACK');
-          expect(result.error).toBeDefined();
+          expect(result._error).toBeDefined();
         }
       });
     });

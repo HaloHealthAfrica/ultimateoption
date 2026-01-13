@@ -342,8 +342,8 @@ export class WebhookService {
   /**
    * Sanitize headers to remove sensitive information
    */
-  private sanitizeHeaders(headers: any): any {
-    const sanitized = { ...headers };
+  private sanitizeHeaders(headers: unknown): unknown {
+    const sanitized = { ...(headers as any) };
     
     // Remove sensitive headers
     delete sanitized.authorization;

@@ -166,7 +166,7 @@ describe('ConfigManagerService', () => {
 
     it('should reject configuration without version', () => {
       const invalidConfig = { ...configManager.getConfig() };
-      delete (invalidConfig as any).version;
+      delete (invalidConfig as unknown).version;
       
       const result = configManager.validateConfig(invalidConfig);
       
@@ -176,7 +176,7 @@ describe('ConfigManagerService', () => {
 
     it('should reject configuration without gates', () => {
       const invalidConfig = { ...configManager.getConfig() };
-      delete (invalidConfig as any).gates;
+      delete (invalidConfig as unknown).gates;
       
       const result = configManager.validateConfig(invalidConfig);
       
@@ -198,7 +198,7 @@ describe('ConfigManagerService', () => {
 
     it('should reject configuration without phases', () => {
       const invalidConfig = { ...configManager.getConfig() };
-      delete (invalidConfig as any).phases;
+      delete (invalidConfig as unknown).phases;
       
       const result = configManager.validateConfig(invalidConfig);
       
@@ -208,7 +208,7 @@ describe('ConfigManagerService', () => {
 
     it('should reject invalid phase configuration', () => {
       const invalidConfig = { ...configManager.getConfig() };
-      invalidConfig.phases[1].allowed = ['INVALID' as any];
+      invalidConfig.phases[1].allowed = ['INVALID' as unknown];
       invalidConfig.phases[2].sizeCap = -1;
       
       const result = configManager.validateConfig(invalidConfig);
@@ -231,7 +231,7 @@ describe('ConfigManagerService', () => {
 
     it('should reject missing volatility caps', () => {
       const invalidConfig = { ...configManager.getConfig() };
-      delete (invalidConfig as any).volatilityCaps;
+      delete (invalidConfig as unknown).volatilityCaps;
       
       const result = configManager.validateConfig(invalidConfig);
       
@@ -243,7 +243,7 @@ describe('ConfigManagerService', () => {
       const invalidConfig = { ...configManager.getConfig() };
       invalidConfig.feeds.tradier.timeout = -1;
       invalidConfig.feeds.twelveData.baseUrl = '';
-      delete (invalidConfig.feeds.alpaca as any).fallbackValues;
+      delete (invalidConfig.feeds.alpaca as unknown).fallbackValues;
       
       const result = configManager.validateConfig(invalidConfig);
       
@@ -261,8 +261,8 @@ describe('ConfigManagerService', () => {
       const result = configManager.validateConfig(config);
       
       expect(result.valid).toBe(true);
-      expect(result.warnings).toContain('maxSpreadBps is quite high, may allow poor execution quality');
-      expect(result.warnings).toContain('sizeBounds.max is very high, consider risk implications');
+      expect(result._warnings).toContain('maxSpreadBps is quite high, may allow poor execution quality');
+      expect(result._warnings).toContain('sizeBounds.max is very high, consider risk implications');
     });
   });
 
@@ -283,7 +283,7 @@ describe('ConfigManagerService', () => {
       
       // Attempt to modify should throw or be ignored
       expect(() => {
-        (config as any).gates.maxSpreadBps = 999;
+        (config as unknown).gates.maxSpreadBps = 999;
       }).toThrow();
     });
 

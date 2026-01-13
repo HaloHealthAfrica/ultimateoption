@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       },
       filters: params.data,
     });
-  } catch (error) {
-    console.error('Error in GET /api/ledger:', error);
+  } catch {
+    console.error('Error in GET /api/ledger:');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

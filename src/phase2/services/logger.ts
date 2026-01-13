@@ -8,7 +8,7 @@
 import winston from 'winston';
 import { maskSensitiveData } from '../config/index';
 import { LOG_LEVELS } from '../constants/gates';
-import { DecisionContext, DecisionOutput, ENGINE_VERSION } from '../types';
+import { DecisionOutput, ENGINE_VERSION, DecisionContext } from '../types';
 
 export interface DecisionLogEvent {
   type: 'DECISION_EVENT';
@@ -73,9 +73,9 @@ export class Logger {
     });
   }
 
-  private formatMessage(info: any): string {
+  private formatMessage(info: unknown): string {
     // Mask sensitive data before logging
-    const masked = maskSensitiveData(info);
+    const masked = maskSensitiveData(info) as any;
     
     return JSON.stringify({
       timestamp: masked.timestamp,
@@ -85,19 +85,19 @@ export class Logger {
     });
   }
 
-  public info(message: string, meta?: any): void {
+  public info(message: string, meta?: unknown): void {
     this.logger.info(message, meta);
   }
 
-  public warn(message: string, meta?: any): void {
+  public warn(message: string, meta?: unknown): void {
     this.logger.warn(message, meta);
   }
 
-  public error(message: string, meta?: any): void {
+  public error(message: string, meta?: unknown): void {
     this.logger.error(message, meta);
   }
 
-  public debug(message: string, meta?: any): void {
+  public debug(message: string, meta?: unknown): void {
     this.logger.debug(message, meta);
   }
 
@@ -221,7 +221,7 @@ export class Logger {
       path?: string;
       ip?: string;
       requestId?: string;
-      body?: any;
+      body?: unknown;
     }
   ): void {
     const errorEvent = {
@@ -272,8 +272,8 @@ export class Logger {
   /**
    * Sanitize request context to remove sensitive data
    */
-  private sanitizeRequestContext(context: any): any {
-    const sanitized = { ...context };
+  private sanitizeRequestContext(context: unknown): unknown {
+    const sanitized = { ...(context as any) };
     
     // Mask request body if present
     if (sanitized.body) {
@@ -286,15 +286,15 @@ export class Logger {
   /**
    * Create a child logger with additional context
    */
-  public child(context: any): Logger {
+  public child(context: unknown): Logger {
     const childLogger = new Logger(this.logger.level);
     
     // Add context to all log messages
     const originalFormatMessage = childLogger.formatMessage.bind(childLogger);
-    childLogger.formatMessage = (info: any) => {
+    childLogger.formatMessage = (info: unknown) => {
       return originalFormatMessage({
-        ...info,
-        ...maskSensitiveData(context)
+        ...(info as any),
+        ...(maskSensitiveData(context) as any)
       });
     };
     

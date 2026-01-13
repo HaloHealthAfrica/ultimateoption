@@ -288,12 +288,12 @@ export function validateRulesImmutability(): boolean {
     // Attempt to modify frozen objects - should throw in strict mode
     // or silently fail in non-strict mode
     const testPhase = PHASE_RULES[1];
-    (testPhase as any).sizeCap = 999;
+    (testPhase as Record<string, unknown>).sizeCap = 999;
     
     // If we reach here and the value changed, rules are not properly frozen
     // TypeScript knows this will always be true due to frozen object, but we test at runtime
-    return (testPhase as any).sizeCap !== 999;
-  } catch (error) {
+    return (testPhase as Record<string, unknown>).sizeCap !== 999;
+  } catch {
     // Exception thrown - rules are properly frozen
     return true;
   }

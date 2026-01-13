@@ -5,7 +5,7 @@
  * security features, and proper enforcement of limits.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { RateLimiter, rateLimitMiddleware, strictRateLimitMiddleware, burstRateLimitMiddleware } from '../middleware/rate-limiter';
 import { RateLimitError } from '../middleware/error-handler';
 import { RATE_LIMITS } from '../constants/gates';
@@ -54,8 +54,8 @@ describe('RateLimiter', () => {
 
       // Make 5 requests - all should pass
       for (let i = 0; i < 5; i++) {
-        await rateLimiter.middleware()(req as Request, res as Response, next);
-        expect(next).toHaveBeenCalledWith(); // Called without error
+        await rateLimiter.middleware()(req as Request, res as Response, _next);
+        expect(_next).toHaveBeenCalledWith(); // Called without error
         (next as jest.Mock).mockClear();
       }
     });
@@ -72,14 +72,14 @@ describe('RateLimiter', () => {
 
       // Make 3 requests - should pass
       for (let i = 0; i < 3; i++) {
-        await rateLimiter.middleware()(req as Request, res as Response, next);
-        expect(next).toHaveBeenCalledWith();
+        await rateLimiter.middleware()(req as Request, res as Response, _next);
+        expect(_next).toHaveBeenCalledWith();
         (next as jest.Mock).mockClear();
       }
 
       // 4th request should fail
-      await rateLimiter.middleware()(req as Request, res as Response, next);
-      expect(next).toHaveBeenCalledWith(expect.any(RateLimitError));
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
+      expect(_next).toHaveBeenCalledWith(expect.any(RateLimitError));
     });
 
     it('should set proper rate limit headers', async () => {
@@ -92,7 +92,7 @@ describe('RateLimiter', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
 
       expect(res.set).toHaveBeenCalledWith({
         'X-RateLimit-Limit': '10',
@@ -114,18 +114,18 @@ describe('RateLimiter', () => {
       const next = createMockNext();
 
       // Each user should have separate limits
-      await rateLimiter.middleware()(req1 as Request, res as Response, next);
-      await rateLimiter.middleware()(req1 as Request, res as Response, next);
-      await rateLimiter.middleware()(req2 as Request, res as Response, next);
-      await rateLimiter.middleware()(req2 as Request, res as Response, next);
+      await rateLimiter.middleware()(req1 as Request, res as Response, _next);
+      await rateLimiter.middleware()(req1 as Request, res as Response, _next);
+      await rateLimiter.middleware()(req2 as Request, res as Response, _next);
+      await rateLimiter.middleware()(req2 as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledTimes(4);
-      expect(next).toHaveBeenCalledWith(); // All calls successful
+      expect(_next).toHaveBeenCalledTimes(4);
+      expect(_next).toHaveBeenCalledWith(); // All calls successful
 
       // Third request from user1 should fail
       (next as jest.Mock).mockClear();
-      await rateLimiter.middleware()(req1 as Request, res as Response, next);
-      expect(next).toHaveBeenCalledWith(expect.any(RateLimitError));
+      await rateLimiter.middleware()(req1 as Request, res as Response, _next);
+      expect(_next).toHaveBeenCalledWith(expect.any(RateLimitError));
     });
   });
 
@@ -153,7 +153,7 @@ describe('RateLimiter', () => {
       const next = createMockNext();
 
       // Make a request
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
       // Wait for expiry
       await new Promise(resolve => setTimeout(resolve, 150));
@@ -170,7 +170,7 @@ describe('RateLimiter', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      await rateLimitMiddleware(req as Request, res as Response, next);
+      await rateLimitMiddleware(req as Request, res as Response, _next);
 
       expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
         'X-RateLimit-Limit': RATE_LIMITS.MAX_REQUESTS.toString()
@@ -186,11 +186,11 @@ describe('RateLimiter', () => {
       const next = createMockNext();
 
       // Both should work but use different keys
-      await rateLimitMiddleware(reqWithApiKey as Request, res as Response, next);
-      await rateLimitMiddleware(reqWithoutApiKey as Request, res as Response, next);
+      await rateLimitMiddleware(reqWithApiKey as Request, res as Response, _next);
+      await rateLimitMiddleware(reqWithoutApiKey as Request, res as Response, _next);
 
-      expect(next).toHaveBeenCalledTimes(2);
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledTimes(2);
+      expect(_next).toHaveBeenCalledWith();
     });
 
     it('should enforce strict limits for strict rate limiter', async () => {
@@ -200,14 +200,14 @@ describe('RateLimiter', () => {
 
       // Make 10 requests - should pass
       for (let i = 0; i < 10; i++) {
-        await strictRateLimitMiddleware(req as Request, res as Response, next);
-        expect(next).toHaveBeenCalledWith();
+        await strictRateLimitMiddleware(req as Request, res as Response, _next);
+        expect(_next).toHaveBeenCalledWith();
         (next as jest.Mock).mockClear();
       }
 
       // 11th request should fail
-      await strictRateLimitMiddleware(req as Request, res as Response, next);
-      expect(next).toHaveBeenCalledWith(expect.any(RateLimitError));
+      await strictRateLimitMiddleware(req as Request, res as Response, _next);
+      expect(_next).toHaveBeenCalledWith(expect.any(RateLimitError));
     });
 
     it('should enforce burst limits for burst rate limiter', async () => {
@@ -217,14 +217,14 @@ describe('RateLimiter', () => {
 
       // Make 5 requests - should pass
       for (let i = 0; i < 5; i++) {
-        await burstRateLimitMiddleware(req as Request, res as Response, next);
-        expect(next).toHaveBeenCalledWith();
+        await burstRateLimitMiddleware(req as Request, res as Response, _next);
+        expect(_next).toHaveBeenCalledWith();
         (next as jest.Mock).mockClear();
       }
 
       // 6th request should fail
-      await burstRateLimitMiddleware(req as Request, res as Response, next);
-      expect(next).toHaveBeenCalledWith(expect.any(RateLimitError));
+      await burstRateLimitMiddleware(req as Request, res as Response, _next);
+      expect(_next).toHaveBeenCalledWith(expect.any(RateLimitError));
     });
   });
 
@@ -240,14 +240,14 @@ describe('RateLimiter', () => {
       const next = createMockNext();
 
       // First request passes
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       (next as jest.Mock).mockClear();
 
       // Second request fails
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
       const error = (next as jest.Mock).mock.calls[0][0];
-      expect(error).toBeInstanceOf(RateLimitError);
+      expect(_error).toBeInstanceOf(RateLimitError);
       expect(error.message).toContain('Rate limit exceeded');
       expect(error.context).toEqual(expect.objectContaining({
         limit: 1,
@@ -274,9 +274,9 @@ describe('RateLimiter', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
-      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(_next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
@@ -293,9 +293,9 @@ describe('RateLimiter', () => {
       // Make 15 concurrent requests
       const promises = Array.from({ length: 15 }, () => {
         const next = createMockNext();
-        return rateLimiter.middleware()(req as Request, res as Response, next)
-          .then(() => next)
-          .catch(() => next);
+        return rateLimiter.middleware()(req as Request, res as Response, _next)
+          .then(() => _next)
+          .catch(() => _next);
       });
 
       const results = await Promise.all(promises);
@@ -330,7 +330,7 @@ describe('RateLimiter', () => {
       
       // Make 50 requests
       for (let i = 0; i < 50; i++) {
-        await rateLimiter.middleware()(req as Request, res as Response, next);
+        await rateLimiter.middleware()(req as Request, res as Response, _next);
         (next as jest.Mock).mockClear();
       }
       
@@ -358,13 +358,13 @@ describe('RateLimiter', () => {
       const next = createMockNext();
 
       // First request passes
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       (next as jest.Mock).mockClear();
 
       // Second request should be logged as violation
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
-      expect(next).toHaveBeenCalledWith(expect.any(RateLimitError));
+      expect(_next).toHaveBeenCalledWith(expect.any(RateLimitError));
     });
 
     it('should handle missing IP addresses gracefully', async () => {
@@ -377,9 +377,9 @@ describe('RateLimiter', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
       expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
         'X-RateLimit-Limit': '5'
       }));
@@ -399,10 +399,10 @@ describe('RateLimiter', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      await rateLimiter.middleware()(req as Request, res as Response, next);
+      await rateLimiter.middleware()(req as Request, res as Response, _next);
       
       // Should not allow header injection
-      expect(next).toHaveBeenCalledWith();
+      expect(_next).toHaveBeenCalledWith();
     });
   });
 
@@ -421,11 +421,11 @@ describe('RateLimiter', () => {
           const req = createMockRequest();
           const res = createMockResponse();
           let successCount = 0;
-          let errorCount = 0;
+          const errorCount = 0;
 
           for (let i = 0; i < numRequests; i++) {
             const next = createMockNext();
-            await rateLimiter.middleware()(req as Request, res as Response, next);
+            await rateLimiter.middleware()(req as Request, res as Response, _next);
             
             if ((next as jest.Mock).mock.calls[0]?.length === 0) {
               successCount++;
@@ -461,7 +461,7 @@ describe('RateLimiter', () => {
             // Make maxRequests + 1 requests for each IP
             for (let i = 0; i <= maxRequests; i++) {
               const next = createMockNext();
-              await rateLimiter.middleware()(req as Request, res as Response, next);
+              await rateLimiter.middleware()(req as Request, res as Response, _next);
               
               if ((next as jest.Mock).mock.calls[0]?.length === 0) {
                 successCount++;
@@ -496,9 +496,9 @@ describe('RateLimiter', () => {
             const res = createMockResponse();
             const next = createMockNext();
             
-            await rateLimiter.middleware()(req as Request, res as Response, next);
+            await rateLimiter.middleware()(req as Request, res as Response, _next);
             
-            const headers = (res as any).getHeaders();
+            const headers = (res as unknown).getHeaders();
             const remaining = parseInt(headers['X-RateLimit-Remaining'] || '0');
             const limit = parseInt(headers['X-RateLimit-Limit'] || '0');
 

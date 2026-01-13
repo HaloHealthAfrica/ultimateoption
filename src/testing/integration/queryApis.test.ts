@@ -23,20 +23,79 @@ const createTestPhase = (
   timeframe: '15M' | '1H' | '4H' | '1D' = '4H',
   localBias: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'BULLISH'
 ): SatyPhaseWebhook => ({
-  instrument: { symbol },
-  timeframe: { event_tf: timeframe },
   meta: {
-    event_type: 'REGIME_PHASE_ENTRY',
-    generated_at: Date.now(),
+    engine: 'SATY_PO' as const,
+    engine_version: '1.0.0',
+    event_id: `event_${Date.now()}`,
+    event_type: 'REGIME_PHASE_ENTRY' as const,
+    generated_at: new Date().toISOString(),
   },
-  event: { name: 'ENTER_ACCUMULATION' },
-  regime_context: { local_bias: localBias },
+  instrument: {
+    symbol,
+    exchange: 'NASDAQ',
+    asset_class: 'EQUITY',
+    session: 'REGULAR',
+  },
+  timeframe: {
+    chart_tf: timeframe,
+    event_tf: timeframe,
+    tf_role: 'REGIME' as const,
+    bar_close_time: new Date().toISOString(),
+  },
+  event: {
+    name: 'ENTER_ACCUMULATION' as const,
+    description: 'Entering accumulation phase',
+    directional_implication: 'UPSIDE_POTENTIAL' as const,
+    event_priority: 5,
+  },
+  oscillator_state: {
+    value: 25,
+    previous_value: 20,
+    zone_from: 'NEUTRAL',
+    zone_to: 'BULLISH',
+    distance_from_zero: 25,
+    distance_from_extreme: 75,
+    velocity: 'INCREASING' as const,
+  },
+  regime_context: {
+    local_bias: localBias,
+    htf_bias: {
+      tf: '1D',
+      bias: localBias,
+      osc_value: 30,
+    },
+    macro_bias: {
+      tf: '1W',
+      bias: localBias,
+    },
+  },
+  market_structure: {
+    mean_reversion_phase: 'EXPANSION',
+    trend_phase: 'TRENDING',
+    is_counter_trend: false,
+    compression_state: 'NORMAL',
+  },
   confidence: {
-    confidence_score: 75,
+    raw_strength: 75,
     htf_alignment: true,
+    confidence_score: 75,
+    confidence_tier: 'HIGH' as const,
+  },
+  execution_guidance: {
+    trade_allowed: true,
+    allowed_directions: ['LONG' as const],
+    recommended_execution_tf: ['15M', '5M'],
+    requires_confirmation: [],
   },
   risk_hints: {
+    avoid_if: [],
     time_decay_minutes: 240,
+    cooldown_tf: '1H',
+  },
+  audit: {
+    source: 'TEST',
+    alert_frequency: 'ONCE',
+    deduplication_key: `test_${Date.now()}`,
   },
 });
 
@@ -132,8 +191,8 @@ describe('Query APIs Integration Tests', () => {
             for (const config of uniquePhaseConfigs) {
               const phase = createTestPhase(
                 symbol,
-                config.timeframe as any,
-                config.localBias as any
+                config.timeframe as unknown,
+                config.localBias as unknown
               );
               
               phaseStore.updatePhase(phase);
@@ -213,8 +272,8 @@ describe('Query APIs Integration Tests', () => {
             for (const config of uniquePhaseConfigs) {
               const phase = createTestPhase(
                 'SPY',
-                config.timeframe as any,
-                config.localBias as any
+                config.timeframe as unknown,
+                config.localBias as unknown
               );
               
               phaseStore.updatePhase(phase);
@@ -605,10 +664,10 @@ describe('Query APIs Integration Tests', () => {
             let handler;
             if (endpoint === '/api/phase/current') {
               const module = await import('@/app/api/phase/current/route');
-              handler = (module as any)[method];
+              handler = (module as unknown)[method];
             } else {
               const module = await import('@/app/api/trend/current/route');
-              handler = (module as any)[method];
+              handler = (module as unknown)[method];
             }
 
             // Call the method handler
@@ -618,7 +677,7 @@ describe('Query APIs Integration Tests', () => {
             // Verify 405 response
             expect(response.status).toBe(405);
             expect(data).toHaveProperty('error');
-            expect(data.error).toContain('Method not allowed');
+            expect(data._error).toContain('Method not allowed');
           }
         ),
         { numRuns: 12 }

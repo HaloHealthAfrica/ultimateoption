@@ -5,20 +5,16 @@
  * Each source has its own mapper with no cross-source logic.
  */
 
-import { 
-  INormalizer, 
-  WebhookSource, 
-  NormalizedPayload, 
-  DecisionContext,
-  TradeDirection 
-} from '../types';
+import { INormalizer, 
+  WebhookSource, DecisionContext,
+  TradeDirection } from '../types';
 
 export class NormalizerService implements INormalizer {
   
   /**
    * Detect webhook source based on payload structure
    */
-  detectSource(payload: any): WebhookSource {
+  detectSource(payload: unknown): WebhookSource {
     if (!payload || typeof payload !== 'object') {
       throw new Error('Invalid payload: must be an object');
     }
@@ -62,7 +58,7 @@ export class NormalizerService implements INormalizer {
   /**
    * Normalize payload to partial DecisionContext based on detected source
    */
-  normalize(payload: any, source?: WebhookSource): NormalizedPayload {
+  normalize(payload: unknown, source?: WebhookSource): NormalizedPayload {
     const detectedSource = source || this.detectSource(payload);
     
     let partial: Partial<DecisionContext>;
@@ -97,7 +93,7 @@ export class NormalizerService implements INormalizer {
   /**
    * Map SATY phase webhook to regime context
    */
-  private mapSatyPhase(payload: any): Partial<DecisionContext> {
+  private mapSatyPhase(payload: unknown): Partial<DecisionContext> {
     // Extract phase information from data.phase or event.name (fallback)
     const phaseName = payload.data?.phase || this.extractPhaseName(payload.event?.name);
     const phase = this.getPhaseNumber(phaseName);
@@ -129,14 +125,14 @@ export class NormalizerService implements INormalizer {
   /**
    * Map MTF Dots webhook to alignment context
    */
-  private mapMtfDots(payload: any): Partial<DecisionContext> {
+  private mapMtfDots(payload: unknown): Partial<DecisionContext> {
     const timeframes = payload.timeframes || {};
     
     // Map timeframe states
     const tfStates: Record<string, "BULLISH" | "BEARISH" | "NEUTRAL"> = {};
-    let bullishCount = 0;
-    let bearishCount = 0;
-    let totalCount = 0;
+    const bullishCount = 0;
+    const bearishCount = 0;
+    const totalCount = 0;
 
     // Process each timeframe
     const timeframeKeys = ['tf3min', 'tf5min', 'tf15min', 'tf30min', 'tf60min', 'tf240min'];
@@ -173,7 +169,7 @@ export class NormalizerService implements INormalizer {
   /**
    * Map Ultimate Options webhook to expert opinion
    */
-  private mapUltimateOptions(payload: any): Partial<DecisionContext> {
+  private mapUltimateOptions(payload: unknown): Partial<DecisionContext> {
     const signal = payload.signal || {};
     
     return {
@@ -198,7 +194,7 @@ export class NormalizerService implements INormalizer {
   /**
    * Map STRAT execution webhook to structure validation
    */
-  private mapStratExecution(payload: any): Partial<DecisionContext> {
+  private mapStratExecution(payload: unknown): Partial<DecisionContext> {
     return {
       instrument: {
         symbol: payload.symbol || '',
@@ -216,7 +212,7 @@ export class NormalizerService implements INormalizer {
   /**
    * Map TradingView signal webhook to expert opinion (alternative source)
    */
-  private mapTradingViewSignal(payload: any): Partial<DecisionContext> {
+  private mapTradingViewSignal(payload: unknown): Partial<DecisionContext> {
     const signal = payload.signal || {};
     
     return {
@@ -262,7 +258,7 @@ export class NormalizerService implements INormalizer {
     }
   }
 
-  private extractVolatility(regimeContext: any): DecisionContext['regime']['volatility'] {
+  private extractVolatility(regimeContext: unknown): DecisionContext['regime']['volatility'] {
     // Look for volatility indicators in regime context
     if (regimeContext?.volatility) {
       const vol = regimeContext.volatility.toLowerCase();

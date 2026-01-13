@@ -59,7 +59,7 @@ export class ServiceFactory {
     const marketContextBuilder = new MarketContextBuilder();
 
     // Initialize risk gates
-    const riskGates = new RiskGatesService();
+    const _riskGates = new RiskGatesService();
 
     // Initialize decision engine
     const decisionEngine = new DecisionEngineService(configManager);

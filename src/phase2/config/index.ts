@@ -120,7 +120,7 @@ export function validateConfig(config: Config): void {
   for (const url of urls) {
     try {
       new URL(url);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Invalid URL in configuration: ${url}`);
     }
   }
@@ -148,12 +148,12 @@ export function validateConfig(config: Config): void {
 /**
  * Mask sensitive data for logging
  */
-export function maskSensitiveData(data: any): any {
+export function maskSensitiveData(data: unknown): unknown {
   if (typeof data !== 'object' || data === null) {
     return data;
   }
 
-  const masked = { ...data };
+  const masked = { ...(data as Record<string, unknown>) };
   const sensitiveKeys = ['apiKey', 'secretKey', 'password', 'token', 'key'];
 
   for (const key in masked) {

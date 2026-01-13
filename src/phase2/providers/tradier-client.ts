@@ -271,10 +271,11 @@ export class TradierClient {
   /**
    * Estimate gamma for an option (simplified Black-Scholes approximation)
    */
-  private estimateGamma(option: any): number {
+  private estimateGamma(option: unknown): number {
     // Simplified gamma estimation
     // In production, would use proper Black-Scholes calculation
-    const iv = option.implied_volatility || 0.25;
+    const optionData = option as any;
+    const iv = optionData.implied_volatility || 0.25;
     const timeToExpiry = 7 / 365; // Assume weekly options
     
     return iv * Math.sqrt(timeToExpiry) * 0.01; // Simplified formula

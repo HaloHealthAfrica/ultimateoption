@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
     };
     
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error in GET /api/phase/current:', error);
+  } catch {
+    console.error('Error in GET /api/phase/current:');
     
     return NextResponse.json(
       { error: 'Internal server error' },

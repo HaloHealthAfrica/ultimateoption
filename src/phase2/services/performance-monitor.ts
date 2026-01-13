@@ -167,9 +167,9 @@ export class PerformanceMonitor {
       issues.push(`High error rate: ${(this.metrics.errorRate * 100).toFixed(1)}%`);
     }
 
-    Object.entries(this.metrics.providerFailureRates).forEach(([provider, rate]) => {
+    Object.entries(this.metrics.providerFailureRates).forEach(([providerName, rate]) => {
       if (rate > 0.1) {
-        issues.push(`High ${provider} failure rate: ${(rate * 100).toFixed(1)}%`);
+        issues.push(`High ${providerName} failure rate: ${(rate * 100).toFixed(1)}%`);
       }
     });
 

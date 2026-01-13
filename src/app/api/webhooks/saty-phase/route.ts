@@ -32,18 +32,19 @@ import { authenticateWebhook } from '@/webhooks/security';
  */
 export async function POST(request: NextRequest) {
   const audit = WebhookAuditLog.getInstance();
+  let raw = '';
+  
+  // Collect headers for audit
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
   
   try {
-    const raw = await request.text();
+    raw = await request.text();
     
     // Authenticate webhook
     const authResult = authenticateWebhook(request, raw, 'saty-phase');
-    
-    // Collect headers for audit
-    const headers: Record<string, string> = {};
-    request.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
     
     if (!authResult.authenticated) {
       const entry = {
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
           received_type: typeof body,
           message: 'Payload does not match any expected format (text-wrapped, direct-saty, or flexible)',
           last_attempt: lastError?.method,
-          last_error: lastIssues,
+          lasterror: lastIssues,
           raw_sample: typeof body === 'string' ? body.substring(0, 200) : JSON.stringify(body).substring(0, 200),
         },
         { status: 400 }

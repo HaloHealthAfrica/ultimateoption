@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
         to_date: params.data.to_date,
       },
     });
-  } catch (error) {
-    console.error('Error in GET /api/decisions:', error);
+  } catch {
+    console.error('Error in GET /api/decisions:');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -8,15 +8,11 @@
 import { ErrorHandlerService } from '../services/error-handler.service';
 import { ConfigManagerService } from '../services/config-manager.service';
 import { AuditLoggerService } from '../services/audit-logger.service';
-import { 
-  FeedError, 
-  FeedErrorType, 
-  WebhookErrorType,
+import { FeedError, WebhookErrorType,
   EngineErrorType,
   DecisionPacket,
   MarketContext,
-  DecisionContext
-} from '../types';
+  DecisionContext } from '../types';
 
 describe('ErrorHandlerService', () => {
   let errorHandler: ErrorHandlerService;
@@ -322,10 +318,10 @@ describe('ErrorHandlerService', () => {
   describe('Error Response Creation', () => {
     test('should create consistent error response for generic Error', () => {
       const error = new Error('Something went wrong');
-      const response = errorHandler.createErrorResponse(error);
+      const response = errorHandler.createErrorResponse(_error);
       
       expect(response.success).toBe(false);
-      expect(response.error).toBe('Something went wrong');
+      expect(response._error).toBe('Something went wrong');
       expect(response.type).toBe('INTERNAL_ERROR');
       expect(response.timestamp).toBeGreaterThan(0);
       expect(response.engineVersion).toBe('2.5.0');
@@ -340,10 +336,10 @@ describe('ErrorHandlerService', () => {
         timestamp: Date.now()
       };
       
-      const response = errorHandler.createErrorResponse(webhookError as any);
+      const response = errorHandler.createErrorResponse(webhookError as unknown);
       
       expect(response.success).toBe(false);
-      expect(response.error).toBe('Invalid JSON payload');
+      expect(response._error).toBe('Invalid JSON payload');
       expect(response.type).toBe('INVALID_JSON');
       expect(response.details).toEqual({ line: 1, column: 5 });
     });
@@ -357,18 +353,18 @@ describe('ErrorHandlerService', () => {
         retryable: true
       };
       
-      const response = errorHandler.createErrorResponse(feedError as any);
+      const response = errorHandler.createErrorResponse(feedError as unknown);
       
       expect(response.success).toBe(false);
-      expect(response.error).toBe('Request timeout after 1000ms');
+      expect(response._error).toBe('Request timeout after 1000ms');
       expect(response.type).toBe('TIMEOUT');
     });
 
     test('should handle error without message', () => {
       const error = new Error();
-      const response = errorHandler.createErrorResponse(error);
+      const response = errorHandler.createErrorResponse(_error);
       
-      expect(response.error).toBe('Unknown error occurred');
+      expect(response._error).toBe('Unknown error occurred');
     });
   });
 
@@ -378,7 +374,7 @@ describe('ErrorHandlerService', () => {
       const payload = { signal: 'LONG', symbol: 'AAPL' };
       
       try {
-        await errorHandler.handleWebhookError(error, payload, 0);
+        await errorHandler.handleWebhookError(_error, payload, 0);
         fail('Should have thrown for retry');
       } catch (retryError) {
         expect(retryError.message).toContain('Retryable error');
@@ -390,7 +386,7 @@ describe('ErrorHandlerService', () => {
       const error = new Error('Connection timeout');
       const payload = { signal: 'LONG', symbol: 'AAPL' };
       
-      const response = await errorHandler.handleWebhookError(error, payload, 2);
+      const response = await errorHandler.handleWebhookError(_error, payload, 2);
       
       expect(response.success).toBe(false);
       expect(response.type).toBe('PROCESSING_TIMEOUT');
@@ -402,7 +398,7 @@ describe('ErrorHandlerService', () => {
       const error = new Error('Invalid schema');
       const payload = { invalid: 'data' };
       
-      const response = await errorHandler.handleWebhookError(error, payload, 0);
+      const response = await errorHandler.handleWebhookError(_error, payload, 0);
       
       expect(response.success).toBe(false);
       expect(response.type).toBe('SCHEMA_VALIDATION');
@@ -419,7 +415,7 @@ describe('ErrorHandlerService', () => {
         password: 'password123'
       };
       
-      const response = await errorHandler.handleWebhookError(error, payload, 2);
+      const response = await errorHandler.handleWebhookError(_error, payload, 2);
       
       // Check that audit logger received sanitized payload
       // This is tested indirectly through the audit logger
@@ -435,11 +431,11 @@ describe('ErrorHandlerService', () => {
       } as DecisionContext;
       const marketContext = { completeness: 0.8 } as MarketContext;
       
-      const response = await errorHandler.handleDecisionEngineError(error, context, marketContext);
+      const response = await errorHandler.handleDecisionEngineError(_error, context, marketContext);
       
       expect(response.success).toBe(false);
       expect(response.type).toBe('INCOMPLETE_CONTEXT');
-      expect(response.error).toBe('Incomplete context data');
+      expect(response._error).toBe('Incomplete context data');
     });
 
     test('should classify different engine error types', async () => {
@@ -453,7 +449,7 @@ describe('ErrorHandlerService', () => {
 
       for (const testCase of testCases) {
         const error = new Error(testCase.message);
-        const response = await errorHandler.handleDecisionEngineError(error);
+        const response = await errorHandler.handleDecisionEngineError(_error);
         
         expect(response.type).toBe(testCase.expectedType);
       }
@@ -534,7 +530,7 @@ describe('ErrorHandlerService', () => {
 
       for (const testCase of testCases) {
         const error = new Error(testCase.message);
-        const response = await errorHandler.handleWebhookError(error, {}, 2);
+        const response = await errorHandler.handleWebhookError(_error, {}, 2);
         
         expect(response.type).toBe(testCase.expectedType);
       }
@@ -553,7 +549,7 @@ describe('ErrorHandlerService', () => {
         const error = new Error(message);
         
         try {
-          await errorHandler.handleWebhookError(error, {}, 0);
+          await errorHandler.handleWebhookError(_error, {}, 0);
           fail('Should have thrown for retry');
         } catch (retryError) {
           expect(retryError.message).toContain('Retryable error');
@@ -570,7 +566,7 @@ describe('ErrorHandlerService', () => {
 
       for (const message of nonRetryableErrors) {
         const error = new Error(message);
-        const response = await errorHandler.handleWebhookError(error, {}, 0);
+        const response = await errorHandler.handleWebhookError(_error, {}, 0);
         
         expect(response.success).toBe(false);
         expect(response.details.isRetryable).toBe(false);
@@ -601,7 +597,7 @@ describe('ErrorHandlerService', () => {
     test('should handle edge cases gracefully', async () => {
       // Test with null/undefined inputs
       const response1 = errorHandler.createErrorResponse(new Error());
-      expect(response1.error).toBe('Unknown error occurred');
+      expect(response1._error).toBe('Unknown error occurred');
 
       // Test with empty feed errors array
       const result = await errorHandler.handleMarketFeedDegradation('AAPL', []);
@@ -613,7 +609,7 @@ describe('ErrorHandlerService', () => {
         confidenceScore: NaN,
         finalSizeMultiplier: Infinity,
         reasons: [] // Add empty reasons array
-      } as any;
+      } as unknown;
 
       const degradationStatus = {
         feedsAvailable: 1,

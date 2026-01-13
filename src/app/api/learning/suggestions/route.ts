@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
         rejected: 0,
       },
     });
-  } catch (error) {
-    console.error('Error in GET /api/learning/suggestions:', error);
+  } catch {
+    console.error('Error in GET /api/learning/suggestions:');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

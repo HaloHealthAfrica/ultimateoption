@@ -16,7 +16,7 @@ import { ENGINE_VERSION } from '../types';
 
 describe('Phase 2 Decision Engine - End-to-End Tests', () => {
   let webhookService: WebhookService;
-  let app: any;
+  let app: unknown;
 
   beforeAll(async () => {
     // Initialize complete system

@@ -7,18 +7,11 @@
 
 import { DecisionEngineService } from '../services/decision-engine.service';
 import { ConfigManagerService } from '../services/config-manager.service';
-import { 
-  DecisionContext, 
-  MarketContext,
+import { MarketContext,
   DecisionPacket,
-  GateResult
-} from '../types';
-import { 
-  CONFIDENCE_THRESHOLDS,
-  AI_SCORE_THRESHOLDS,
-  ALIGNMENT_THRESHOLDS,
-  SIZE_BOUNDS
-} from '../config/constants';
+  GateResult } from '../types';
+import { CONFIDENCE_THRESHOLDS,
+  AI_SCORE_THRESHOLDS, SIZE_BOUNDS } from '../config/constants';
 
 describe('DecisionEngineService', () => {
   let decisionEngine: DecisionEngineService;

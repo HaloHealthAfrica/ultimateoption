@@ -5,7 +5,7 @@
  */
 
 import { MetricsService } from '../services/metrics.service';
-import { DecisionPacket, EngineAction } from '../types';
+import { DecisionPacket } from '../types';
 
 describe('MetricsService', () => {
   let metricsService: MetricsService;

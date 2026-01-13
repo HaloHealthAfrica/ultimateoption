@@ -35,7 +35,7 @@ export class Phase25Server {
     this.app.use(express.urlencoded({ extended: true }));
 
     // Request logging
-    this.app.use((req, res, next) => {
+    this.app.use((req, _res, next) => {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
       next();
     });
@@ -77,8 +77,8 @@ export class Phase25Server {
           engine: 'Phase 2.5 Decision Engine',
           version: '1.0.0'
         });
-      } catch (error) {
-        console.error('Error in global metrics endpoint:', error);
+      } catch {
+        console.error('Error in global metrics endpoint:');
         res.status(500).json({
           success: false,
           message: 'Failed to retrieve metrics',
@@ -100,8 +100,8 @@ export class Phase25Server {
           version: '1.0.0',
           uptime: process.uptime()
         });
-      } catch (error) {
-        console.error('Error in global health check:', error);
+      } catch {
+        console.error('Error in global health check:');
         res.status(500).json({
           status: 'unhealthy',
           message: 'Health check failed',
@@ -121,8 +121,8 @@ export class Phase25Server {
     });
 
     // Error handler
-    this.app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error('Unhandled error:', error);
+    this.app.use((error: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      console.error('Unhandled error:');
       res.status(500).json({
         success: false,
         message: 'Internal server error',

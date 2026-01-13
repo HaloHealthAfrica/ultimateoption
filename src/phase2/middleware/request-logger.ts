@@ -20,7 +20,7 @@ interface RequestContext {
   requestId: string;
   method: string;
   path: string;
-  query: any;
+  query: unknown;
   userAgent?: string;
   ip: string;
   timestamp: string;
@@ -47,12 +47,12 @@ function generateRequestId(): string {
 /**
  * Mask sensitive data in request body
  */
-function maskSensitiveData(data: any): any {
+function maskSensitiveData(data: unknown): unknown {
   if (typeof data !== 'object' || data === null) {
     return data;
   }
 
-  const masked = { ...data };
+  const masked = { ...data } as any;
   const sensitiveFields = ['password', 'token', 'apiKey', 'secret', 'key'];
 
   for (const field of sensitiveFields) {
@@ -102,9 +102,9 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 
   // Capture response
   const originalSend = res.send;
-  let responseBody: any;
+  let responseBody: unknown;
 
-  res.send = function(body: any) {
+  res.send = function(body: unknown) {
     responseBody = body;
     return originalSend.call(this, body);
   };

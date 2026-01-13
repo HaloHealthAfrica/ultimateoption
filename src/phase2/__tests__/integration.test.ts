@@ -406,7 +406,7 @@ describe('Phase 2 Decision Engine - Integration Tests', () => {
 
       // Make requests up to the rate limit
       // Note: This test may need adjustment based on actual rate limit configuration
-      let successCount = 0;
+      const successCount = 0;
       let rateLimitHit = false;
 
       for (let i = 0; i < 15; i++) {
@@ -419,10 +419,10 @@ describe('Phase 2 Decision Engine - Integration Tests', () => {
             successCount++;
           } else if (response.status === 429) {
             rateLimitHit = true;
-            expect(response.body.error).toContain('Rate limit');
+            expect(response.body._error).toContain('Rate limit');
             break;
           }
-        } catch (error) {
+        } catch (_error) {
           // Rate limit or other error
           rateLimitHit = true;
           break;

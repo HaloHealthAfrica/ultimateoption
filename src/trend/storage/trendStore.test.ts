@@ -20,7 +20,7 @@ const generateTrend = (
     'tf60min', 'tf240min', 'tf1week', 'tf1month'
   ];
   
-  const timeframeData: any = {};
+  const timeframeData: unknown = {};
   timeframes.forEach((tf, index) => {
     timeframeData[tf] = {
       direction: directions[index] || 'neutral',
@@ -71,9 +71,9 @@ describe('TrendStore Property Tests', () => {
             expect(alignment).not.toBeNull();
             
             // Count directions manually
-            let bullish = 0;
-            let bearish = 0;
-            let neutral = 0;
+            const bullish = 0;
+            const bearish = 0;
+            const neutral = 0;
             
             directions.forEach(dir => {
               if (dir === 'bullish') bullish++;
@@ -288,7 +288,7 @@ describe('TrendStore Property Tests', () => {
       expect(store.getTrend('SPY')).not.toBeNull();
       
       // Manually expire the trend
-      const stored = (store as any).trends.get('SPY');
+      const stored = (store as unknown).trends.get('SPY');
       if (stored) {
         stored.expires_at = Date.now() - 1000; // Set to past
       }

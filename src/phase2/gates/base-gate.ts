@@ -5,7 +5,7 @@
  * All gates are deterministic and stateless.
  */
 
-import { DecisionContext, GateResult } from '../types';
+import { GateResult, DecisionContext } from '../types';
 
 /**
  * Base interface for all risk gates

@@ -151,7 +151,7 @@ describe('Market Feeds Configuration', () => {
     it('should return CLOSED on weekends', () => {
       // Mock a Saturday
       const saturday = new Date('2024-01-06T12:00:00Z'); // Saturday
-      jest.spyOn(global, 'Date').mockImplementation(() => saturday as any);
+      jest.spyOn(global, 'Date').mockImplementation(() => saturday as unknown);
       
       const session = getCurrentMarketSession();
       expect(session).toBe('CLOSED');
@@ -175,7 +175,7 @@ describe('Market Feeds Configuration', () => {
 
       // Re-import to get fresh config with env vars
       jest.resetModules();
-      const { MARKET_FEEDS_CONFIG: freshConfig } = require('../config/market-feeds.config');
+      const { MARKET_FEEDS_CONFIG: freshConfig } = import('../config/market-feeds.config');
 
       expect(freshConfig.tradier.apiKey).toBe('env-tradier-key');
       expect(freshConfig.twelveData.apiKey).toBe('env-twelve-key');
@@ -189,7 +189,7 @@ describe('Market Feeds Configuration', () => {
 
       // Re-import to get fresh config without env vars
       jest.resetModules();
-      const { MARKET_FEEDS_CONFIG: freshConfig } = require('../config/market-feeds.config');
+      const { MARKET_FEEDS_CONFIG: freshConfig } = import('../config/market-feeds.config');
 
       expect(freshConfig.tradier.apiKey).toBe('');
       expect(freshConfig.twelveData.apiKey).toBe('');

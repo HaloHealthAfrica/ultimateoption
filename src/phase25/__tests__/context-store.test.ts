@@ -6,7 +6,7 @@
  */
 
 import { ContextStoreService } from '../services/context-store.service';
-import { DecisionContext, WebhookSource } from '../types';
+import { WebhookSource } from '../types';
 
 describe('ContextStoreService', () => {
   let contextStore: ContextStoreService;

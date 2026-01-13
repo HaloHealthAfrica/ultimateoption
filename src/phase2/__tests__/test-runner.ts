@@ -106,7 +106,7 @@ export class Phase2TestRunner {
       
       console.log(`✅ ${suiteName}: ${result.passed} passed, ${result.failed} failed (${result.duration}ms)`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle test failures
       const result: TestResult = {
         suite: suiteName,
@@ -152,7 +152,7 @@ export class Phase2TestRunner {
         coverage: this.extractCoverage(jestResult)
       };
       
-    } catch (error) {
+    } catch (_error) {
       // Fallback parsing for non-JSON output
       const lines = output.split('\n');
       let passed = 0;
@@ -187,12 +187,12 @@ export class Phase2TestRunner {
   /**
    * Extract coverage information from Jest result
    */
-  private extractCoverage(jestResult: any): number {
+  private extractCoverage(jestResult: unknown): number {
     try {
       if (jestResult.coverageMap) {
         const coverage = jestResult.coverageMap;
-        let totalLines = 0;
-        let coveredLines = 0;
+        const totalLines = 0;
+        const coveredLines = 0;
         
         for (const file in coverage) {
           const fileCoverage = coverage[file];
@@ -210,7 +210,7 @@ export class Phase2TestRunner {
       }
       
       return 0;
-    } catch (error) {
+    } catch (_error) {
       return 0;
     }
   }
@@ -377,10 +377,10 @@ if (require.main === module) {
   if (args.length > 0 && args[0] === '--pattern') {
     // Run specific pattern
     const pattern = args[1] || '';
-    runner.runPattern(pattern).catch(console.error);
+    runner.runPattern(pattern).catch(console._error);
   } else {
     // Run all tests
-    runner.runAllTests().catch(console.error);
+    runner.runAllTests().catch(console._error);
   }
 }
 

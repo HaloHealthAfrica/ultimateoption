@@ -50,9 +50,9 @@ export async function recordWebhookReceipt(entry: Omit<WebhookAuditEntry, 'id' |
         entry.headers ? JSON.stringify(entry.headers) : null,
       ]
     );
-  } catch (error) {
+  } catch (_error) {
     // If the new columns don't exist, fall back to the old insert
-    console.warn('Failed to insert with new columns, falling back to legacy insert:', error);
+    console.warn('Failed to insert with new columns, falling back to legacy insert:', _error);
     
     try {
       await pool.query(
@@ -138,9 +138,9 @@ export async function listWebhookReceipts(limit: number): Promise<WebhookAuditEn
       raw_payload: r.raw_payload ?? undefined,
       headers: r.headers ? JSON.parse(r.headers) : undefined,
     }));
-  } catch (error) {
+  } catch (_error) {
     // If the new columns don't exist, fall back to the old query
-    console.warn('Failed to query with new columns, falling back to legacy query:', error);
+    console.warn('Failed to query with new columns, falling back to legacy query:', _error);
     
     try {
       const res = await pool.query(

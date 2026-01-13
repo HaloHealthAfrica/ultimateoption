@@ -5,19 +5,16 @@
  * authentication, validation, and routing to the decision pipeline.
  */
 
-import { Request, Response } from 'express';
+// import { Response } from 'express'; // Unused
 import crypto from 'crypto';
 import { SourceRouterService } from './source-router.service';
-import { 
-  IWebhookService, 
+import { IWebhookService, 
   WebhookResponse, 
   ValidationResult, 
   WebhookSource,
   WebhookErrorType,
   WebhookError,
-  AuthConfig,
-  NormalizedPayload
-} from '../types';
+  AuthConfig } from '../types';
 
 export class WebhookService implements IWebhookService {
   private authConfig: AuthConfig;
@@ -31,7 +28,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Handle TradingView signal webhooks
    */
-  async handleSignalWebhook(payload: any): Promise<WebhookResponse> {
+  async handleSignalWebhook(payload: unknown): Promise<WebhookResponse> {
     const startTime = Date.now();
     
     try {
@@ -73,7 +70,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Handle SATY phase webhooks
    */
-  async handleSatyPhaseWebhook(payload: any): Promise<WebhookResponse> {
+  async handleSatyPhaseWebhook(payload: unknown): Promise<WebhookResponse> {
     const startTime = Date.now();
     
     try {
@@ -153,7 +150,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate webhook payload schema based on source
    */
-  validateSchema(payload: any, source: WebhookSource): ValidationResult {
+  validateSchema(payload: unknown, source: WebhookSource): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -164,19 +161,19 @@ export class WebhookService implements IWebhookService {
 
     switch (source) {
       case "TRADINGVIEW_SIGNAL":
-        this.validateTradingViewSignal(payload, errors, warnings);
+        this.validateTradingViewSignal(payload, errors, _warnings);
         break;
       case "SATY_PHASE":
-        this.validateSatyPhase(payload, errors, warnings);
+        this.validateSatyPhase(payload, errors, _warnings);
         break;
       case "MTF_DOTS":
-        this.validateMtfDots(payload, errors, warnings);
+        this.validateMtfDots(payload, errors, _warnings);
         break;
       case "ULTIMATE_OPTIONS":
-        this.validateUltimateOptions(payload, errors, warnings);
+        this.validateUltimateOptions(payload, errors, _warnings);
         break;
       case "STRAT_EXEC":
-        this.validateStratExecution(payload, errors, warnings);
+        this.validateStratExecution(payload, errors, _warnings);
         break;
       default:
         errors.push(`Unknown webhook source: ${source}`);
@@ -192,7 +189,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate TradingView signal payload
    */
-  private validateTradingViewSignal(payload: any, errors: string[], warnings: string[]): void {
+  private validateTradingViewSignal(payload: unknown, errors: string[], _warnings: string[]): void {
     // Validate signal section
     if (!payload.signal) {
       errors.push('Missing signal section');
@@ -246,7 +243,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate SATY phase payload
    */
-  private validateSatyPhase(payload: any, errors: string[], warnings: string[]): void {
+  private validateSatyPhase(payload: unknown, errors: string[], _warnings: string[]): void {
     // Validate meta section
     if (!payload.meta) {
       errors.push('Missing meta section');
@@ -292,7 +289,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate MTF Dots payload
    */
-  private validateMtfDots(payload: any, errors: string[], warnings: string[]): void {
+  private validateMtfDots(payload: unknown, errors: string[], _warnings: string[]): void {
     if (!payload.ticker || typeof payload.ticker !== 'string') {
       errors.push('Invalid or missing ticker');
     }
@@ -317,7 +314,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate Ultimate Options payload
    */
-  private validateUltimateOptions(payload: any, errors: string[], warnings: string[]): void {
+  private validateUltimateOptions(payload: unknown, errors: string[], _warnings: string[]): void {
     if (!payload.signal) {
       errors.push('Missing signal section');
       return;
@@ -339,7 +336,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Validate STRAT execution payload
    */
-  private validateStratExecution(payload: any, errors: string[], warnings: string[]): void {
+  private validateStratExecution(payload: unknown, errors: string[], _warnings: string[]): void {
     if (typeof payload.setup_valid !== 'boolean') {
       errors.push('Invalid setup_valid, must be a boolean');
     }
@@ -360,7 +357,7 @@ export class WebhookService implements IWebhookService {
   /**
    * Create a webhook error response
    */
-  createErrorResponse(type: WebhookErrorType, message: string, details?: any): WebhookError {
+  createErrorResponse(type: WebhookErrorType, message: string, details?: unknown): WebhookError {
     return {
       type,
       message,

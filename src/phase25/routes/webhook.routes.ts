@@ -5,7 +5,7 @@
  * incoming webhooks with authentication and validation.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { WebhookService } from '../services/webhook.service';
 import { DecisionOrchestratorService } from '../services/decision-orchestrator.service';
 import { AuthConfig } from '../types';
@@ -24,7 +24,7 @@ export class WebhookRoutes {
 
   private setupRoutes(): void {
     // Middleware for request logging
-    this.router.use((req: Request, res: Response, next) => {
+    this.router.use((req: Request, _res: Response, next: NextFunction) => {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${req.ip}`);
       next();
     });
@@ -51,7 +51,7 @@ export class WebhookRoutes {
   /**
    * Authentication middleware
    */
-  private authenticationMiddleware(req: Request, res: Response, next: Function): void {
+  private authenticationMiddleware(req: Request, _res: Response, next: () => void): void {
     const authHeader = req.headers.authorization;
     const signature = req.headers['x-signature'] as string;
     
@@ -59,7 +59,7 @@ export class WebhookRoutes {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       if (!this.webhookService.validateBearerToken(token)) {
-        res.status(401).json({
+        _res.status(401).json({
           success: false,
           message: 'Invalid bearer token',
           timestamp: Date.now()
@@ -72,7 +72,7 @@ export class WebhookRoutes {
     if (signature) {
       const rawBody = JSON.stringify(req.body);
       if (!this.webhookService.validateSignature(rawBody, signature)) {
-        res.status(401).json({
+        _res.status(401).json({
           success: false,
           message: 'Invalid signature',
           timestamp: Date.now()

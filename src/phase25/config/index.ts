@@ -5,7 +5,7 @@
  * and provides typed configuration objects for the entire system.
  */
 
-import { EngineConfig, FeedConfig, AuthConfig } from '../types';
+import { EngineConfig, FeedConfig, AuthConfig, WebhookSource } from '../types';
 import { ENGINE_VERSION, validateRulesImmutability } from './rules';
 
 // ============================================================================
@@ -54,6 +54,30 @@ export function loadConfiguration(): EngineConfig {
     sizeBounds: {
       min: parseFloat(process.env.PHASE25_MIN_SIZE || '0.5'),
       max: parseFloat(process.env.PHASE25_MAX_SIZE || '3.0')
+    },
+    
+    // Confidence and scoring thresholds
+    confidenceThresholds: {
+      execute: parseFloat(process.env.PHASE25_CONFIDENCE_EXECUTE || '75'),
+      wait: parseFloat(process.env.PHASE25_CONFIDENCE_WAIT || '60'),
+      skip: parseFloat(process.env.PHASE25_CONFIDENCE_SKIP || '40')
+    },
+    
+    aiScoreThresholds: {
+      minimum: parseFloat(process.env.PHASE25_AI_SCORE_MIN || '5.0'),
+      penaltyBelow: parseFloat(process.env.PHASE25_AI_SCORE_PENALTY || '4.0')
+    },
+    
+    alignmentThresholds: {
+      strongAlignment: parseFloat(process.env.PHASE25_ALIGNMENT_STRONG || '0.8'),
+      bonusMultiplier: parseFloat(process.env.PHASE25_ALIGNMENT_BONUS || '1.2')
+    },
+    
+    // Context rules
+    contextRules: {
+      maxAge: parseInt(process.env.PHASE25_CONTEXT_MAX_AGE || '300000'), // 5 minutes
+      requiredSources: ['TRADINGVIEW_SIGNAL'] as WebhookSource[],
+      optionalSources: ['SATY_PHASE', 'MTF_DOTS', 'ULTIMATE_OPTIONS', 'STRAT_EXEC'] as WebhookSource[]
     },
     
     feeds: {
@@ -108,7 +132,7 @@ function getDefaultBaseUrl(provider: string): string {
 /**
  * Gets fallback values for each provider
  */
-function getFallbackValues(provider: string): any {
+function getFallbackValues(provider: string): Record<string, unknown> {
   switch (provider) {
     case 'TRADIER':
       return {

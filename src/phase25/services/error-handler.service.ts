@@ -5,17 +5,13 @@
  * conservative bias under uncertainty, and consistent error responses.
  */
 
-import { 
-  MarketContext,
-  DecisionContext,
+import { DecisionContext,
   DecisionPacket,
   FeedError,
   WebhookError,
   EngineError,
-  FeedErrorType,
   WebhookErrorType,
-  EngineErrorType
-} from '../types';
+  EngineErrorType } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 import { AuditLoggerService } from './audit-logger.service';
 
@@ -31,7 +27,7 @@ export interface ErrorResponse {
   success: false;
   error: string;
   type: string;
-  details?: any;
+  details?: unknown;
   timestamp: number;
   engineVersion: string;
 }
@@ -108,7 +104,7 @@ export class ErrorHandlerService {
         symbol,
         degradationStatus,
         feedErrors: feedErrors.map(e => ({
-          provider: e.provider,
+          provider: e._provider,
           type: e.type,
           message: e.message
         })),
@@ -134,7 +130,7 @@ export class ErrorHandlerService {
     const uncertaintyLevel = this.calculateUncertaintyLevel(degradationStatus);
     
     // Apply conservative adjustments
-    let adjustedDecision = { ...decision };
+    const adjustedDecision = { ...decision };
     
     // Handle NaN values
     if (isNaN(decision.confidenceScore)) {
@@ -219,18 +215,18 @@ export class ErrorHandlerService {
    */
   async handleWebhookError(
     error: Error,
-    payload: any,
+    payload: unknown,
     retryCount: number = 0
   ): Promise<ErrorResponse> {
     // Log the error
-    await this.auditLogger.logError(error, {
+    await this.auditLogger.logError(_error, {
       payload: this.sanitizePayload(payload),
       retryCount,
       timestamp: Date.now()
     });
 
     // Determine if error is retryable
-    const isRetryable = this.isRetryableError(error);
+    const isRetryable = this.isRetryableError(_error);
     
     if (isRetryable && retryCount < this.config.retryAttempts) {
       // Wait before retry
@@ -242,7 +238,7 @@ export class ErrorHandlerService {
 
     // Create structured error response
     const webhookError: WebhookError = {
-      type: this.classifyWebhookError(error),
+      type: this.classifyWebhookError(_error),
       message: error.message,
       details: {
         retryCount,
@@ -264,8 +260,8 @@ export class ErrorHandlerService {
     marketContext?: MarketContext
   ): Promise<ErrorResponse> {
     // Create engine-specific error
-    const engineError: EngineError = Object.assign(error, {
-      type: this.classifyEngineError(error),
+    const engineError: EngineError = Object.assign(_error, {
+      type: this.classifyEngineError(_error),
       context,
       marketContext,
       timestamp: Date.now()
@@ -349,7 +345,7 @@ export class ErrorHandlerService {
 
   private async buildFallbackMarketContext(symbol: string, feedErrors: FeedError[]): Promise<MarketContext> {
     const config = this.configManager.getConfig();
-    const failedProviders = new Set(feedErrors.map(e => e.provider));
+    const failedProviders = new Set(feedErrors.map(e => e._provider));
     
     // Build context with fallback values for failed providers
     const context: MarketContext = {
@@ -430,7 +426,7 @@ export class ErrorHandlerService {
     return EngineErrorType.RULE_VIOLATION;
   }
 
-  private sanitizePayload(payload: any): any {
+  private sanitizePayload(payload: unknown): unknown {
     if (typeof payload !== 'object' || payload === null) {
       return payload;
     }
@@ -456,7 +452,7 @@ export class ErrorHandlerService {
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     let recentCount = 0;
     
-    for (const [provider, lastFailure] of this.lastFailureTime) {
+    for (const [_provider, lastFailure] of this.lastFailureTime) {
       if (lastFailure > fiveMinutesAgo) {
         recentCount += 1; // Count recent failures, not total count
       }
@@ -468,10 +464,10 @@ export class ErrorHandlerService {
   /**
    * Record a feed failure for tracking
    */
-  recordFeedFailure(provider: string): void {
-    const currentCount = this.feedFailureCount.get(provider) || 0;
-    this.feedFailureCount.set(provider, currentCount + 1);
-    this.lastFailureTime.set(provider, Date.now());
+  recordFeedFailure(_provider: string): void {
+    const currentCount = this.feedFailureCount.get(_provider) || 0;
+    this.feedFailureCount.set(_provider, currentCount + 1);
+    this.lastFailureTime.set(_provider, Date.now());
   }
 
   /**

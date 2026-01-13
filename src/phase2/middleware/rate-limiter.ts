@@ -123,8 +123,8 @@ export class RateLimiter {
         }
 
         next();
-      } catch (error) {
-        next(error);
+      } catch (_error) {
+        next(_error);
       }
     };
   }

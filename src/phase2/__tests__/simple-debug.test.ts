@@ -12,7 +12,7 @@ import { MarketContextBuilder } from '../services/market-context-builder';
 
 describe('Debug Integration Issues', () => {
   let webhookService: WebhookService;
-  let app: any;
+  let app: unknown;
 
   beforeAll(async () => {
     const logger = new Logger();
@@ -81,8 +81,8 @@ describe('Debug Integration Issues', () => {
     try {
       const normalized = Normalizer.normalizeSignal(testPayload);
       console.log('Normalized successfully:', JSON.stringify(normalized, null, 2));
-    } catch (error) {
-      console.log('Normalization error:', error);
+    } catch (_error) {
+      console.log('Normalization error:', _error);
     }
   });
 });

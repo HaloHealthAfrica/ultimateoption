@@ -15,7 +15,7 @@ import { TwelveDataClient } from '../providers/twelvedata-client';
 import { AlpacaClient } from '../providers/alpaca-client';
 import { MarketContextBuilder } from '../services/market-context-builder';
 import { PerformanceTracker } from '../services/performance-tracker';
-import { DecisionContext, DecisionOutput, ENGINE_VERSION } from '../types';
+import { DecisionOutput, ENGINE_VERSION, DecisionContext } from '../types';
 
 // Mock providers
 jest.mock('../providers/tradier-client');
@@ -39,9 +39,9 @@ describe('Health Monitoring System', () => {
     logger = new Logger('debug');
     performanceTracker = new PerformanceTracker(logger);
     
-    tradierClient = new TradierClient({} as any, logger) as jest.Mocked<TradierClient>;
-    twelveDataClient = new TwelveDataClient({} as any, logger) as jest.Mocked<TwelveDataClient>;
-    alpacaClient = new AlpacaClient({} as any, logger) as jest.Mocked<AlpacaClient>;
+    tradierClient = new TradierClient({} as unknown, logger) as jest.Mocked<TradierClient>;
+    twelveDataClient = new TwelveDataClient({} as unknown, logger) as jest.Mocked<TwelveDataClient>;
+    alpacaClient = new AlpacaClient({} as unknown, logger) as jest.Mocked<AlpacaClient>;
     marketContextBuilder = new MarketContextBuilder(
       tradierClient,
       twelveDataClient,
@@ -95,11 +95,11 @@ describe('Health Monitoring System', () => {
         
         // Check providers array
         expect(response.body.providers).toHaveLength(3);
-        response.body.providers.forEach((provider: any) => {
-          expect(provider).toHaveProperty('name');
-          expect(provider).toHaveProperty('status', 'healthy');
-          expect(provider).toHaveProperty('responseTime');
-          expect(provider).toHaveProperty('lastChecked');
+        response.body.providers.forEach((provider: unknown) => {
+          expect(_provider).toHaveProperty('name');
+          expect(_provider).toHaveProperty('status', 'healthy');
+          expect(_provider).toHaveProperty('responseTime');
+          expect(_provider).toHaveProperty('lastChecked');
         });
       });
 
@@ -115,7 +115,7 @@ describe('Health Monitoring System', () => {
         expect(response.body).toHaveProperty('status', 'unhealthy');
         
         // Check that failed provider is marked as unhealthy
-        const tradierProvider = response.body.providers.find((p: any) => p.name === 'tradier');
+        const tradierProvider = response.body.providers.find((p: unknown) => p.name === 'tradier');
         expect(tradierProvider).toHaveProperty('status', 'unhealthy');
         expect(tradierProvider).toHaveProperty('error');
       });
@@ -133,7 +133,7 @@ describe('Health Monitoring System', () => {
         expect(response.status).toBe(503);
         expect(response.body.status).toBe('degraded');
         
-        const tradierProvider = response.body.providers.find((p: any) => p.name === 'tradier');
+        const tradierProvider = response.body.providers.find((p: unknown) => p.name === 'tradier');
         expect(tradierProvider.status).toBe('degraded');
         expect(tradierProvider.responseTime).toBeGreaterThan(1000);
       });
@@ -375,7 +375,7 @@ describe('Health Monitoring System', () => {
         body: { signal: { type: 'LONG' } }
       };
 
-      logger.logError('Request processing failed', error, requestContext);
+      logger.logError('Request processing failed', _error, requestContext);
 
       expect(logSpy).toHaveBeenCalledWith(
         'Request processing failed',
@@ -476,7 +476,7 @@ describe('Health Monitoring System', () => {
         }
       };
 
-      logger.logError('Request failed', error, requestContext);
+      logger.logError('Request failed', _error, requestContext);
 
       expect(logSpy).toHaveBeenCalled();
       // The masking should be applied to the request context body

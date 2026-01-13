@@ -5,7 +5,7 @@
  * Threshold: 12 basis points maximum
  */
 
-import { DecisionContext, GateResult } from '../types';
+import { GateResult, DecisionContext } from '../types';
 import { GATE_NAMES, GATE_THRESHOLDS, GATE_REASONS } from '../constants/gates';
 import { BaseRiskGate } from './base-gate';
 

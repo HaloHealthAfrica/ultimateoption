@@ -7,14 +7,9 @@
 
 import { RiskGatesService } from '../services/risk-gates.service';
 import { ConfigManagerService } from '../services/config-manager.service';
-import { 
-  DecisionContext, 
-  MarketContext,
-  GateResult
-} from '../types';
-import { 
-  RISK_GATES
-} from '../config/constants';
+import { MarketContext,
+  GateResult } from '../types';
+import { RISK_GATES } from '../config/constants';
 
 describe('RiskGatesService', () => {
   let riskGates: RiskGatesService;
