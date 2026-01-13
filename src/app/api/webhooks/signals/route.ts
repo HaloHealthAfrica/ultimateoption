@@ -1,205 +1,120 @@
 /**
- * Signals Webhook API
+ * Phase 2 Signals Webhook API
  * 
  * POST endpoint for receiving TradingView signals.
- * Validates and processes incoming EnrichedSignal payloads.
+ * Uses Phase 2 decision engine for processing.
  * 
  * Requirements: 1.1
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { EnrichedSignalSchema, safeParseEnrichedSignal } from '@/types/signal';
-import { parseAndAdaptSignal } from '@/webhooks/signalAdapter';
-import { calculateSignalValidityMinutes } from '@/webhooks/validityCalculator';
-import { getTimeframeStore } from '@/webhooks/timeframeStore';
-import { executionPublisher } from '@/events/eventBus';
-import { WebhookAuditLog } from '@/webhooks/auditLog';
-import { recordWebhookReceipt } from '@/webhooks/auditDb';
-import { authenticateWebhook } from '@/webhooks/security';
+import { Normalizer } from '@/phase2/services/normalizer';
+import { DecisionEngine } from '@/phase2/engine/decision-engine';
+import { MarketContextBuilder } from '@/phase2/services/market-context-builder';
+import { TradierClient } from '@/phase2/providers/tradier-client';
+import { TwelveDataClient } from '@/phase2/providers/twelvedata-client';
+import { AlpacaClient } from '@/phase2/providers/alpaca-client';
+import { Logger } from '@/phase2/services/logger';
+import { ENGINE_VERSION } from '@/phase2/types';
+import { HTTP_STATUS } from '@/phase2/constants/gates';
 
 /**
  * POST /api/webhooks/signals
  * 
- * Receives TradingView webhook with EnrichedSignal payload.
- * Accepts either:
- * - `{ "text": "<stringified EnrichedSignal JSON>" }` (legacy/testing wrapper), OR
- * - raw `EnrichedSignal` JSON object (recommended for TradingView).
- * 
- * Authentication:
- * - HMAC-SHA256 signature in x-hub-signature-256, x-signature, or signature header
- * - OR Bearer token in Authorization header
- * - Configured via WEBHOOK_SECRET_SIGNALS environment variable
+ * Receives TradingView webhook signals and processes them through Phase 2 decision engine.
+ * Validates payload, builds market context, and returns decision output.
  */
 export async function POST(request: NextRequest) {
-  const audit = WebhookAuditLog.getInstance();
+  const startTime = Date.now();
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Initialize services
+  const logger = new Logger();
+  const tradierClient = new TradierClient();
+  const twelveDataClient = new TwelveDataClient();
+  const alpacaClient = new AlpacaClient();
+  const marketContextBuilder = new MarketContextBuilder(
+    tradierClient,
+    twelveDataClient,
+    alpacaClient,
+    logger
+  );
+  const decisionEngine = new DecisionEngine();
   
   try {
-    const raw = await request.text();
-    
-    // Capture headers for debugging (excluding sensitive ones)
-    const headers: Record<string, string> = {};
-    request.headers.forEach((value, key) => {
-      if (!key.toLowerCase().includes('authorization') && !key.toLowerCase().includes('secret')) {
-        headers[key] = value;
-      }
-    });
-    
-    // Authenticate webhook
-    const authResult = authenticateWebhook(request, raw, 'signals');
-    if (!authResult.authenticated) {
-      const entry = {
-        kind: 'signals',
-        ok: false,
-        status: 401,
-        ip: request.headers.get('x-forwarded-for') || undefined,
-        user_agent: request.headers.get('user-agent') || undefined,
-        message: `Authentication failed: ${authResult.error}`,
-        raw_payload: raw, // Store complete payload
-        headers,
-      } as const;
-      audit.add(entry);
-      await recordWebhookReceipt(entry);
+    // Validate Content-Type
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
       return NextResponse.json(
-        { error: 'Unauthorized', details: authResult.error },
-        { status: 401 }
+        { error: 'Content-Type must be application/json' },
+        { status: HTTP_STATUS.BAD_REQUEST }
       );
-    }
-    
-    let body: unknown = raw;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      // Keep as string; we'll fail validation and return 400.
     }
 
-    // Parse and validate the signal - try multiple formats
-    let signal;
-    let parseMethod = 'unknown';
+    const body = await request.json();
     
-    // First try: Expected format with "text" field
-    if (body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)) {
-      const result = safeParseEnrichedSignal(body);
-      if (result.success) {
-        signal = result.data;
-        parseMethod = 'text-wrapped';
-      }
-    }
-    
-    // Second try: Direct EnrichedSignal format
-    if (!signal) {
-      const result = EnrichedSignalSchema.safeParse(body);
-      if (result.success) {
-        signal = result.data;
-        parseMethod = 'direct-enriched';
-      }
-    }
-    
-    // Third try: Flexible signal adapter (for TradingView format)
-    if (!signal) {
-      const result = parseAndAdaptSignal(body);
-      if (result.success) {
-        signal = result.data;
-        parseMethod = 'adapted-flexible';
-      }
-    }
-    
-    // If all parsing attempts failed
-    if (!signal) {
-      const entry = {
-        kind: 'signals',
-        ok: false,
-        status: 400,
-        ip: request.headers.get('x-forwarded-for') || undefined,
-        user_agent: request.headers.get('user-agent') || undefined,
-        message: 'Invalid signal payload - no valid format found',
-        raw_payload: raw, // Store complete payload
-        headers,
-      } as const;
-      audit.add(entry);
-      await recordWebhookReceipt(entry);
+    // Validate JSON body exists
+    if (!body || typeof body !== 'object') {
       return NextResponse.json(
-        { 
-          error: 'Invalid signal payload',
-          received_type: typeof body,
-          message: 'Payload does not match any expected format (text-wrapped, direct-enriched, or flexible)',
-          raw_sample: typeof body === 'string' ? body.substring(0, 200) : JSON.stringify(body).substring(0, 200),
-        },
-        { status: 400 }
+        { error: 'Request body must be valid JSON' },
+        { status: HTTP_STATUS.BAD_REQUEST }
       );
     }
+
+    // Use normalizer for validation and normalization
+    const context = Normalizer.normalizeSignal(body);
     
-    // Calculate validity
-    const validityMinutes = calculateSignalValidityMinutes(signal);
+    logger.info('Signal normalized successfully', {
+      requestId,
+      symbol: context.indicator.symbol,
+      type: context.indicator.signalType,
+      aiScore: context.indicator.aiScore
+    });
+
+    // Build market context
+    const marketResult = await marketContextBuilder.buildMarketContext(context.indicator.symbol);
+    const marketContext = marketResult.context;
     
-    // Store signal in timeframe store
-    const timeframeStore = getTimeframeStore();
-    timeframeStore.storeSignal(signal);
+    // Create complete decision context
+    const completeContext = {
+      ...context,
+      market: marketContext
+    };
+
+    // Process decision through decision engine
+    const decisionOutput = decisionEngine.makeDecision(completeContext);
     
-    // Publish event for learning modules
-    executionPublisher.signalReceived(signal, signal.signal.timeframe, validityMinutes);
+    // Log decision event
+    logger.logDecisionEvent(
+      completeContext,
+      decisionOutput,
+      Date.now() - startTime
+    );
+
+    // Add response headers
+    const response = NextResponse.json(decisionOutput, { status: HTTP_STATUS.OK });
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-Engine-Version', ENGINE_VERSION);
+    response.headers.set('X-Service', 'Phase2-Decision-Engine');
     
-    const okEntry = {
-      kind: 'signals',
-      ok: true,
-      status: 200,
-      ip: request.headers.get('x-forwarded-for') || undefined,
-      user_agent: request.headers.get('user-agent') || undefined,
-      ticker: signal.instrument.ticker,
-      timeframe: signal.signal.timeframe,
-      message: `Authenticated via ${authResult.method} (parsed as ${parseMethod})`,
-      raw_payload: raw, // Store complete payload
-      headers,
-    } as const;
-    audit.add(okEntry);
-    await recordWebhookReceipt(okEntry);
+    return response;
+
+  } catch (error) {
+    logger.logError('Signal processing failed', error as Error, {
+      method: request.method,
+      url: request.url,
+      requestId
+    });
 
     return NextResponse.json({
-      success: true,
-      signal: {
-        type: signal.signal.type,
-        timeframe: signal.signal.timeframe,
-        quality: signal.signal.quality,
-        ai_score: signal.signal.ai_score,
-        ticker: signal.instrument.ticker,
-        price: signal.instrument.current_price,
-      },
-      validity: {
-        minutes: validityMinutes,
-        expires_at: Date.now() + validityMinutes * 60 * 1000,
-      },
-      authentication: {
-        method: authResult.method,
-        authenticated: true,
-      },
-      received_at: Date.now(),
-    });
-  } catch (error) {
-    console.error('Error in POST /api/webhooks/signals:', error);
-
-    const errEntry = {
-      kind: 'signals',
-      ok: false,
-      status: 500,
-      ip: request.headers.get('x-forwarded-for') || undefined,
-      user_agent: request.headers.get('user-agent') || undefined,
+      error: 'Invalid signal payload',
+      type: 'VALIDATION_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error',
       message: error instanceof Error ? error.message : 'Unknown error',
-      raw_payload: raw, // Store complete payload
-      headers,
-    } as const;
-    audit.add(errEntry);
-    await recordWebhookReceipt(errEntry);
-    
-    if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { error: 'Invalid JSON payload' },
-        { status: 400 }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+      engineVersion: ENGINE_VERSION,
+      requestId
+    }, { status: HTTP_STATUS.BAD_REQUEST });
   }
 }
 
