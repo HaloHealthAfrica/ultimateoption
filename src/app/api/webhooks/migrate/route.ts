@@ -20,7 +20,7 @@ function getPool(): Pool | null {
   });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const pool = getPool();
   
   if (!pool) {
