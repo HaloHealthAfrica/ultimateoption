@@ -292,19 +292,23 @@ export default function WebhookMonitor() {
                           </div>
 
                           {/* Raw Payload */}
-                          {entry.raw_payload && (
-                            <div className="mb-6">
-                              <h4 className="text-sm font-semibold text-gray-300 mb-3">Raw Payload</h4>
+                          <div className="mb-6">
+                            <h4 className="text-sm font-semibold text-gray-300 mb-3">Raw Payload</h4>
+                            {entry.raw_payload ? (
                               <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 font-mono overflow-x-auto max-h-96 overflow-y-auto">
                                 <pre className="whitespace-pre-wrap break-words">{entry.raw_payload}</pre>
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="bg-gray-900 rounded p-3 text-xs text-gray-500 italic">
+                                No raw payload data (webhook received before migration)
+                              </div>
+                            )}
+                          </div>
 
                           {/* Headers */}
-                          {entry.headers && Object.keys(entry.headers).length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-300 mb-3">Headers</h4>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-300 mb-3">Headers</h4>
+                            {entry.headers && Object.keys(entry.headers).length > 0 ? (
                               <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 space-y-1">
                                 {Object.entries(entry.headers).map(([key, value]) => (
                                   <div key={key} className="flex">
@@ -313,8 +317,12 @@ export default function WebhookMonitor() {
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="bg-gray-900 rounded p-3 text-xs text-gray-500 italic">
+                                No headers data (webhook received before migration)
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
