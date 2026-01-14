@@ -1,0 +1,559 @@
+{
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "SATY Phase #1 (Text-wrapped, SPY, BULLISH)",
+      "endpoint": "/api/webhooks/saty-phase",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "phase": {
+          "phase_type": "REGIME_PHASE_ENTRY",
+          "timeframe": "15",
+          "ticker": "SPY",
+          "direction": "BULLISH"
+        },
+        "decay": {
+          "minutes": 30,
+          "expires_at": 1768361331264
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359531264
+      },
+      "timestamp": "2026-01-14T02:58:51.272Z"
+    },
+    {
+      "name": "SATY Phase #2 (Direct, AAPL, BEARISH)",
+      "endpoint": "/api/webhooks/saty-phase",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "phase": {
+          "phase_type": "REGIME_PHASE_EXIT",
+          "timeframe": "5",
+          "ticker": "AAPL",
+          "direction": "BEARISH"
+        },
+        "decay": {
+          "minutes": 10,
+          "expires_at": 1768360131798
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359531798
+      },
+      "timestamp": "2026-01-14T02:58:51.799Z"
+    },
+    {
+      "name": "Signal #1 (BUY SPY)",
+      "endpoint": "/api/webhooks/signals",
+      "status": 200,
+      "success": true,
+      "response": {
+        "decision": "REJECT",
+        "symbol": "SPY",
+        "engine_version": "2.0.0",
+        "timestamp": "2026-01-14T02:58:52.586Z",
+        "gates": {
+          "passed": [
+            "VOLATILITY_GATE",
+            "GAMMA_GATE",
+            "SESSION_GATE"
+          ],
+          "failed": [
+            "SPREAD_GATE",
+            "PHASE_GATE"
+          ]
+        },
+        "reasons": [
+          "SPREAD_TOO_WIDE",
+          "PHASE_CONFIDENCE_LOW"
+        ],
+        "audit": {
+          "timestamp": "2026-01-14T02:58:52.586Z",
+          "symbol": "SPY",
+          "session": "OPEN",
+          "context_snapshot": {
+            "indicator": {
+              "signalType": "LONG",
+              "aiScore": 8.5,
+              "satyPhase": 45.5,
+              "marketSession": "OPEN",
+              "symbol": "SPY",
+              "timestamp": 1705334500000
+            },
+            "market": {
+              "optionsData": {
+                "putCallRatio": 1,
+                "ivPercentile": 50,
+                "gammaBias": "NEUTRAL",
+                "dataSource": "FALLBACK"
+              },
+              "marketStats": {
+                "atr14": 0,
+                "rv20": 0,
+                "trendSlope": 0,
+                "dataSource": "FALLBACK"
+              },
+              "liquidityData": {
+                "spreadBps": 999,
+                "depthScore": 0,
+                "tradeVelocity": "SLOW",
+                "dataSource": "API"
+              }
+            }
+          },
+          "gate_results": [
+            {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 45.5,
+              "threshold": 65
+            },
+            {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          ],
+          "gate_results_object": {
+            "SPREAD_GATE": {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            "VOLATILITY_GATE": {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            "GAMMA_GATE": {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            "PHASE_GATE": {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 45.5,
+              "threshold": 65
+            },
+            "SESSION_GATE": {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          },
+          "processing_time_ms": 0.31
+        }
+      },
+      "timestamp": "2026-01-14T02:58:52.589Z"
+    },
+    {
+      "name": "Signal #2 (SELL AAPL)",
+      "endpoint": "/api/webhooks/signals",
+      "status": 200,
+      "success": true,
+      "response": {
+        "decision": "REJECT",
+        "symbol": "AAPL",
+        "engine_version": "2.0.0",
+        "timestamp": "2026-01-14T02:58:53.170Z",
+        "gates": {
+          "passed": [
+            "VOLATILITY_GATE",
+            "GAMMA_GATE",
+            "SESSION_GATE"
+          ],
+          "failed": [
+            "SPREAD_GATE",
+            "PHASE_GATE"
+          ]
+        },
+        "reasons": [
+          "SPREAD_TOO_WIDE",
+          "PHASE_CONFIDENCE_LOW"
+        ],
+        "audit": {
+          "timestamp": "2026-01-14T02:58:53.170Z",
+          "symbol": "AAPL",
+          "session": "OPEN",
+          "context_snapshot": {
+            "indicator": {
+              "signalType": "SHORT",
+              "aiScore": 7.2,
+              "satyPhase": -42.8,
+              "marketSession": "OPEN",
+              "symbol": "AAPL",
+              "timestamp": 1705335100000
+            },
+            "market": {
+              "optionsData": {
+                "putCallRatio": 1,
+                "ivPercentile": 50,
+                "gammaBias": "NEUTRAL",
+                "dataSource": "FALLBACK"
+              },
+              "marketStats": {
+                "atr14": 0,
+                "rv20": 0,
+                "trendSlope": 0,
+                "dataSource": "FALLBACK"
+              },
+              "liquidityData": {
+                "spreadBps": 999,
+                "depthScore": 0,
+                "tradeVelocity": "SLOW",
+                "dataSource": "API"
+              }
+            }
+          },
+          "gate_results": [
+            {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 42.8,
+              "threshold": 65
+            },
+            {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          ],
+          "gate_results_object": {
+            "SPREAD_GATE": {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            "VOLATILITY_GATE": {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            "GAMMA_GATE": {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            "PHASE_GATE": {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 42.8,
+              "threshold": 65
+            },
+            "SESSION_GATE": {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          },
+          "processing_time_ms": 0.04
+        }
+      },
+      "timestamp": "2026-01-14T02:58:53.172Z"
+    },
+    {
+      "name": "Trend #1 (BULLISH SPY)",
+      "endpoint": "/api/webhooks/trend",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "trend": {
+          "ticker": "SPY",
+          "exchange": "NASDAQ",
+          "price": 450.5,
+          "timestamp": "2026-01-14T02:10:00Z"
+        },
+        "alignment": {
+          "score": 87.5,
+          "strength": "STRONG",
+          "dominant_trend": "bullish",
+          "bullish_count": 7,
+          "bearish_count": 0,
+          "neutral_count": 1,
+          "htf_bias": "bullish",
+          "ltf_bias": "bullish"
+        },
+        "storage": {
+          "ttl_minutes": 60,
+          "expires_at": 1768363133688
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359533688
+      },
+      "timestamp": "2026-01-14T02:58:53.689Z"
+    },
+    {
+      "name": "Trend #2 (BEARISH AAPL)",
+      "endpoint": "/api/webhooks/trend",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "trend": {
+          "ticker": "AAPL",
+          "exchange": "NASDAQ",
+          "price": 186,
+          "timestamp": "2026-01-14T02:20:00Z"
+        },
+        "alignment": {
+          "score": 75,
+          "strength": "STRONG",
+          "dominant_trend": "bearish",
+          "bullish_count": 1,
+          "bearish_count": 6,
+          "neutral_count": 1,
+          "htf_bias": "bearish",
+          "ltf_bias": "bearish"
+        },
+        "storage": {
+          "ttl_minutes": 60,
+          "expires_at": 1768363134215
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359534215
+      },
+      "timestamp": "2026-01-14T02:58:54.217Z"
+    },
+    {
+      "name": "Mixed #1 (SATY)",
+      "endpoint": "/api/webhooks/saty-phase",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "phase": {
+          "phase_type": "REGIME_PHASE_ENTRY",
+          "timeframe": "15",
+          "ticker": "SPY",
+          "direction": "BULLISH"
+        },
+        "decay": {
+          "minutes": 30,
+          "expires_at": 1768361334741
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359534741
+      },
+      "timestamp": "2026-01-14T02:58:54.742Z"
+    },
+    {
+      "name": "Mixed #2 (Signal)",
+      "endpoint": "/api/webhooks/signals",
+      "status": 200,
+      "success": true,
+      "response": {
+        "decision": "REJECT",
+        "symbol": "SPY",
+        "engine_version": "2.0.0",
+        "timestamp": "2026-01-14T02:58:55.331Z",
+        "gates": {
+          "passed": [
+            "VOLATILITY_GATE",
+            "GAMMA_GATE",
+            "SESSION_GATE"
+          ],
+          "failed": [
+            "SPREAD_GATE",
+            "PHASE_GATE"
+          ]
+        },
+        "reasons": [
+          "SPREAD_TOO_WIDE",
+          "PHASE_CONFIDENCE_LOW"
+        ],
+        "audit": {
+          "timestamp": "2026-01-14T02:58:55.331Z",
+          "symbol": "SPY",
+          "session": "OPEN",
+          "context_snapshot": {
+            "indicator": {
+              "signalType": "LONG",
+              "aiScore": 8.5,
+              "satyPhase": 45.5,
+              "marketSession": "OPEN",
+              "symbol": "SPY",
+              "timestamp": 1705334500000
+            },
+            "market": {
+              "optionsData": {
+                "putCallRatio": 1,
+                "ivPercentile": 50,
+                "gammaBias": "NEUTRAL",
+                "dataSource": "FALLBACK"
+              },
+              "marketStats": {
+                "atr14": 0,
+                "rv20": 0,
+                "trendSlope": 0,
+                "dataSource": "FALLBACK"
+              },
+              "liquidityData": {
+                "spreadBps": 999,
+                "depthScore": 0,
+                "tradeVelocity": "SLOW",
+                "dataSource": "API"
+              }
+            }
+          },
+          "gate_results": [
+            {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 45.5,
+              "threshold": 65
+            },
+            {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          ],
+          "gate_results_object": {
+            "SPREAD_GATE": {
+              "gate": "SPREAD_GATE",
+              "passed": false,
+              "reason": "SPREAD_TOO_WIDE",
+              "value": 999,
+              "threshold": 12
+            },
+            "VOLATILITY_GATE": {
+              "gate": "VOLATILITY_GATE",
+              "passed": true,
+              "value": 1,
+              "threshold": 2
+            },
+            "GAMMA_GATE": {
+              "gate": "GAMMA_GATE",
+              "passed": true
+            },
+            "PHASE_GATE": {
+              "gate": "PHASE_GATE",
+              "passed": false,
+              "reason": "PHASE_CONFIDENCE_LOW",
+              "value": 45.5,
+              "threshold": 65
+            },
+            "SESSION_GATE": {
+              "gate": "SESSION_GATE",
+              "passed": true
+            }
+          },
+          "processing_time_ms": 0.03
+        }
+      },
+      "timestamp": "2026-01-14T02:58:55.333Z"
+    },
+    {
+      "name": "Mixed #3 (Trend)",
+      "endpoint": "/api/webhooks/trend",
+      "status": 200,
+      "success": true,
+      "response": {
+        "success": true,
+        "trend": {
+          "ticker": "SPY",
+          "exchange": "NASDAQ",
+          "price": 450.5,
+          "timestamp": "2026-01-14T02:10:00Z"
+        },
+        "alignment": {
+          "score": 87.5,
+          "strength": "STRONG",
+          "dominant_trend": "bullish",
+          "bullish_count": 7,
+          "bearish_count": 0,
+          "neutral_count": 1,
+          "htf_bias": "bullish",
+          "ltf_bias": "bullish"
+        },
+        "storage": {
+          "ttl_minutes": 60,
+          "expires_at": 1768363135860
+        },
+        "authentication": {
+          "method": "no-auth-configured",
+          "authenticated": true
+        },
+        "received_at": 1768359535860
+      },
+      "timestamp": "2026-01-14T02:58:55.862Z"
+    }
+  ]
+}

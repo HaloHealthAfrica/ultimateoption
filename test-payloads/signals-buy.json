@@ -1,0 +1,12 @@
+{
+  "signal": {
+    "type": "LONG",
+    "aiScore": 8.5,
+    "symbol": "SPY",
+    "timestamp": 1705334500000
+  },
+  "satyPhase": {
+    "phase": 45.5
+  },
+  "marketSession": "OPEN"
+}

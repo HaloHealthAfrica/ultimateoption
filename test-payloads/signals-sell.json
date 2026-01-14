@@ -1,0 +1,12 @@
+{
+  "signal": {
+    "type": "SHORT",
+    "aiScore": 7.2,
+    "symbol": "AAPL",
+    "timestamp": 1705335100000
+  },
+  "satyPhase": {
+    "phase": -42.8
+  },
+  "marketSession": "OPEN"
+}

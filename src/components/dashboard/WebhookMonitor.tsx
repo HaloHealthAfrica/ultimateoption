@@ -48,7 +48,7 @@ export default function WebhookMonitor() {
   const [kind, setKind] = useState<'all' | WebhookKind>('all');
   const [onlyErrors, setOnlyErrors] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<WebhookEntry | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +72,7 @@ export default function WebhookMonitor() {
       const ok = data as RecentResponse;
       setEntries(ok.entries || []);
       setRetrievedAt(ok.retrieved_at || Date.now());
+      // Note: auth_required field is available in response but not used in UI since auth is optional
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load webhook receipts');
     } finally {
@@ -99,114 +100,6 @@ export default function WebhookMonitor() {
       return true;
     });
   }, [entries, kind, onlyErrors]);
-
-  // Modal component for showing webhook details
-  const WebhookDetailsModal = ({ entry, onClose }: { entry: WebhookEntry; onClose: () => void }) => {
-    return (
-      <div 
-        className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
-        style={{ zIndex: 9999 }}
-        onClick={onClose}
-      >
-        <div 
-          className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <h3 className="text-lg font-semibold text-white">
-              Webhook Details - {entry.kind} ({formatTime(entry.received_at)})
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-xl font-bold"
-            >
-              ×
-            </button>
-          </div>
-          
-          <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Basic Info */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Basic Information</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Status:</span>
-                    <span className={`px-2 py-0.5 rounded text-xs ${badgeClass(entry.ok)}`}>
-                      {entry.ok ? 'OK' : 'FAILED'} ({entry.status})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Kind:</span>
-                    <span className={`px-2 py-0.5 rounded text-xs ${kindBadge(entry.kind)}`}>
-                      {entry.kind}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">IP Address:</span>
-                    <span className="text-gray-300">{entry.ip || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Ticker:</span>
-                    <span className="text-gray-300">{entry.ticker || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Symbol:</span>
-                    <span className="text-gray-300">{entry.symbol || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Timeframe:</span>
-                    <span className="text-gray-300">{entry.timeframe || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* User Agent */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">User Agent</h4>
-                <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 break-all">
-                  {entry.user_agent || 'N/A'}
-                </div>
-              </div>
-            </div>
-
-            {/* Message */}
-            <div className="mt-6">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">Message</h4>
-              <div className="bg-gray-900 rounded p-3 text-sm text-gray-300">
-                {entry.message || 'No message'}
-              </div>
-            </div>
-
-            {/* Raw Payload */}
-            {entry.raw_payload && (
-              <div className="mt-6">
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Raw Payload</h4>
-                <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 font-mono overflow-x-auto">
-                  <pre>{entry.raw_payload}</pre>
-                </div>
-              </div>
-            )}
-
-            {/* Headers */}
-            {entry.headers && Object.keys(entry.headers).length > 0 && (
-              <div className="mt-6">
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Headers</h4>
-                <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 space-y-1">
-                  {Object.entries(entry.headers).map(([key, value]) => (
-                    <div key={key} className="flex">
-                      <span className="text-blue-400 w-32 shrink-0">{key}:</span>
-                      <span className="break-all">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="bg-gray-900 rounded-xl p-6">
@@ -305,61 +198,133 @@ export default function WebhookMonitor() {
               </tr>
             ) : (
               filtered.map((entry) => (
-                <tr key={entry.id} className="bg-gray-900 hover:bg-gray-850">
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">{formatTime(entry.received_at)}</td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${kindBadge(entry.kind)}`}>
-                      {entry.kind}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${badgeClass(entry.ok)}`}>
-                      {entry.ok ? 'OK' : 'FAILED'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-300">{entry.status}</td>
-                  <td className="px-3 py-2 text-gray-300">{entry.ticker ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-300">{entry.symbol ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-300">{entry.timeframe ?? '-'}</td>
-                  <td className="px-3 py-2">
-                    <div className="min-w-[400px] max-w-[600px]">
-                      <div className="text-gray-300 break-words">
-                        {entry.message ?? 'No message'}
+                <>
+                  <tr 
+                    key={entry.id} 
+                    className="bg-gray-900 hover:bg-gray-850 cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                  >
+                    <td className="px-3 py-2 text-gray-300 whitespace-nowrap">{formatTime(entry.received_at)}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded border ${kindBadge(entry.kind)}`}>
+                        {entry.kind}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded border ${badgeClass(entry.ok)}`}>
+                        {entry.ok ? 'OK' : 'FAILED'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-300">{entry.status}</td>
+                    <td className="px-3 py-2 text-gray-300">{entry.ticker ?? '-'}</td>
+                    <td className="px-3 py-2 text-gray-300">{entry.symbol ?? '-'}</td>
+                    <td className="px-3 py-2 text-gray-300">{entry.timeframe ?? '-'}</td>
+                    <td className="px-3 py-2">
+                      <div className="min-w-[400px] max-w-[600px]">
+                        <div className="text-gray-300 break-words">
+                          {entry.message ?? 'No message'}
+                        </div>
+                        <div className="text-blue-400 text-xs mt-1">
+                          {expandedId === entry.id ? '▼ Click to collapse' : '▶ Click to expand details'}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedEntry(entry);
-                        }}
-                        className="text-blue-400 hover:text-blue-300 underline text-xs mt-1 cursor-pointer"
-                        title="Click to view full details including raw payload"
-                      >
-                        View full details
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-gray-400">{entry.ip ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={entry.user_agent ?? ''}>
-                    {entry.user_agent ?? '-'}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-3 py-2 text-gray-400">{entry.ip ?? '-'}</td>
+                    <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={entry.user_agent ?? ''}>
+                      {entry.user_agent ?? '-'}
+                    </td>
+                  </tr>
+                  {expandedId === entry.id && (
+                    <tr key={`${entry.id}-details`} className="bg-gray-850">
+                      <td colSpan={10} className="px-3 py-4">
+                        <div className="bg-gray-800 rounded-lg p-4">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Basic Info */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-300 mb-3">Basic Information</h4>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Status:</span>
+                                  <span className={`px-2 py-0.5 rounded text-xs ${badgeClass(entry.ok)}`}>
+                                    {entry.ok ? 'OK' : 'FAILED'} ({entry.status})
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Kind:</span>
+                                  <span className={`px-2 py-0.5 rounded text-xs ${kindBadge(entry.kind)}`}>
+                                    {entry.kind}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">IP Address:</span>
+                                  <span className="text-gray-300">{entry.ip || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Ticker:</span>
+                                  <span className="text-gray-300">{entry.ticker || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Symbol:</span>
+                                  <span className="text-gray-300">{entry.symbol || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Timeframe:</span>
+                                  <span className="text-gray-300">{entry.timeframe || 'N/A'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* User Agent */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-300 mb-3">User Agent</h4>
+                              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 break-all">
+                                {entry.user_agent || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Message */}
+                          <div className="mb-6">
+                            <h4 className="text-sm font-semibold text-gray-300 mb-3">Full Message</h4>
+                            <div className="bg-gray-900 rounded p-3 text-sm text-gray-300">
+                              {entry.message || 'No message'}
+                            </div>
+                          </div>
+
+                          {/* Raw Payload */}
+                          {entry.raw_payload && (
+                            <div className="mb-6">
+                              <h4 className="text-sm font-semibold text-gray-300 mb-3">Raw Payload</h4>
+                              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 font-mono overflow-x-auto max-h-96 overflow-y-auto">
+                                <pre className="whitespace-pre-wrap break-words">{entry.raw_payload}</pre>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Headers */}
+                          {entry.headers && Object.keys(entry.headers).length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-300 mb-3">Headers</h4>
+                              <div className="bg-gray-900 rounded p-3 text-xs text-gray-400 space-y-1">
+                                {Object.entries(entry.headers).map(([key, value]) => (
+                                  <div key={key} className="flex">
+                                    <span className="text-blue-400 w-48 shrink-0">{key}:</span>
+                                    <span className="break-all">{value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))
             )}
           </tbody>
         </table>
       </div>
-
-      {/* Modal for webhook details */}
-      {selectedEntry && (
-        <WebhookDetailsModal 
-          entry={selectedEntry} 
-          onClose={() => setSelectedEntry(null)} 
-        />
-      )}
     </div>
   );
 }
-
-

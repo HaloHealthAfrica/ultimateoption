@@ -1,0 +1,3 @@
+{
+  "text": "{\"ticker\":\"AAPL\",\"exchange\":\"NASDAQ\",\"timestamp\":\"2026-01-14T02:20:00Z\",\"price\":186.00,\"timeframes\":{\"tf3min\":{\"direction\":\"bearish\",\"open\":186.50,\"close\":186.00},\"tf5min\":{\"direction\":\"bearish\",\"open\":186.80,\"close\":186.00},\"tf15min\":{\"direction\":\"bearish\",\"open\":187.50,\"close\":186.00},\"tf30min\":{\"direction\":\"bearish\",\"open\":188.00,\"close\":186.00},\"tf60min\":{\"direction\":\"bearish\",\"open\":188.50,\"close\":186.00},\"tf240min\":{\"direction\":\"bearish\",\"open\":190.00,\"close\":186.00},\"tf1week\":{\"direction\":\"neutral\",\"open\":185.00,\"close\":186.00},\"tf1month\":{\"direction\":\"bullish\",\"open\":180.00,\"close\":186.00}}}"
+}

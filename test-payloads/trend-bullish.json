@@ -1,0 +1,3 @@
+{
+  "text": "{\"ticker\":\"SPY\",\"exchange\":\"NASDAQ\",\"timestamp\":\"2026-01-14T02:10:00Z\",\"price\":450.50,\"timeframes\":{\"tf3min\":{\"direction\":\"bullish\",\"open\":450.00,\"close\":450.30},\"tf5min\":{\"direction\":\"bullish\",\"open\":449.80,\"close\":450.50},\"tf15min\":{\"direction\":\"bullish\",\"open\":449.00,\"close\":450.50},\"tf30min\":{\"direction\":\"bullish\",\"open\":448.50,\"close\":450.50},\"tf60min\":{\"direction\":\"bullish\",\"open\":447.50,\"close\":450.50},\"tf240min\":{\"direction\":\"bullish\",\"open\":445.00,\"close\":450.50},\"tf1week\":{\"direction\":\"bullish\",\"open\":440.00,\"close\":450.50},\"tf1month\":{\"direction\":\"neutral\",\"open\":435.00,\"close\":450.50}}}"
+}
