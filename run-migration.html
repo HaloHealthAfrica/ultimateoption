@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run Webhook Database Migration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .container {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #60a5fa;
+            margin-top: 0;
+        }
+        .info {
+            background: #1e3a5f;
+            border-left: 4px solid #60a5fa;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #5f3a1e;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        button {
+            background: #60a5fa;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #3b82f6;
+        }
+        button:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #1e5f3a;
+            border-left: 4px solid #10b981;
+        }
+        .error {
+            background: #5f1e1e;
+            border-left: 4px solid #ef4444;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #60a5fa;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Webhook Database Migration</h1>
+        
+        <div class="info">
+            <strong>What this does:</strong>
+            <ul>
+                <li>Adds <code>raw_payload</code> column to store complete webhook payloads</li>
+                <li>Adds <code>headers</code> column to store HTTP request headers</li>
+                <li>Safe to run multiple times (uses IF NOT EXISTS logic)</li>
+                <li>No data will be lost</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Important:</strong>
+            <ul>
+                <li>Existing webhook entries will have NULL for these new fields</li>
+                <li>Only NEW webhooks (after migration) will have complete data</li>
+                <li>You'll need to trigger new webhooks from TradingView to see the data</li>
+            </ul>
+        </div>
+
+        <button id="migrateBtn" onclick="runMigration()">
+            Run Migration
+        </button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function runMigration() {
+            const btn = document.getElementById('migrateBtn');
+            const resultDiv = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Running Migration<span class="loading"></span>';
+            resultDiv.innerHTML = '';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch('/api/webhooks/migrate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = '✅ Migration completed successfully!\n\n' + 
+                        JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = '❌ Migration failed:\n\n' + 
+                        JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = '❌ Error running migration:\n\n' + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Run Migration';
+            }
+        }
+    </script>
+</body>
+</html>
