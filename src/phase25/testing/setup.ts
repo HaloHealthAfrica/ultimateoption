@@ -7,6 +7,7 @@
 
 import fc from 'fast-check';
 import { MarketContext, 
+  DecisionContext,
   TradeDirection, 
   WebhookSource,
   SatyPhaseWebhook } from '../types';

@@ -283,7 +283,7 @@ export function parseAndAdaptSignal(
     }
     
     return { success: false, error: flexResult.error };
-  } catch {
+  } catch (error) {
     return { success: false, error };
   }
 }

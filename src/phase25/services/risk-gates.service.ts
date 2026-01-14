@@ -7,7 +7,7 @@
  */
 
 import { IRiskGates, MarketContext,
-  GateResult } from '../types';
+  GateResult, DecisionContext } from '../types';
 import { ConfigManagerService } from './config-manager.service';
 // import { ALIGNMENT_THRESHOLDS } from '../config/constants'; // Unused
 

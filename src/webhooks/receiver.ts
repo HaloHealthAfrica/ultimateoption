@@ -78,7 +78,7 @@ export function receiveSignal(payload: unknown): SignalResult {
       success: false,
       error: {
         code: WebhookErrorCodes.SCHEMA_VALIDATION_FAILED,
-        message: formatValidationErrors(signalResult._error),
+        message: formatValidationErrors(signalResult.error),
         details: signalResult.error.issues,
       },
     };
@@ -118,7 +118,7 @@ export function validateSignal(data: unknown): SignalResult {
       success: false,
       error: {
         code: WebhookErrorCodes.SCHEMA_VALIDATION_FAILED,
-        message: formatValidationErrors(result._error),
+        message: formatValidationErrors(result.error),
         details: result.error.issues,
       },
     };

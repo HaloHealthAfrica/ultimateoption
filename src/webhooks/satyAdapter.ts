@@ -794,8 +794,8 @@ export function parseAndAdaptSaty(
       return { success: true, data: adaptIndicatorV5ToPhaseWebhook(v5Result.data) };
     }
     
-    return { success: false, error: { flexible: flexResult._error, phase_lite: phaseLiteResult._error, indicator_v5: v5Result.error } };
-  } catch {
+    return { success: false, error: { flexible: flexResult.error, phase_lite: phaseLiteResult.error, indicator_v5: v5Result.error } };
+  } catch (error) {
     return { success: false, error };
   }
 }

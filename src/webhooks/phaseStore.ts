@@ -179,7 +179,7 @@ export class PhaseStore {
    * @returns Number of phases removed
    */
   cleanupExpired(now: number = Date.now()): number {
-    const removed = 0;
+    let removed = 0;
     
     for (const [key, stored] of this.phases) {
       if (this.isExpired(stored, now)) {

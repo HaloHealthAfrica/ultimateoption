@@ -83,7 +83,7 @@ export function receivePhase(payload: unknown): PhaseResult {
       success: false,
       error: {
         code: PhaseWebhookErrorCodes.SCHEMA_VALIDATION_FAILED,
-        message: formatValidationErrors(phaseResult._error),
+        message: formatValidationErrors(phaseResult.error),
         details: phaseResult.error.issues,
       },
     };
@@ -134,7 +134,7 @@ export function validatePhase(data: unknown): PhaseResult {
       success: false,
       error: {
         code: PhaseWebhookErrorCodes.SCHEMA_VALIDATION_FAILED,
-        message: formatValidationErrors(result._error),
+        message: formatValidationErrors(result.error),
         details: result.error.issues,
       },
     };

@@ -7,6 +7,7 @@
 
 import * as fc from 'fast-check';
 import { MarketContext, 
+  DecisionContext,
   TradeDirection, 
   WebhookSource,
   NormalizedPayload,

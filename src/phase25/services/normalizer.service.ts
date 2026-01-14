@@ -128,20 +128,22 @@ export class NormalizerService implements INormalizer {
    * Map MTF Dots webhook to alignment context
    */
   private mapMtfDots(payload: unknown): Partial<DecisionContext> {
-    const timeframes = payload.timeframes || {};
+    const data = payload as Record<string, unknown>;
+    const timeframes = (data.timeframes as Record<string, unknown>) || {};
     
     // Map timeframe states
     const tfStates: Record<string, "BULLISH" | "BEARISH" | "NEUTRAL"> = {};
-    const bullishCount = 0;
-    const bearishCount = 0;
-    const totalCount = 0;
+    let bullishCount = 0;
+    let bearishCount = 0;
+    let totalCount = 0;
 
     // Process each timeframe
     const timeframeKeys = ['tf3min', 'tf5min', 'tf15min', 'tf30min', 'tf60min', 'tf240min'];
     
     for (const tf of timeframeKeys) {
-      if (timeframes[tf]?.direction) {
-        const direction = this.normalizeDirection(timeframes[tf].direction);
+      const tfData = timeframes[tf] as Record<string, unknown>;
+      if (tfData?.direction) {
+        const direction = this.normalizeDirection(tfData.direction as string);
         tfStates[tf] = direction;
         
         if (direction === 'BULLISH') bullishCount++;
@@ -156,9 +158,9 @@ export class NormalizerService implements INormalizer {
 
     return {
       instrument: {
-        symbol: payload.ticker || '',
-        exchange: payload.exchange || '',
-        price: payload.price || 0
+        symbol: data.ticker as string || '',
+        exchange: data.exchange as string || '',
+        price: data.price as number || 0
       },
       alignment: {
         tfStates,
@@ -172,23 +174,22 @@ export class NormalizerService implements INormalizer {
    * Map Ultimate Options webhook to expert opinion
    */
   private mapUltimateOptions(payload: unknown): Partial<DecisionContext> {
-    const signal = payload.signal || {};
+    const data = payload as Record<string, unknown>;
+    const signal = (data.signal as Record<string, unknown>) || {};
     
     return {
       instrument: {
-        symbol: payload.instrument?.ticker || '',
-        exchange: payload.instrument?.exchange || '',
-        price: payload.instrument?.current_price || 0,
-        timestamp: Date.now()
+        symbol: (data.instrument as Record<string, unknown>)?.ticker as string || '',
+        exchange: (data.instrument as Record<string, unknown>)?.exchange as string || '',
+        price: (data.instrument as Record<string, unknown>)?.current_price as number || 0
       },
       expert: {
         direction: signal.type as TradeDirection,
-        aiScore: signal.ai_score || 0,
-        quality: signal.quality || 'MEDIUM',
-        components: signal.components || [],
-        rr1: payload.risk?.rr_ratio_t1 || 0,
-        rr2: payload.risk?.rr_ratio_t2 || 0,
-        timestamp: Date.now()
+        aiScore: signal.ai_score as number || 0,
+        quality: (signal.quality as "EXTREME" | "HIGH" | "MEDIUM") || 'MEDIUM',
+        components: signal.components as string[] || [],
+        rr1: (data.risk as Record<string, unknown>)?.rr_ratio_t1 as number || 0,
+        rr2: (data.risk as Record<string, unknown>)?.rr_ratio_t2 as number || 0
       }
     };
   }
@@ -197,16 +198,18 @@ export class NormalizerService implements INormalizer {
    * Map STRAT execution webhook to structure validation
    */
   private mapStratExecution(payload: unknown): Partial<DecisionContext> {
+    const data = payload as Record<string, unknown>;
+    
     return {
       instrument: {
-        symbol: payload.symbol || '',
-        exchange: payload.exchange || '',
-        price: payload.price || 0
+        symbol: data.symbol as string || '',
+        exchange: data.exchange as string || '',
+        price: data.price as number || 0
       },
       structure: {
-        validSetup: payload.setup_valid === true,
-        liquidityOk: payload.liquidity_ok === true,
-        executionQuality: payload.quality || 'C'
+        validSetup: data.setup_valid === true,
+        liquidityOk: data.liquidity_ok === true,
+        executionQuality: (data.quality as "A" | "B" | "C") || 'C'
       }
     };
   }
@@ -215,23 +218,22 @@ export class NormalizerService implements INormalizer {
    * Map TradingView signal webhook to expert opinion (alternative source)
    */
   private mapTradingViewSignal(payload: unknown): Partial<DecisionContext> {
-    const signal = payload.signal || {};
+    const data = payload as Record<string, unknown>;
+    const signal = (data.signal as Record<string, unknown>) || {};
     
     return {
       instrument: {
-        symbol: payload.instrument?.ticker || '',
-        exchange: payload.instrument?.exchange || '',
-        price: payload.instrument?.current_price || 0,
-        timestamp: Date.now()
+        symbol: (data.instrument as Record<string, unknown>)?.ticker as string || '',
+        exchange: (data.instrument as Record<string, unknown>)?.exchange as string || '',
+        price: (data.instrument as Record<string, unknown>)?.current_price as number || 0
       },
       expert: {
         direction: signal.type as TradeDirection,
-        aiScore: signal.ai_score || 0,
-        quality: signal.quality || 'MEDIUM',
+        aiScore: signal.ai_score as number || 0,
+        quality: (signal.quality as "EXTREME" | "HIGH" | "MEDIUM") || 'MEDIUM',
         components: [], // TradingView doesn't provide component breakdown
-        rr1: payload.risk?.rr_ratio_t1 || 0,
-        rr2: payload.risk?.rr_ratio_t2 || 0,
-        timestamp: Date.now()
+        rr1: (data.risk as Record<string, unknown>)?.rr_ratio_t1 as number || 0,
+        rr2: (data.risk as Record<string, unknown>)?.rr_ratio_t2 as number || 0
       }
     };
   }
@@ -261,9 +263,10 @@ export class NormalizerService implements INormalizer {
   }
 
   private extractVolatility(regimeContext: unknown): DecisionContext['regime']['volatility'] {
+    const context = regimeContext as Record<string, unknown>;
     // Look for volatility indicators in regime context
-    if (regimeContext?.volatility) {
-      const vol = regimeContext.volatility.toLowerCase();
+    if (context?.volatility) {
+      const vol = (context.volatility as string).toLowerCase();
       if (vol.includes('high')) return 'HIGH';
       if (vol.includes('low')) return 'LOW';
     }

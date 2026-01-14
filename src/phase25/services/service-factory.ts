@@ -13,6 +13,7 @@ import { DecisionEngineService } from './decision-engine.service';
 import { ErrorHandlerService } from './error-handler.service';
 import { ConfigManagerService } from './config-manager.service';
 import { MetricsService } from './metrics.service';
+import { AuditLoggerService } from './audit-logger.service';
 import { RiskGatesService } from './risk-gates.service';
 
 export class ServiceFactory {
@@ -41,10 +42,14 @@ export class ServiceFactory {
     const config = configManager.getConfig();
 
     // Initialize metrics service
-    const metricsService = new MetricsService(config.configHash || 'default');
+    const configHash = JSON.stringify(config).slice(0, 8); // Simple hash from config
+    const metricsService = new MetricsService(configHash);
+
+    // Initialize audit logger
+    const auditLogger = new AuditLoggerService(configManager);
 
     // Initialize error handler
-    const errorHandler = new ErrorHandlerService();
+    const errorHandler = new ErrorHandlerService(configManager, auditLogger);
 
     // Initialize source router
     const sourceRouter = new SourceRouterService();
@@ -58,8 +63,8 @@ export class ServiceFactory {
     // Initialize market context builder
     const marketContextBuilder = new MarketContextBuilder();
 
-    // Initialize risk gates
-    const _riskGates = new RiskGatesService();
+    // Initialize risk gates (not currently used but may be needed in future)
+    const _riskGates = new RiskGatesService(configManager);
 
     // Initialize decision engine
     const decisionEngine = new DecisionEngineService(configManager);

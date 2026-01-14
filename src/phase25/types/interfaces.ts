@@ -7,6 +7,8 @@
 
 import { 
   DecisionPacket, 
+  DecisionContext,
+  MarketContext,
   NormalizedPayload,
   WebhookResponse,
   ValidationResult,
