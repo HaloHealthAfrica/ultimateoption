@@ -72,6 +72,56 @@ export async function POST(request: NextRequest) {
       // keep as string
     }
 
+    // Check if this is actually a trend webhook sent to the wrong endpoint
+    if (typeof raw === 'string' && raw.includes('Trend Change:')) {
+      const entry = {
+        kind: 'saty-phase',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Wrong endpoint: This appears to be a Trend webhook. Please send to /api/webhooks/trend instead.',
+        raw_payload: raw,
+        headers,
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      return NextResponse.json(
+        { 
+          error: 'Wrong endpoint',
+          message: 'This appears to be a Trend webhook (contains "Trend Change:" header)',
+          correct_endpoint: '/api/webhooks/trend',
+          hint: 'Update your TradingView alert to send to the correct endpoint',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if payload has timeframes structure (trend webhook indicator)
+    if (body && typeof body === 'object' && 'timeframes' in (body as Record<string, unknown>)) {
+      const entry = {
+        kind: 'saty-phase',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: 'Wrong endpoint: Payload has "timeframes" structure (Trend webhook). Please send to /api/webhooks/trend instead.',
+        raw_payload: raw,
+        headers,
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      return NextResponse.json(
+        { 
+          error: 'Wrong endpoint',
+          message: 'Payload structure matches Trend webhook (has "timeframes" field)',
+          correct_endpoint: '/api/webhooks/trend',
+          hint: 'Update your TradingView alert to send to the correct endpoint',
+        },
+        { status: 400 }
+      );
+    }
+
     // Parse and validate the phase - try multiple formats
     let phase;
     let parseMethod = 'unknown';
