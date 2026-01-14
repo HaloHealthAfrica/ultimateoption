@@ -102,8 +102,14 @@ export default function WebhookMonitor() {
 
   // Modal component for showing webhook details
   const WebhookDetailsModal = ({ entry, onClose }: { entry: WebhookEntry; onClose: () => void }) => (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <h3 className="text-lg font-semibold text-white">
             Webhook Details - {entry.kind} ({formatTime(entry.received_at)})
@@ -295,40 +301,45 @@ export default function WebhookMonitor() {
                 </td>
               </tr>
             ) : (
-              filtered.map((e) => (
-                <tr key={e.id} className="bg-gray-900 hover:bg-gray-850">
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">{formatTime(e.received_at)}</td>
+              filtered.map((entry) => (
+                <tr key={entry.id} className="bg-gray-900 hover:bg-gray-850">
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">{formatTime(entry.received_at)}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${kindBadge(e.kind)}`}>
-                      {e.kind}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${kindBadge(entry.kind)}`}>
+                      {entry.kind}
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${badgeClass(e.ok)}`}>
-                      {e.ok ? 'OK' : 'FAILED'}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded border ${badgeClass(entry.ok)}`}>
+                      {entry.ok ? 'OK' : 'FAILED'}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-gray-300">{e.status}</td>
-                  <td className="px-3 py-2 text-gray-300">{e.ticker ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-300">{e.symbol ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-300">{e.timeframe ?? '-'}</td>
+                  <td className="px-3 py-2 text-gray-300">{entry.status}</td>
+                  <td className="px-3 py-2 text-gray-300">{entry.ticker ?? '-'}</td>
+                  <td className="px-3 py-2 text-gray-300">{entry.symbol ?? '-'}</td>
+                  <td className="px-3 py-2 text-gray-300">{entry.timeframe ?? '-'}</td>
                   <td className="px-3 py-2">
                     <div className="min-w-[400px] max-w-[600px]">
                       <div className="text-gray-300 break-words">
-                        {e.message ?? 'No message'}
+                        {entry.message ?? 'No message'}
                       </div>
                       <button
-                        onClick={() => setSelectedEntry(e)}
-                        className="text-blue-400 hover:text-blue-300 underline text-xs mt-1"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedEntry(entry);
+                        }}
+                        className="text-blue-400 hover:text-blue-300 underline text-xs mt-1 cursor-pointer"
                         title="Click to view full details including raw payload"
                       >
                         View full details
                       </button>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-gray-400">{e.ip ?? '-'}</td>
-                  <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={e.user_agent ?? ''}>
-                    {e.user_agent ?? '-'}
+                  <td className="px-3 py-2 text-gray-400">{entry.ip ?? '-'}</td>
+                  <td className="px-3 py-2 text-gray-500 max-w-[360px] truncate" title={entry.user_agent ?? ''}>
+                    {entry.user_agent ?? '-'}
                   </td>
                 </tr>
               ))
