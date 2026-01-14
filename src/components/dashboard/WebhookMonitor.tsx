@@ -53,7 +53,6 @@ export default function WebhookMonitor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<WebhookEntry[]>([]);
-  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [retrievedAt, setRetrievedAt] = useState<number | null>(null);
 
   const fetchEntries = useCallback(async () => {
@@ -73,7 +72,6 @@ export default function WebhookMonitor() {
       const ok = data as RecentResponse;
       setEntries(ok.entries || []);
       setRetrievedAt(ok.retrieved_at || Date.now());
-      setAuthRequired(ok.auth_required || false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load webhook receipts');
     } finally {
