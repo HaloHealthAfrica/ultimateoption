@@ -165,8 +165,9 @@ export function validateQueryParameter(
 }
 /**
  * Comprehensive webhook authentication
- * Authentication is optional - if no secret is configured, webhooks are allowed through
- * This supports TradingView indicators that may not send authentication keys
+ * Authentication is COMPLETELY OPTIONAL - all webhooks are allowed through
+ * If authentication credentials are provided and valid, they will be noted
+ * This supports TradingView indicators that don't send authentication keys
  */
 export function authenticateWebhook(
   request: NextRequest,
@@ -176,16 +177,15 @@ export function authenticateWebhook(
   const secret = getWebhookSecret(webhookType);
   
   // If no secret is configured, allow through without authentication
-  // This supports TradingView indicators that don't send auth keys
   if (!secret) {
     return { 
       authenticated: true, 
-      method: 'no-auth-required',
-      error: 'No webhook secret configured - authentication not required'
+      method: 'no-auth-configured'
     };
   }
   
   // If secret is configured, try authentication methods
+  // But always allow through regardless of result (authentication is optional)
   
   // Method 1: Try query parameter validation (most common for indicators)
   const queryResult = validateQueryParameter(request, webhookType);
@@ -205,9 +205,9 @@ export function authenticateWebhook(
     return { authenticated: true, method: 'bearer-token' };
   }
   
-  // All authentication methods failed, but secret was configured
+  // No valid authentication provided - but still allow through (authentication is optional)
   return { 
-    authenticated: false, 
-    error: `Authentication required but failed. Tried: query (?key=${queryResult.error}), signature (${signatureResult.error}), token (${tokenResult.error})` 
+    authenticated: true, 
+    method: 'no-auth-provided'
   };
 }
