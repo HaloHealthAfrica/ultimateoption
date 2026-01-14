@@ -466,51 +466,114 @@ The signal is evaluated through 5 gates. **ALL gates must pass for ACCEPT decisi
 
 **Endpoint:** `POST /api/webhooks/trend`
 
-**Format:** Requires a `text` field containing stringified JSON
+**Format:** Accepts multiple formats (flexible adapter)
 
-### Minimal Example (BULLISH)
+### 🎯 Recommended Format (TradingView)
+Direct JSON without wrapper - simplest format for TradingView alerts:
+
+```json
+{
+  "event": "trend_change",
+  "trigger_timeframe": "5m",
+  "ticker": "SPY",
+  "exchange": "AMEX",
+  "price": 686.44,
+  "timeframes": {
+    "3m": {"dir": "neutral", "chg": false},
+    "5m": {"dir": "bearish", "chg": true},
+    "15m": {"dir": "bearish", "chg": false},
+    "30m": {"dir": "bearish", "chg": false},
+    "1h": {"dir": "bearish", "chg": false},
+    "4h": {"dir": "bearish", "chg": false},
+    "1w": {"dir": "bearish", "chg": false},
+    "1M": {"dir": "bullish", "chg": false}
+  }
+}
+```
+
+### Alternative Format (Legacy/Testing)
+Wrapped format with `text` field:
+
 ```json
 {
   "text": "{\"ticker\":\"SPY\",\"exchange\":\"NASDAQ\",\"timestamp\":\"2026-01-14T02:10:00Z\",\"price\":450.50,\"timeframes\":{\"tf3min\":{\"direction\":\"bullish\",\"open\":450.00,\"close\":450.30},\"tf5min\":{\"direction\":\"bullish\",\"open\":449.80,\"close\":450.50},\"tf15min\":{\"direction\":\"bullish\",\"open\":449.00,\"close\":450.50},\"tf30min\":{\"direction\":\"bullish\",\"open\":448.50,\"close\":450.50},\"tf60min\":{\"direction\":\"bullish\",\"open\":447.50,\"close\":450.50},\"tf240min\":{\"direction\":\"bullish\",\"open\":445.00,\"close\":450.50},\"tf1week\":{\"direction\":\"bullish\",\"open\":440.00,\"close\":450.50},\"tf1month\":{\"direction\":\"neutral\",\"open\":435.00,\"close\":450.50}}}"
 }
 ```
 
-### Minimal Example (BEARISH)
-```json
-{
-  "text": "{\"ticker\":\"AAPL\",\"exchange\":\"NASDAQ\",\"timestamp\":\"2026-01-14T02:20:00Z\",\"price\":186.00,\"timeframes\":{\"tf3min\":{\"direction\":\"bearish\",\"open\":186.50,\"close\":186.00},\"tf5min\":{\"direction\":\"bearish\",\"open\":186.80,\"close\":186.00},\"tf15min\":{\"direction\":\"bearish\",\"open\":187.50,\"close\":186.00},\"tf30min\":{\"direction\":\"bearish\",\"open\":188.00,\"close\":186.00},\"tf60min\":{\"direction\":\"bearish\",\"open\":188.50,\"close\":186.00},\"tf240min\":{\"direction\":\"bearish\",\"open\":190.00,\"close\":186.00},\"tf1week\":{\"direction\":\"neutral\",\"open\":185.00,\"close\":186.00},\"tf1month\":{\"direction\":\"bullish\",\"open\":180.00,\"close\":186.00}}}"
-}
-```
-
-### Key Fields (inside the stringified JSON)
+### Key Fields (TradingView Format)
 
 #### Required Fields
 - `ticker`: string (e.g., "SPY", "AAPL")
-- `exchange`: string (e.g., "NASDAQ", "NYSE")
-- `timestamp`: ISO timestamp string
+- `exchange`: string (e.g., "AMEX", "NASDAQ", "NYSE")
 - `price`: number (current price)
 
-#### timeframes (required - all 8 timeframes)
-Each timeframe must have:
-- `direction`: "bullish" | "bearish" | "neutral"
-- `open`: number (opening price)
-- `close`: number (closing price)
+#### Optional Fields
+- `event`: string (e.g., "trend_change") - informational only
+- `trigger_timeframe`: string (e.g., "5m", "3m,5m") - which timeframe(s) triggered the alert
 
-Required timeframes:
-- `tf3min`: 3-minute timeframe
-- `tf5min`: 5-minute timeframe
-- `tf15min`: 15-minute timeframe
-- `tf30min`: 30-minute timeframe
-- `tf60min`: 60-minute (1-hour) timeframe
-- `tf240min`: 240-minute (4-hour) timeframe
-- `tf1week`: 1-week timeframe
-- `tf1month`: 1-month timeframe
+#### timeframes (required - at least one timeframe)
+Each timeframe can have:
+- `dir`: string - "bullish" | "bearish" | "neutral" (or "bull", "bear", "long", "short")
+- `chg`: boolean - whether this timeframe changed direction
+
+Supported timeframes:
+- `3m`: 3-minute timeframe
+- `5m`: 5-minute timeframe
+- `15m`: 15-minute timeframe
+- `30m`: 30-minute timeframe
+- `1h`: 1-hour timeframe
+- `4h`: 4-hour timeframe
+- `1w`: 1-week timeframe
+- `1M`: 1-month timeframe
+
+**Notes:**
+- Missing timeframes default to "neutral"
+- Direction strings are normalized (case-insensitive)
+- `timestamp` is auto-generated if not provided
+- `open` and `close` prices are set to current `price` if not provided
 
 ### TradingView Alert Message Format
-```
+
+For TradingView Pine Script, use this simple format:
+
+```json
 {
-  "text": "{\"ticker\":\"{{ticker}}\",\"exchange\":\"{{exchange}}\",\"timestamp\":\"{{time}}\",\"price\":{{close}},\"timeframes\":{\"tf3min\":{\"direction\":\"{{tf3min_direction}}\",\"open\":{{tf3min_open}},\"close\":{{tf3min_close}}},\"tf5min\":{\"direction\":\"{{tf5min_direction}}\",\"open\":{{tf5min_open}},\"close\":{{tf5min_close}}},\"tf15min\":{\"direction\":\"{{tf15min_direction}}\",\"open\":{{tf15min_open}},\"close\":{{tf15min_close}}},\"tf30min\":{\"direction\":\"{{tf30min_direction}}\",\"open\":{{tf30min_open}},\"close\":{{tf30min_close}}},\"tf60min\":{\"direction\":\"{{tf60min_direction}}\",\"open\":{{tf60min_open}},\"close\":{{tf60min_close}}},\"tf240min\":{\"direction\":\"{{tf240min_direction}}\",\"open\":{{tf240min_open}},\"close\":{{tf240min_close}}},\"tf1week\":{\"direction\":\"{{tf1week_direction}}\",\"open\":{{tf1week_open}},\"close\":{{tf1week_close}}},\"tf1month\":{\"direction\":\"{{tf1month_direction}}\",\"open\":{{tf1month_open}},\"close\":{{tf1month_close}}}}}"
+  "event": "trend_change",
+  "trigger_timeframe": "{{interval}}",
+  "ticker": "{{ticker}}",
+  "exchange": "{{exchange}}",
+  "price": {{close}},
+  "timeframes": {
+    "3m": {"dir": "{{3m_direction}}", "chg": {{3m_changed}}},
+    "5m": {"dir": "{{5m_direction}}", "chg": {{5m_changed}}},
+    "15m": {"dir": "{{15m_direction}}", "chg": {{15m_changed}}},
+    "30m": {"dir": "{{30m_direction}}", "chg": {{30m_changed}}},
+    "1h": {"dir": "{{1h_direction}}", "chg": {{1h_changed}}},
+    "4h": {"dir": "{{4h_direction}}", "chg": {{4h_changed}}},
+    "1w": {"dir": "{{1w_direction}}", "chg": {{1w_changed}}},
+    "1M": {"dir": "{{1M_direction}}", "chg": {{1M_changed}}}
+  }
 }
+```
+
+**Pine Script Example:**
+```pinescript
+// Calculate trend directions for each timeframe
+tf3m_dir = request.security(syminfo.tickerid, "3", trend_direction())
+tf5m_dir = request.security(syminfo.tickerid, "5", trend_direction())
+// ... etc for other timeframes
+
+// Build alert message
+alert_msg = '{"event":"trend_change","trigger_timeframe":"' + timeframe.period + 
+  '","ticker":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + 
+  '","price":' + str.tostring(close) + ',"timeframes":{' +
+  '"3m":{"dir":"' + tf3m_dir + '","chg":' + str.tostring(tf3m_changed) + '},' +
+  '"5m":{"dir":"' + tf5m_dir + '","chg":' + str.tostring(tf5m_changed) + '}' +
+  // ... etc
+  '}}'
+
+// Trigger alert
+alertcondition(trend_changed, "Trend Change", alert_msg)
 ```
 
 ### Response Format
@@ -602,10 +665,11 @@ curl -X POST http://localhost:3000/api/webhooks/trend \
 - ❌ "Invalid signal type" - Type must be "LONG" or "SHORT"
 
 ### Trend Errors
-- ❌ "Invalid trend payload" - Missing required fields
-- ❌ "Missing required field: exchange" - Exchange field is missing
-- ❌ "Invalid timestamp" - Timestamp must be ISO string format
-- ❌ "Missing timeframes" - All 8 timeframes must be provided
+- ❌ "Invalid trend payload" - Missing required fields (ticker, exchange, price, or timeframes)
+- ❌ "Invalid JSON payload" - JSON is malformed
+- ✅ **Fixed:** Now accepts TradingView format with `"3m"`, `"5m"` keys instead of `"tf3min"`, `"tf5min"`
+- ✅ **Fixed:** Auto-generates timestamp if not provided
+- ✅ **Fixed:** Accepts flexible direction strings ("bull", "bear", "long", "short", etc.)
 
 ---
 

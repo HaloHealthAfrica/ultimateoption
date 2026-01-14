@@ -28,8 +28,10 @@ export class Normalizer {
       throw new Error('Missing required field: signal.type');
     }
     
-    if (typeof data.signal.aiScore !== 'number') {
-      throw new Error('Missing or invalid field: signal.aiScore must be a number');
+    // Support both camelCase (aiScore) and snake_case (ai_score) from TradingView
+    const aiScore = data.signal.aiScore ?? data.signal.ai_score;
+    if (typeof aiScore !== 'number') {
+      throw new Error('Missing or invalid field: signal.aiScore (or ai_score) must be a number');
     }
     
     if (!data.signal.symbol) {
@@ -40,7 +42,7 @@ export class Normalizer {
     const signalType = this.normalizeSignalType(data.signal.type);
     
     // Validate and clamp aiScore (0-10.5)
-    const aiScore = this.clampAiScore(data.signal.aiScore);
+    const clampedAiScore = this.clampAiScore(aiScore);
     
     // Extract and validate satyPhase
     const satyPhase = this.normalizeSatyPhaseFromSignal(data.satyPhase);
@@ -54,7 +56,7 @@ export class Normalizer {
     const context: DecisionContext = {
       indicator: {
         signalType: signalType,
-        aiScore,
+        aiScore: clampedAiScore,
         satyPhase,
         marketSession,
         symbol: data.signal.symbol.toString().toUpperCase(),

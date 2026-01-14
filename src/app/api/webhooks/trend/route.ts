@@ -13,6 +13,7 @@ import { TrendStore } from '@/trend/storage/trendStore';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { authenticateWebhook } from '@/webhooks/security';
+import { parseAndAdaptTrend } from '@/webhooks/trendAdapter';
 
 /**
  * POST /api/webhooks/trend
@@ -73,10 +74,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate the trend data
-    const result =
-      body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)
-        ? safeParseTrendWebhook(body)
-        : TrendWebhookSchema.safeParse(body);
+    // Try multiple formats:
+    // 1. Legacy wrapper format: { text: "<json>" }
+    // 2. TradingView format: { event, ticker, timeframes: { "3m": {...}, ... } }
+    // 3. Canonical format: { ticker, timeframes: { tf3min: {...}, ... } }
+    let result;
+    
+    if (body && typeof body === 'object' && 'text' in (body as Record<string, unknown>)) {
+      // Legacy wrapper format
+      result = safeParseTrendWebhook(body);
+    } else {
+      // Try TradingView format first (with adapter)
+      const adaptResult = parseAndAdaptTrend(body);
+      if (adaptResult.success) {
+        result = { success: true, data: adaptResult.data };
+      } else {
+        // Fall back to canonical format
+        result = TrendWebhookSchema.safeParse(body);
+      }
+    }
     
     if (!result.success) {
       const entry = {
@@ -91,14 +107,20 @@ export async function POST(request: NextRequest) {
       } as const;
       audit.add(entry);
       await recordWebhookReceipt(entry);
+      
+      // Format error details if available
+      const errorDetails = result.error && typeof result.error === 'object' && 'issues' in result.error
+        ? (result.error as { issues: Array<{ path: (string | number)[]; message: string }> }).issues.map(i => ({
+            path: i.path.join('.'),
+            message: i.message,
+          }))
+        : undefined;
+      
       return NextResponse.json(
         { 
           error: 'Invalid trend payload',
           received_type: typeof body,
-          details: result.error.issues.map(i => ({
-            path: i.path.join('.'),
-            message: i.message,
-          })),
+          details: errorDetails,
         },
         { status: 400 }
       );
