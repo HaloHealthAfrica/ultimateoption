@@ -15,22 +15,11 @@ import { listWebhookReceipts } from '@/webhooks/auditDb';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const token = searchParams.get('token') || '';
   const limitRaw = searchParams.get('limit') || '50';
   const limit = Number.isFinite(Number(limitRaw)) ? Number(limitRaw) : 50;
 
-  const requiredToken = process.env.WEBHOOK_DEBUG_TOKEN;
+  // No authentication required - webhook receipts are always accessible for debugging
   
-  // If no debug token is configured, allow access without authentication
-  // This makes webhook monitoring accessible without requiring token setup
-  if (requiredToken) {
-    // Token is configured, so validate it
-    if (token !== requiredToken) {
-      return NextResponse.json({ error: 'Unauthorized - debug token required' }, { status: 401 });
-    }
-  }
-  // If no token is configured, allow access without validation
-
   // Prefer durable DB-backed receipts when DATABASE_URL is configured.
   const dbEntries = await listWebhookReceipts(limit).catch(() => null);
   const log = WebhookAuditLog.getInstance();
@@ -39,7 +28,7 @@ export async function GET(request: NextRequest) {
     count: Math.min(limit, 200),
     entries: dbEntries ?? log.list(limit),
     retrieved_at: Date.now(),
-    auth_required: !!requiredToken, // Indicate if auth was required
+    auth_required: false,
   });
 }
 
