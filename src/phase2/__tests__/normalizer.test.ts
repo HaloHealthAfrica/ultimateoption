@@ -216,7 +216,7 @@ describe('Normalizer', () => {
         }
       };
 
-      expect(() => Normalizer.normalizeSignal(payload)).toThrow('Missing or invalid field: signal.aiScore must be a number');
+      expect(() => Normalizer.normalizeSignal(payload)).toThrow('Missing or invalid field: signal.aiScore (or ai_score) must be a number');
     });
 
     it('should throw error for invalid aiScore type', () => {
@@ -228,7 +228,7 @@ describe('Normalizer', () => {
         }
       };
 
-      expect(() => Normalizer.normalizeSignal(payload)).toThrow('Missing or invalid field: signal.aiScore must be a number');
+      expect(() => Normalizer.normalizeSignal(payload)).toThrow('Missing or invalid field: signal.aiScore (or ai_score) must be a number');
     });
 
     it('should throw error for missing symbol', () => {

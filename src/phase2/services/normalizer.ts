@@ -34,8 +34,10 @@ export class Normalizer {
       throw new Error('Missing or invalid field: signal.aiScore (or ai_score) must be a number');
     }
     
-    if (!data.signal.symbol) {
-      throw new Error('Missing required field: signal.symbol');
+    // Support symbol in multiple locations: signal.symbol OR instrument.ticker
+    const symbol = data.signal.symbol ?? data.instrument?.ticker;
+    if (!symbol) {
+      throw new Error('Missing required field: signal.symbol (or instrument.ticker)');
     }
     
     // Validate and normalize signal type
@@ -59,7 +61,7 @@ export class Normalizer {
         aiScore: clampedAiScore,
         satyPhase,
         marketSession,
-        symbol: data.signal.symbol.toString().toUpperCase(),
+        symbol: symbol.toString().toUpperCase(),
         timestamp
       }
     };
