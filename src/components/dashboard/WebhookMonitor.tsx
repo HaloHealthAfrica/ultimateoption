@@ -55,11 +55,6 @@ export default function WebhookMonitor() {
   const [entries, setEntries] = useState<WebhookEntry[]>([]);
   const [retrievedAt, setRetrievedAt] = useState<number | null>(null);
 
-  // Debug log for selectedEntry
-  useEffect(() => {
-    console.log('selectedEntry changed:', selectedEntry);
-  }, [selectedEntry]);
-
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -107,7 +102,6 @@ export default function WebhookMonitor() {
 
   // Modal component for showing webhook details
   const WebhookDetailsModal = ({ entry, onClose }: { entry: WebhookEntry; onClose: () => void }) => {
-    console.log('Rendering modal for entry:', entry);
     return (
       <div 
         className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
@@ -337,7 +331,6 @@ export default function WebhookMonitor() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Button clicked, setting entry:', entry);
                           setSelectedEntry(entry);
                         }}
                         className="text-blue-400 hover:text-blue-300 underline text-xs mt-1 cursor-pointer"
