@@ -50,6 +50,18 @@ export async function POST(request: NextRequest) {
     
     try {
       body = JSON.parse(rawBody);
+      
+      // Handle text wrapper format (Phase 2 compatibility)
+      if (body && typeof body === 'object' && 'text' in body) {
+        const textField = (body as Record<string, unknown>).text;
+        if (typeof textField === 'string') {
+          try {
+            body = JSON.parse(textField);
+          } catch {
+            // If text field isn't valid JSON, keep original body
+          }
+        }
+      }
     } catch {
       const entry = {
         kind: 'saty-phase' as const,
