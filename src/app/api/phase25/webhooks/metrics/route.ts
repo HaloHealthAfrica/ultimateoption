@@ -14,7 +14,7 @@ const ENGINE_VERSION = '2.5.0';
  * 
  * Returns system metrics and performance data.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const factory = ServiceFactory.getInstance();
     const orchestrator = factory.getOrchestrator();

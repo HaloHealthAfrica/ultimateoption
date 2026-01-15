@@ -24,7 +24,7 @@ const HTTP_STATUS = {
  * Receives TradingView webhook signals and processes them through Phase 2.5 decision orchestrator.
  */
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
+  const _startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   // Initialize audit logging
