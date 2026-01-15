@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
 import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
+import { Phase25DecisionCard } from '@/components/dashboard/Phase25DecisionCard';
+import { Phase25BreakdownPanel } from '@/components/dashboard/Phase25BreakdownPanel';
+import { Phase25HistoryTable } from '@/components/dashboard/Phase25HistoryTable';
 import { ConfluenceView } from '@/ui/components/ConfluenceView';
 import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
 import { LearningInsights } from '@/ui/components/LearningInsights';
@@ -16,7 +19,7 @@ import { LedgerEntry } from '@/types/ledger';
 import { SignalType } from '@/types/signal';
 import { StoredSignal } from '@/webhooks/timeframeStore';
 
-type TabKey = 'overview' | 'trades' | 'learning' | 'webhooks';
+type TabKey = 'overview' | 'phase25' | 'trades' | 'learning' | 'webhooks';
 
 interface DashboardState {
   signals: Map<string, StoredSignal>;
@@ -350,6 +353,7 @@ export default function DashboardPage() {
 
           <nav className="mt-5 flex flex-wrap gap-2">
             <TabButton label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+            <TabButton label="Phase 2.5" active={tab === 'phase25'} onClick={() => setTab('phase25')} />
             <TabButton label="Trades" active={tab === 'trades'} onClick={() => setTab('trades')} />
             <TabButton label="Learning" active={tab === 'learning'} onClick={() => setTab('learning')} />
             <TabButton label="Webhooks" active={tab === 'webhooks'} onClick={() => setTab('webhooks')} />
@@ -383,6 +387,28 @@ export default function DashboardPage() {
                 <TrendAlignment />
               </Card>
             </div>
+          </div>
+        ) : null}
+
+        {tab === 'phase25' ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              <div className="lg:col-span-7">
+                <Card title="Current Decision" subtitle="Latest Phase 2.5 decision with confidence and gates">
+                  <Phase25DecisionCard onRefresh={refresh} />
+                </Card>
+              </div>
+
+              <div className="lg:col-span-5">
+                <Card title="Decision Breakdown" subtitle="Confidence components and position sizing">
+                  <Phase25BreakdownPanel onRefresh={refresh} />
+                </Card>
+              </div>
+            </div>
+
+            <Card title="Decision History" subtitle="Recent decisions from Phase 2.5 engine">
+              <Phase25HistoryTable limit={20} onRefresh={refresh} />
+            </Card>
           </div>
         ) : null}
 
