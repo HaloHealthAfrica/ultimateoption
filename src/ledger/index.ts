@@ -7,6 +7,7 @@
 export type { ILedger } from './ledger';
 export { LedgerError, PostgresLedger } from './ledger';
 export { InMemoryLedger } from './inMemoryLedger';
+export { getGlobalLedger, resetGlobalLedger } from './globalLedger';
 export {
   queryLedger,
   calculateAggregates,

@@ -55,14 +55,26 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // TODO: Implement actual ledger query when database is connected
-    // For now, return empty results with proper structure
+    // Query the global ledger
+    const { getGlobalLedger } = await import('@/ledger/globalLedger');
+    const ledger = getGlobalLedger();
+    
+    const entries = await ledger.query({
+      timeframe: params.data.timeframe,
+      quality: params.data.quality,
+      decision: params.data.decision,
+      from_date: params.data.from_date,
+      to_date: params.data.to_date,
+      limit: params.data.limit,
+      offset: params.data.offset,
+    });
+    
     return NextResponse.json({
-      data: [],
+      data: entries,
       pagination: {
         limit: params.data.limit,
         offset: params.data.offset,
-        total: 0,
+        total: entries.length,
       },
       filters: {
         timeframe: params.data.timeframe,
@@ -72,8 +84,8 @@ export async function GET(request: NextRequest) {
         to_date: params.data.to_date,
       },
     });
-  } catch {
-    console.error('Error in GET /api/decisions:');
+  } catch (error) {
+    console.error('Error in GET /api/decisions:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
