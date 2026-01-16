@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     
     // Query the global ledger
     const { getGlobalLedger } = await import('@/ledger/globalLedger');
-    const ledger = getGlobalLedger();
+    const ledger = await getGlobalLedger();
     
     const entries = await ledger.query({
       timeframe: params.data.timeframe,

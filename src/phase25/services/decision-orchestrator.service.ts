@@ -387,7 +387,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         const { getGlobalLedger } = await import('@/ledger/globalLedger');
         const { convertDecisionToLedgerEntry } = await import('../utils/ledger-adapter');
         
-        const ledger = getGlobalLedger();
+        const ledger = await getGlobalLedger();
         const ledgerEntry = convertDecisionToLedgerEntry(decision);
         await ledger.append(ledgerEntry);
         
