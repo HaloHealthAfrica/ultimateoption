@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface DecisionBreakdown {
   confluence_multiplier?: number;
@@ -33,6 +33,14 @@ function classNames(...xs: Array<string | false | null | undefined>): string {
 }
 
 export function Phase25BreakdownPanel({ onRefresh }: Props) {
+  return (
+    <Phase25BreakdownErrorBoundary>
+      <Phase25BreakdownPanelInner onRefresh={onRefresh} />
+    </Phase25BreakdownErrorBoundary>
+  );
+}
+
+function Phase25BreakdownPanelInner({ onRefresh }: Props) {
   const [breakdown, setBreakdown] = useState<DecisionBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,46 +99,50 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
     );
   }
 
-  if (!breakdown || typeof breakdown !== 'object') {
+  const safeBreakdown = useMemo<DecisionBreakdown | null>(() => {
+    if (!breakdown || typeof breakdown !== 'object') {
+      return null;
+    }
+
+    try {
+      const source = breakdown as DecisionBreakdown;
+      return {
+        confluence_multiplier: source.confluence_multiplier ?? 1.0,
+        quality_multiplier: source.quality_multiplier ?? 1.0,
+        htf_alignment_multiplier: source.htf_alignment_multiplier ?? 1.0,
+        rr_multiplier: source.rr_multiplier ?? 1.0,
+        volume_multiplier: source.volume_multiplier ?? 1.0,
+        trend_multiplier: source.trend_multiplier ?? 1.0,
+        session_multiplier: source.session_multiplier ?? 1.0,
+        day_multiplier: source.day_multiplier ?? 1.0,
+        phase_confidence_boost: source.phase_confidence_boost,
+        phase_position_boost: source.phase_position_boost,
+        final_multiplier: source.final_multiplier ?? 1.0,
+      };
+    } catch (e) {
+      console.error('Error creating safeBreakdown:', e, 'breakdown:', breakdown);
+      return {
+        confluence_multiplier: 1.0,
+        quality_multiplier: 1.0,
+        htf_alignment_multiplier: 1.0,
+        rr_multiplier: 1.0,
+        volume_multiplier: 1.0,
+        trend_multiplier: 1.0,
+        session_multiplier: 1.0,
+        day_multiplier: 1.0,
+        phase_confidence_boost: undefined,
+        phase_position_boost: undefined,
+        final_multiplier: 1.0,
+      };
+    }
+  }, [breakdown]);
+
+  if (!safeBreakdown) {
     return (
       <div className="flex items-center justify-center py-8 text-white/40">
         No breakdown available
       </div>
     );
-  }
-
-  // Create a safe breakdown object with all default values
-  let safeBreakdown;
-  try {
-    safeBreakdown = {
-      confluence_multiplier: breakdown?.confluence_multiplier ?? 1.0,
-      quality_multiplier: breakdown?.quality_multiplier ?? 1.0,
-      htf_alignment_multiplier: breakdown?.htf_alignment_multiplier ?? 1.0,
-      rr_multiplier: breakdown?.rr_multiplier ?? 1.0,
-      volume_multiplier: breakdown?.volume_multiplier ?? 1.0,
-      trend_multiplier: breakdown?.trend_multiplier ?? 1.0,
-      session_multiplier: breakdown?.session_multiplier ?? 1.0,
-      day_multiplier: breakdown?.day_multiplier ?? 1.0,
-      phase_confidence_boost: breakdown?.phase_confidence_boost,
-      phase_position_boost: breakdown?.phase_position_boost,
-      final_multiplier: breakdown?.final_multiplier ?? 1.0,
-    };
-  } catch (e) {
-    console.error('Error creating safeBreakdown:', e, 'breakdown:', breakdown);
-    // Fallback to all defaults
-    safeBreakdown = {
-      confluence_multiplier: 1.0,
-      quality_multiplier: 1.0,
-      htf_alignment_multiplier: 1.0,
-      rr_multiplier: 1.0,
-      volume_multiplier: 1.0,
-      trend_multiplier: 1.0,
-      session_multiplier: 1.0,
-      day_multiplier: 1.0,
-      phase_confidence_boost: undefined,
-      phase_position_boost: undefined,
-      final_multiplier: 1.0,
-    };
   }
 
   // Confidence components (fixed weights)
@@ -315,4 +327,31 @@ function BoostCard({
       <div className="text-xs text-purple-200/60">{description}</div>
     </div>
   );
+}
+
+class Phase25BreakdownErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Phase25BreakdownPanel crashed during render:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span className="font-semibold">Error:</span> Unable to render breakdown.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
