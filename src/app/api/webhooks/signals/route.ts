@@ -20,6 +20,7 @@ import { HTTP_STATUS } from '@/phase2/constants/gates';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
+import { isWrongEndpoint, getWrongEndpointError } from '@/webhooks/endpointDetector';
 
 /**
  * POST /api/webhooks/signals
@@ -126,6 +127,27 @@ export async function POST(request: NextRequest) {
         { error: 'Request body must be valid JSON' },
         { status: HTTP_STATUS.BAD_REQUEST }
       );
+    }
+
+    // Auto-detect webhook type and check if sent to wrong endpoint
+    const endpointCheck = isWrongEndpoint(body, 'signals');
+    if (endpointCheck.isWrong) {
+      const errorResponse = getWrongEndpointError(endpointCheck.detection, '/api/webhooks/signals');
+      
+      const entry = {
+        kind: 'signals' as const,
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: `Wrong endpoint detected: ${errorResponse.message}`,
+        raw_payload: rawBody,
+        headers,
+      };
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
+      return NextResponse.json(errorResponse, { status: HTTP_STATUS.BAD_REQUEST });
     }
 
     // Try standard normalization first, fall back to flexible adapter

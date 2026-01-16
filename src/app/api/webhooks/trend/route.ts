@@ -14,6 +14,7 @@ import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { authenticateWebhook } from '@/webhooks/security';
 import { parseAndAdaptTrend } from '@/webhooks/trendAdapter';
+import { isWrongEndpoint, getWrongEndpointError } from '@/webhooks/endpointDetector';
 
 /**
  * POST /api/webhooks/trend
@@ -71,6 +72,27 @@ export async function POST(request: NextRequest) {
       body = JSON.parse(raw);
     } catch {
       // keep as string
+    }
+
+    // Auto-detect webhook type and check if sent to wrong endpoint
+    const endpointCheck = isWrongEndpoint(body, 'trend');
+    if (endpointCheck.isWrong) {
+      const errorResponse = getWrongEndpointError(endpointCheck.detection, '/api/webhooks/trend');
+      
+      const entry = {
+        kind: 'trend',
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: `Wrong endpoint detected: ${errorResponse.message}`,
+        raw_payload: raw,
+        headers,
+      } as const;
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Parse and validate the trend data
