@@ -53,7 +53,13 @@ export async function POST() {
     // Change the type
     console.log('Converting created_at to BIGINT...');
     
-    // First, convert any existing timestamp data to milliseconds
+    // First, drop any default value
+    await pool.query(`
+      ALTER TABLE ledger_entries 
+      ALTER COLUMN created_at DROP DEFAULT
+    `);
+    
+    // Then convert any existing timestamp data to milliseconds
     await pool.query(`
       ALTER TABLE ledger_entries 
       ALTER COLUMN created_at TYPE BIGINT 
