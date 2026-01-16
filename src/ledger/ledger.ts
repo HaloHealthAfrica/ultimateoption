@@ -110,8 +110,8 @@ export class PostgresLedger implements ILedger {
         `INSERT INTO ledger_entries (
           id, created_at, engine_version, signal, phase_context,
           decision, decision_reason, decision_breakdown, confluence_score,
-          execution, exit_data, regime, hypothetical
-        ) VALUES ($1, to_timestamp($2/1000.0), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          execution, exit, regime, hypothetical
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           fullEntry.id,
           fullEntry.created_at,
@@ -165,7 +165,7 @@ export class PostgresLedger implements ILedger {
       }
 
       await client.query(
-        `UPDATE ledger_entries SET exit_data = $1 WHERE id = $2`,
+        `UPDATE ledger_entries SET exit = $1 WHERE id = $2`,
         [JSON.stringify(exit), id]
       );
     } catch (error) {
