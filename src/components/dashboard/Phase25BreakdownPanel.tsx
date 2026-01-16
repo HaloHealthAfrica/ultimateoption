@@ -50,12 +50,21 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
 
         const entries = data.data || [];
         if (entries.length > 0) {
-          setBreakdown(entries[0].decision_breakdown || null);
+          const entry = entries[0];
+          // Ensure decision_breakdown exists and is an object
+          const breakdown = entry.decision_breakdown;
+          if (breakdown && typeof breakdown === 'object') {
+            setBreakdown(breakdown);
+          } else {
+            console.warn('Invalid decision_breakdown format:', breakdown);
+            setBreakdown(null);
+          }
         } else {
           setBreakdown(null);
         }
         setError(null);
       } catch (e) {
+        console.error('Error fetching breakdown:', e);
         setError(e instanceof Error ? e.message : 'Unknown error');
       } finally {
         setLoading(false);
@@ -120,42 +129,42 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <MultiplierCard
             label="Confluence"
-            value={breakdown.confluence_multiplier}
+            value={breakdown.confluence_multiplier ?? 1.0}
             description="Multi-timeframe alignment"
           />
           <MultiplierCard
             label="Quality"
-            value={breakdown.quality_multiplier}
+            value={breakdown.quality_multiplier ?? 1.0}
             description="Signal quality tier"
           />
           <MultiplierCard
             label="HTF Alignment"
-            value={breakdown.htf_alignment_multiplier}
+            value={breakdown.htf_alignment_multiplier ?? 1.0}
             description="Higher timeframe bias"
           />
           <MultiplierCard
             label="R:R Ratio"
-            value={breakdown.rr_multiplier}
+            value={breakdown.rr_multiplier ?? 1.0}
             description="Risk-reward ratio"
           />
           <MultiplierCard
             label="Volume"
-            value={breakdown.volume_multiplier}
+            value={breakdown.volume_multiplier ?? 1.0}
             description="Volume vs average"
           />
           <MultiplierCard
             label="Trend"
-            value={breakdown.trend_multiplier}
+            value={breakdown.trend_multiplier ?? 1.0}
             description="Trend strength"
           />
           <MultiplierCard
             label="Session"
-            value={breakdown.session_multiplier}
+            value={breakdown.session_multiplier ?? 1.0}
             description="Market session"
           />
           <MultiplierCard
             label="Day"
-            value={breakdown.day_multiplier}
+            value={breakdown.day_multiplier ?? 1.0}
             description="Day of week"
           />
         </div>
