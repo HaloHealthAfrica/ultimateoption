@@ -8,6 +8,7 @@
 import { NormalizerService } from './normalizer.service';
 import { WebhookSource, WebhookError, 
   WebhookErrorType, NormalizedPayload } from '../types';
+import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
 
 export class SourceRouterService {
   private normalizer: NormalizerService;
@@ -24,25 +25,55 @@ export class SourceRouterService {
     source?: WebhookSource;
     normalized?: NormalizedPayload;
     error?: WebhookError;
+    adaptations?: string[];
   } {
     const startTime = Date.now();
     
     try {
-      // Detect source and normalize
-      const source = this.normalizer.detectSource(payload);
-      const normalized = this.normalizer.normalize(payload, source);
+      // Try standard detection and normalization first
+      let source: WebhookSource;
+      let normalized: NormalizedPayload;
+      let adaptations: string[] | undefined;
+      
+      try {
+        source = this.normalizer.detectSource(payload);
+        normalized = this.normalizer.normalize(payload, source);
+      } catch (detectionError) {
+        // Standard detection failed, try flexible signal adapter
+        console.log('Standard detection failed, trying flexible signal adapter:', 
+          detectionError instanceof Error ? detectionError.message : 'Unknown error');
+        
+        const adapterResult = adaptFlexibleSignal(payload);
+        
+        if (!adapterResult.success) {
+          // Both standard and flexible detection failed
+          throw detectionError;
+        }
+        
+        // Flexible adapter succeeded, use adapted payload
+        adaptations = adapterResult.adaptations;
+        source = this.normalizer.detectSource(adapterResult.data);
+        normalized = this.normalizer.normalize(adapterResult.data, source);
+        
+        console.log('Flexible adapter succeeded:', {
+          source,
+          adaptations
+        });
+      }
       
       // Log successful routing
       console.log(`Webhook routed successfully:`, {
         source,
         symbol: normalized.partial.instrument?.symbol,
-        processingTime: Date.now() - startTime
+        processingTime: Date.now() - startTime,
+        adapted: !!adaptations
       });
 
       return {
         success: true,
         source,
-        normalized
+        normalized,
+        adaptations
       };
       
     } catch (error) {

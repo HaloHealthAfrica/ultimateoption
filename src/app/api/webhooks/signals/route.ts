@@ -19,6 +19,7 @@ import { ENGINE_VERSION } from '@/phase2/types';
 import { HTTP_STATUS } from '@/phase2/constants/gates';
 import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
+import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
 
 /**
  * POST /api/webhooks/signals
@@ -127,15 +128,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use normalizer for validation and normalization
-    const context = Normalizer.normalizeSignal(body);
+    // Try standard normalization first, fall back to flexible adapter
+    let context;
+    let adaptations: string[] = [];
     
-    logger.info('Signal normalized successfully', {
-      requestId,
-      symbol: context.indicator.symbol,
-      type: context.indicator.signalType,
-      aiScore: context.indicator.aiScore
-    });
+    try {
+      context = Normalizer.normalizeSignal(body);
+      logger.info('Signal normalized successfully (standard)', {
+        requestId,
+        symbol: context.indicator.symbol,
+        type: context.indicator.signalType,
+        aiScore: context.indicator.aiScore
+      });
+    } catch (normalizationError) {
+      // Standard normalization failed, try flexible adapter
+      logger.info('Standard normalization failed, trying flexible adapter', {
+        requestId,
+        error: normalizationError instanceof Error ? normalizationError.message : 'Unknown error'
+      });
+      
+      const adapterResult = adaptFlexibleSignal(body);
+      
+      if (!adapterResult.success) {
+        // Both standard and flexible normalization failed
+        const entry = {
+          kind: 'signals' as const,
+          ok: false,
+          status: 400,
+          ip: request.headers.get('x-forwarded-for') || undefined,
+          user_agent: request.headers.get('user-agent') || undefined,
+          message: `Normalization failed: ${adapterResult.error}`,
+          raw_payload: rawBody,
+          headers,
+        };
+        audit.add(entry);
+        await recordWebhookReceipt(entry);
+        
+        return NextResponse.json({
+          error: 'Invalid signal payload',
+          type: 'VALIDATION_ERROR',
+          details: adapterResult.error,
+          standard_error: normalizationError instanceof Error ? normalizationError.message : 'Unknown error',
+          hint: 'Payload must include signal.type and signal.ai_score (or equivalent fields)',
+          engineVersion: ENGINE_VERSION,
+          requestId
+        }, { status: HTTP_STATUS.BAD_REQUEST });
+      }
+      
+      // Flexible adapter succeeded, use adapted payload
+      adaptations = adapterResult.adaptations || [];
+      context = Normalizer.normalizeSignal(adapterResult.data);
+      
+      logger.info('Signal normalized successfully (flexible adapter)', {
+        requestId,
+        symbol: context.indicator.symbol,
+        type: context.indicator.signalType,
+        aiScore: context.indicator.aiScore,
+        adaptations
+      });
+    }
 
     // Build market context
     const marketResult = await marketContextBuilder.buildMarketContext(context.indicator.symbol);
@@ -158,6 +209,10 @@ export async function POST(request: NextRequest) {
     );
 
     // Log successful webhook receipt
+    const successMessage = adaptations.length > 0
+      ? `Phase 2 decision: ${decisionOutput.decision} (adapted: ${adaptations.join(', ')}) (${requestId})`
+      : `Phase 2 decision: ${decisionOutput.decision} (${requestId})`;
+    
     const successEntry = {
       kind: 'signals' as const,
       ok: true,
@@ -165,7 +220,7 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: context.indicator.symbol,
-      message: `Phase 2 decision: ${decisionOutput.decision} (${requestId})`,
+      message: successMessage,
       raw_payload: rawBody,
       headers,
     };
@@ -173,11 +228,19 @@ export async function POST(request: NextRequest) {
     await recordWebhookReceipt(successEntry);
 
     // Add response headers
-    const response = NextResponse.json(decisionOutput, { status: HTTP_STATUS.OK });
+    const responseData = adaptations.length > 0
+      ? { ...decisionOutput, adaptations }
+      : decisionOutput;
+    
+    const response = NextResponse.json(responseData, { status: HTTP_STATUS.OK });
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-Engine-Version', ENGINE_VERSION);
     response.headers.set('X-Service', 'Phase2-Decision-Engine');
+    if (adaptations.length > 0) {
+      response.headers.set('X-Adapted', 'true');
+      response.headers.set('X-Adaptations', adaptations.length.toString());
+    }
     
     return response;
 

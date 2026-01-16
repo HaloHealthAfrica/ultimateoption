@@ -60,6 +60,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
     decision?: DecisionPacket;
     message: string;
     processingTime: number;
+    adaptations?: string[];
   }> {
     const startTime = Date.now();
 
@@ -79,6 +80,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       }
 
       const normalizedPayload = routingResult.normalized!;
+      const adaptations = routingResult.adaptations;
       
       // Step 2: Update context store
       this.contextStore.update(normalizedPayload.partial, routingResult.source!);
@@ -133,7 +135,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         success: true,
         decision,
         message: `Decision made: ${decision.action} (confidence: ${decision.confidenceScore})`,
-        processingTime
+        processingTime,
+        adaptations
       };
 
     } catch (error) {
