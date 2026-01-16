@@ -74,6 +74,7 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
     fetchBreakdown();
   }, [onRefresh]);
 
+  // Don't render anything until we've completed the first fetch
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -90,7 +91,7 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
     );
   }
 
-  if (!breakdown) {
+  if (!breakdown || typeof breakdown !== 'object') {
     return (
       <div className="flex items-center justify-center py-8 text-white/40">
         No breakdown available
@@ -99,19 +100,38 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
   }
 
   // Create a safe breakdown object with all default values
-  const safeBreakdown = {
-    confluence_multiplier: breakdown?.confluence_multiplier ?? 1.0,
-    quality_multiplier: breakdown?.quality_multiplier ?? 1.0,
-    htf_alignment_multiplier: breakdown?.htf_alignment_multiplier ?? 1.0,
-    rr_multiplier: breakdown?.rr_multiplier ?? 1.0,
-    volume_multiplier: breakdown?.volume_multiplier ?? 1.0,
-    trend_multiplier: breakdown?.trend_multiplier ?? 1.0,
-    session_multiplier: breakdown?.session_multiplier ?? 1.0,
-    day_multiplier: breakdown?.day_multiplier ?? 1.0,
-    phase_confidence_boost: breakdown?.phase_confidence_boost,
-    phase_position_boost: breakdown?.phase_position_boost,
-    final_multiplier: breakdown?.final_multiplier ?? 1.0,
-  };
+  let safeBreakdown;
+  try {
+    safeBreakdown = {
+      confluence_multiplier: breakdown?.confluence_multiplier ?? 1.0,
+      quality_multiplier: breakdown?.quality_multiplier ?? 1.0,
+      htf_alignment_multiplier: breakdown?.htf_alignment_multiplier ?? 1.0,
+      rr_multiplier: breakdown?.rr_multiplier ?? 1.0,
+      volume_multiplier: breakdown?.volume_multiplier ?? 1.0,
+      trend_multiplier: breakdown?.trend_multiplier ?? 1.0,
+      session_multiplier: breakdown?.session_multiplier ?? 1.0,
+      day_multiplier: breakdown?.day_multiplier ?? 1.0,
+      phase_confidence_boost: breakdown?.phase_confidence_boost,
+      phase_position_boost: breakdown?.phase_position_boost,
+      final_multiplier: breakdown?.final_multiplier ?? 1.0,
+    };
+  } catch (e) {
+    console.error('Error creating safeBreakdown:', e, 'breakdown:', breakdown);
+    // Fallback to all defaults
+    safeBreakdown = {
+      confluence_multiplier: 1.0,
+      quality_multiplier: 1.0,
+      htf_alignment_multiplier: 1.0,
+      rr_multiplier: 1.0,
+      volume_multiplier: 1.0,
+      trend_multiplier: 1.0,
+      session_multiplier: 1.0,
+      day_multiplier: 1.0,
+      phase_confidence_boost: undefined,
+      phase_position_boost: undefined,
+      final_multiplier: 1.0,
+    };
+  }
 
   // Confidence components (fixed weights)
   const confidenceComponents: ConfidenceComponents = {
