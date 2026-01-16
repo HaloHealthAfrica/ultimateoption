@@ -383,23 +383,21 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
 
     try {
       // Store ALL decisions in ledger (EXECUTE, WAIT, SKIP)
-      try {
-        const { getGlobalLedger } = await import('@/ledger/globalLedger');
-        const { convertDecisionToLedgerEntry } = await import('../utils/ledger-adapter');
-        
-        const ledger = await getGlobalLedger();
-        const ledgerEntry = convertDecisionToLedgerEntry(decision);
-        await ledger.append(ledgerEntry);
-        
-        console.log('Decision stored in ledger:', {
-          symbol: decision.inputContext.instrument.symbol,
-          action: decision.action,
-          confidence: decision.confidenceScore
-        });
-      } catch (error) {
-        console.error('Failed to store decision in ledger:', error);
-        // Don't throw - we still want to process the decision
-      }
+      const { getGlobalLedger } = await import('@/ledger/globalLedger');
+      const { convertDecisionToLedgerEntry } = await import('../utils/ledger-adapter');
+      
+      const ledger = await getGlobalLedger();
+      const ledgerEntry = convertDecisionToLedgerEntry(decision);
+      
+      console.log('Attempting to store decision in ledger:', {
+        symbol: decision.inputContext.instrument.symbol,
+        action: decision.action,
+        confidence: decision.confidenceScore
+      });
+      
+      await ledger.append(ledgerEntry);
+      
+      console.log('✅ Decision stored in ledger successfully');
 
       // Handle action-specific forwarding
       switch (decision.action) {
