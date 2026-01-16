@@ -98,6 +98,21 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
     );
   }
 
+  // Create a safe breakdown object with all default values
+  const safeBreakdown = {
+    confluence_multiplier: breakdown?.confluence_multiplier ?? 1.0,
+    quality_multiplier: breakdown?.quality_multiplier ?? 1.0,
+    htf_alignment_multiplier: breakdown?.htf_alignment_multiplier ?? 1.0,
+    rr_multiplier: breakdown?.rr_multiplier ?? 1.0,
+    volume_multiplier: breakdown?.volume_multiplier ?? 1.0,
+    trend_multiplier: breakdown?.trend_multiplier ?? 1.0,
+    session_multiplier: breakdown?.session_multiplier ?? 1.0,
+    day_multiplier: breakdown?.day_multiplier ?? 1.0,
+    phase_confidence_boost: breakdown?.phase_confidence_boost,
+    phase_position_boost: breakdown?.phase_position_boost,
+    final_multiplier: breakdown?.final_multiplier ?? 1.0,
+  };
+
   // Confidence components (fixed weights)
   const confidenceComponents: ConfidenceComponents = {
     regime: 30,
@@ -129,63 +144,63 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <MultiplierCard
             label="Confluence"
-            value={breakdown?.confluence_multiplier ?? 1.0}
+            value={safeBreakdown.confluence_multiplier}
             description="Multi-timeframe alignment"
           />
           <MultiplierCard
             label="Quality"
-            value={breakdown?.quality_multiplier ?? 1.0}
+            value={safeBreakdown.quality_multiplier}
             description="Signal quality tier"
           />
           <MultiplierCard
             label="HTF Alignment"
-            value={breakdown?.htf_alignment_multiplier ?? 1.0}
+            value={safeBreakdown.htf_alignment_multiplier}
             description="Higher timeframe bias"
           />
           <MultiplierCard
             label="R:R Ratio"
-            value={breakdown?.rr_multiplier ?? 1.0}
+            value={safeBreakdown.rr_multiplier}
             description="Risk-reward ratio"
           />
           <MultiplierCard
             label="Volume"
-            value={breakdown?.volume_multiplier ?? 1.0}
+            value={safeBreakdown.volume_multiplier}
             description="Volume vs average"
           />
           <MultiplierCard
             label="Trend"
-            value={breakdown?.trend_multiplier ?? 1.0}
+            value={safeBreakdown.trend_multiplier}
             description="Trend strength"
           />
           <MultiplierCard
             label="Session"
-            value={breakdown?.session_multiplier ?? 1.0}
+            value={safeBreakdown.session_multiplier}
             description="Market session"
           />
           <MultiplierCard
             label="Day"
-            value={breakdown?.day_multiplier ?? 1.0}
+            value={safeBreakdown.day_multiplier}
             description="Day of week"
           />
         </div>
       </div>
 
       {/* Phase Boosts */}
-      {(breakdown?.phase_confidence_boost !== undefined || breakdown?.phase_position_boost !== undefined) && (
+      {(safeBreakdown.phase_confidence_boost !== undefined || safeBreakdown.phase_position_boost !== undefined) && (
         <div>
           <h3 className="text-sm font-medium text-white/70 mb-3">Phase Boosts</h3>
           <div className="grid grid-cols-2 gap-3">
-            {breakdown?.phase_confidence_boost !== undefined && (
+            {safeBreakdown.phase_confidence_boost !== undefined && (
               <BoostCard
                 label="Confidence Boost"
-                value={breakdown.phase_confidence_boost}
+                value={safeBreakdown.phase_confidence_boost}
                 description="From phase alignment"
               />
             )}
-            {breakdown?.phase_position_boost !== undefined && (
+            {safeBreakdown.phase_position_boost !== undefined && (
               <BoostCard
                 label="Position Boost"
-                value={breakdown.phase_position_boost}
+                value={safeBreakdown.phase_position_boost}
                 description="From phase strength"
               />
             )}
@@ -201,7 +216,7 @@ export function Phase25BreakdownPanel({ onRefresh }: Props) {
             <div className="text-xs text-blue-200/50">Capped between 0.5x - 3.0x</div>
           </div>
           <div className="text-3xl font-bold text-blue-200">
-            {(breakdown?.final_multiplier ?? 1.0).toFixed(2)}x
+            {safeBreakdown.final_multiplier.toFixed(2)}x
           </div>
         </div>
       </div>
