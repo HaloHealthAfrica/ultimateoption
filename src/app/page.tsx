@@ -14,7 +14,7 @@ import { PaperTrades } from '@/ui/components/PaperTrades';
 import { SignalMonitor } from '@/ui/components/SignalMonitor';
 import { Metrics } from '@/learning/metricsEngine';
 import { LearningSuggestion } from '@/learning/learningAdvisor';
-import { DecisionResult } from '@/types/decision';
+import { DecisionBreakdownSchema, DecisionResult, createEmptyBreakdown } from '@/types/decision';
 import { LedgerEntry } from '@/types/ledger';
 import { SignalType } from '@/types/signal';
 import { StoredSignal } from '@/webhooks/timeframeStore';
@@ -121,11 +121,28 @@ async function fetchDashboardData(): Promise<Partial<DashboardState>> {
     errors.push(`Signals: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
 
-  // Decisions (API returns { data: [] })
+  // Decisions (API returns LedgerEntry)
   try {
-    const payload = await fetchJson<{ data?: DecisionResult[]; decisions?: DecisionResult[] }>('/api/decisions?limit=1');
+    const payload = await fetchJson<{ data?: LedgerEntry[]; decisions?: LedgerEntry[] }>('/api/decisions?limit=1');
     const list = payload.data || payload.decisions || [];
-    next.decision = list[0] || null;
+    const latest = list[0];
+    if (latest) {
+      const parsedBreakdown = DecisionBreakdownSchema.safeParse(latest.decision_breakdown);
+      next.decision = {
+        decision: latest.decision,
+        reason: latest.decision_reason ?? 'No reason provided',
+        breakdown: parsedBreakdown.success ? parsedBreakdown.data : createEmptyBreakdown(),
+        engine_version: latest.engine_version ?? 'unknown',
+        confluence_score: latest.confluence_score ?? 0,
+        recommended_contracts: latest.signal?.risk?.recommended_contracts ?? 0,
+        entry_signal: latest.signal ?? null,
+        stop_loss: latest.signal?.entry?.stop_loss ?? null,
+        target_1: latest.signal?.entry?.target_1 ?? null,
+        target_2: latest.signal?.entry?.target_2 ?? null,
+      };
+    } else {
+      next.decision = null;
+    }
   } catch (e) {
     errors.push(`Decisions: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
