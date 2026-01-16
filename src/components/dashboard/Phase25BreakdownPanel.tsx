@@ -82,23 +82,7 @@ function Phase25BreakdownPanelInner({ onRefresh }: Props) {
     fetchBreakdown();
   }, [onRefresh]);
 
-  // Don't render anything until we've completed the first fetch
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-white/60">Loading breakdown...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-        <span className="font-semibold">Error:</span> {error}
-      </div>
-    );
-  }
-
+  // useMemo MUST be called before any conditional returns
   const safeBreakdown = useMemo<DecisionBreakdown | null>(() => {
     if (!breakdown || typeof breakdown !== 'object') {
       return null;
@@ -136,6 +120,23 @@ function Phase25BreakdownPanelInner({ onRefresh }: Props) {
       };
     }
   }, [breakdown]);
+
+  // NOW we can do conditional returns after all hooks are called
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-white/60">Loading breakdown...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <span className="font-semibold">Error:</span> {error}
+      </div>
+    );
+  }
 
   if (!safeBreakdown) {
     return (
@@ -248,7 +249,7 @@ function Phase25BreakdownPanelInner({ onRefresh }: Props) {
             <div className="text-xs text-blue-200/50">Capped between 0.5x - 3.0x</div>
           </div>
           <div className="text-3xl font-bold text-blue-200">
-            {safeBreakdown.final_multiplier.toFixed(2)}x
+            {(safeBreakdown.final_multiplier ?? 1.0).toFixed(2)}x
           </div>
         </div>
       </div>
