@@ -253,31 +253,31 @@ export class PostgresLedger implements ILedger {
       let paramIndex = 1;
 
       if (filters.timeframe) {
-        conditions.push(`signal->'signal'->>'timeframe' = ${paramIndex++}`);
+        conditions.push(`signal->'signal'->>'timeframe' = $${paramIndex++}`);
         params.push(filters.timeframe);
       }
       if (filters.quality) {
-        conditions.push(`signal->'signal'->>'quality' = ${paramIndex++}`);
+        conditions.push(`signal->'signal'->>'quality' = $${paramIndex++}`);
         params.push(filters.quality);
       }
       if (filters.decision) {
-        conditions.push(`decision = ${paramIndex++}`);
+        conditions.push(`decision = $${paramIndex++}`);
         params.push(filters.decision);
       }
       if (filters.dte_bucket) {
-        conditions.push(`execution->>'dte_bucket' = ${paramIndex++}`);
+        conditions.push(`execution->>'dte_bucket' = $${paramIndex++}`);
         params.push(filters.dte_bucket);
       }
       if (filters.regime_volatility) {
-        conditions.push(`regime->>'volatility' = ${paramIndex++}`);
+        conditions.push(`regime->>'volatility' = $${paramIndex++}`);
         params.push(filters.regime_volatility);
       }
       if (filters.from_date) {
-        conditions.push(`created_at >= to_timestamp(${paramIndex++}/1000.0)`);
+        conditions.push(`created_at >= $${paramIndex++}`);
         params.push(filters.from_date);
       }
       if (filters.to_date) {
-        conditions.push(`created_at <= to_timestamp(${paramIndex++}/1000.0)`);
+        conditions.push(`created_at <= $${paramIndex++}`);
         params.push(filters.to_date);
       }
 
@@ -291,7 +291,7 @@ export class PostgresLedger implements ILedger {
       const result = await client.query(
         `SELECT * FROM ledger_entries ${whereClause} 
          ORDER BY created_at DESC 
-         LIMIT ${paramIndex++} OFFSET ${paramIndex}`,
+         LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
         [...params, limit, offset]
       );
 
@@ -334,7 +334,7 @@ export class PostgresLedger implements ILedger {
   private rowToEntry(row: Record<string, unknown>): LedgerEntry {
     return {
       id: row.id as string,
-      created_at: new Date(row.created_at as string).getTime(),
+      created_at: typeof row.created_at === 'string' ? parseInt(row.created_at) : (row.created_at as number),
       engine_version: row.engine_version as string,
       signal: row.signal as LedgerEntry['signal'],
       phase_context: row.phase_context as LedgerEntry['phase_context'],
@@ -343,7 +343,7 @@ export class PostgresLedger implements ILedger {
       decision_breakdown: row.decision_breakdown as LedgerEntry['decision_breakdown'],
       confluence_score: parseFloat(row.confluence_score as string),
       execution: row.execution as LedgerEntry['execution'],
-      exit: row.exit_data as LedgerEntry['exit'],
+      exit: row.exit as LedgerEntry['exit'],
       regime: row.regime as LedgerEntry['regime'],
       hypothetical: row.hypothetical as LedgerEntry['hypothetical'],
     };
