@@ -768,34 +768,303 @@ function adaptPhaseLiteToPhaseWebhook(input: PhaseLite): SatyPhaseWebhook {
 }
 
 /**
+ * Ultra-flexible SATY adapter - constructs from minimal data
+ */
+function constructFromMinimalData(data: Record<string, unknown>): SatyPhaseWebhook | null {
+  // Minimum requirements: symbol/ticker + some phase/trend/bias indicator
+  const symbol = extractSymbol(data);
+  if (!symbol) return null;
+
+  const timeframe = extractTimeframe(data);
+  const bias = extractBias(data);
+  const phaseName = extractPhaseName(data);
+  
+  // If we can't determine any directional info, bail
+  if (!bias && !phaseName) return null;
+
+  const nowIso = new Date().toISOString();
+  const oscValue = extractOscillatorValue(data);
+
+  return {
+    meta: {
+      engine: 'SATY_PO',
+      engine_version: '1.0',
+      event_id: generateEventId(),
+      event_type: 'REGIME_PHASE_ENTRY',
+      generated_at: nowIso,
+    },
+    instrument: {
+      symbol,
+      exchange: (data.exchange as string) || 'AMEX',
+      asset_class: 'EQUITY',
+      session: 'REGULAR',
+    },
+    timeframe: {
+      chart_tf: timeframe,
+      event_tf: timeframe,
+      tf_role: 'REGIME',
+      bar_close_time: nowIso,
+    },
+    event: {
+      name: phaseName || phaseNameToEventName(bias || 'NEUTRAL'),
+      description: `Phase event detected from ${Object.keys(data).join(', ')}`,
+      directional_implication: bias === 'BULLISH' ? 'UPSIDE_POTENTIAL' : 
+                                bias === 'BEARISH' ? 'DOWNSIDE_POTENTIAL' : 'NEUTRAL',
+      event_priority: 5,
+    },
+    oscillator_state: {
+      value: oscValue,
+      previous_value: oscValue,
+      zone_from: 'NEUTRAL',
+      zone_to: 'NEUTRAL',
+      distance_from_zero: Math.abs(oscValue),
+      distance_from_extreme: Math.abs(100 - Math.abs(oscValue)),
+      velocity: 'INCREASING',
+    },
+    regime_context: {
+      local_bias: bias || 'NEUTRAL',
+      htf_bias: { tf: '4H', bias: 'NEUTRAL', osc_value: 0 },
+      macro_bias: { tf: '1D', bias: 'NEUTRAL' },
+    },
+    market_structure: {
+      mean_reversion_phase: 'NEUTRAL',
+      trend_phase: 'NEUTRAL',
+      is_counter_trend: false,
+      compression_state: 'NORMAL',
+    },
+    confidence: {
+      raw_strength: 50,
+      htf_alignment: false,
+      confidence_score: 50,
+      confidence_tier: 'MEDIUM',
+    },
+    execution_guidance: {
+      trade_allowed: true,
+      allowed_directions: ['LONG', 'SHORT'],
+      recommended_execution_tf: [timeframe],
+      requires_confirmation: [],
+    },
+    risk_hints: {
+      avoid_if: [],
+      time_decay_minutes: 60,
+      cooldown_tf: timeframe,
+    },
+    audit: {
+      source: 'TradingView',
+      alert_frequency: 'once_per_bar',
+      deduplication_key: generateEventId(),
+    },
+  };
+}
+
+/**
+ * Extract symbol from various possible locations
+ */
+function extractSymbol(data: Record<string, unknown>): string | null {
+  // Direct fields
+  if (data.symbol && typeof data.symbol === 'string') return data.symbol.toUpperCase();
+  if (data.ticker && typeof data.ticker === 'string') return data.ticker.toUpperCase();
+  
+  // Nested in instrument
+  if (data.instrument && typeof data.instrument === 'object') {
+    const inst = data.instrument as Record<string, unknown>;
+    if (inst.symbol && typeof inst.symbol === 'string') return inst.symbol.toUpperCase();
+    if (inst.ticker && typeof inst.ticker === 'string') return inst.ticker.toUpperCase();
+  }
+  
+  return null;
+}
+
+/**
+ * Extract timeframe from various possible locations
+ */
+function extractTimeframe(data: Record<string, unknown>): string {
+  // Direct field
+  if (data.timeframe && typeof data.timeframe === 'string') return data.timeframe;
+  if (data.tf && typeof data.tf === 'string') return data.tf;
+  if (data.chart_tf && typeof data.chart_tf === 'string') return data.chart_tf;
+  
+  // Nested in timeframe object
+  if (data.timeframe && typeof data.timeframe === 'object') {
+    const tf = data.timeframe as Record<string, unknown>;
+    if (tf.chart_tf && typeof tf.chart_tf === 'string') return tf.chart_tf;
+    if (tf.event_tf && typeof tf.event_tf === 'string') return tf.event_tf;
+  }
+  
+  // Default
+  return '15';
+}
+
+/**
+ * Extract bias from various possible locations
+ */
+function extractBias(data: Record<string, unknown>): 'BULLISH' | 'BEARISH' | 'NEUTRAL' | null {
+  // Direct fields
+  if (data.bias && typeof data.bias === 'string') return normalizeBias(data.bias);
+  if (data.local_bias && typeof data.local_bias === 'string') return normalizeBias(data.local_bias);
+  if (data.direction && typeof data.direction === 'string') return normalizeBias(data.direction);
+  if (data.trend && typeof data.trend === 'string') return normalizeBias(data.trend);
+  
+  // Nested in regime_context
+  if (data.regime_context && typeof data.regime_context === 'object') {
+    const regime = data.regime_context as Record<string, unknown>;
+    if (regime.local_bias && typeof regime.local_bias === 'string') return normalizeBias(regime.local_bias);
+    if (regime.bias && typeof regime.bias === 'string') return normalizeBias(regime.bias);
+  }
+  
+  // Nested in execution_guidance
+  if (data.execution_guidance && typeof data.execution_guidance === 'object') {
+    const exec = data.execution_guidance as Record<string, unknown>;
+    if (exec.bias && typeof exec.bias === 'string') return normalizeBias(exec.bias);
+  }
+  
+  // From phase name
+  if (data.phase && typeof data.phase === 'object') {
+    const phase = data.phase as Record<string, unknown>;
+    if (phase.name && typeof phase.name === 'string') {
+      const name = phase.name.toUpperCase();
+      if (name.includes('MARKUP')) return 'BULLISH';
+      if (name.includes('MARKDOWN')) return 'BEARISH';
+      if (name.includes('ACCUM')) return 'BULLISH';
+      if (name.includes('DIST')) return 'BEARISH';
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Extract phase name from various possible locations
+ */
+function extractPhaseName(data: Record<string, unknown>): PhaseEventName | null {
+  // Direct field
+  if (data.phase_name && typeof data.phase_name === 'string') {
+    return phaseNameToEventName(data.phase_name);
+  }
+  
+  // Nested in event
+  if (data.event && typeof data.event === 'object') {
+    const event = data.event as Record<string, unknown>;
+    if (event.name && typeof event.name === 'string') return phaseNameToEventName(event.name);
+    if (event.phase_name && typeof event.phase_name === 'string') return phaseNameToEventName(event.phase_name);
+  }
+  
+  // Nested in phase
+  if (data.phase && typeof data.phase === 'object') {
+    const phase = data.phase as Record<string, unknown>;
+    if (phase.name && typeof phase.name === 'string') return phaseNameToEventName(phase.name);
+  }
+  
+  return null;
+}
+
+/**
+ * Extract oscillator value from various possible locations
+ */
+function extractOscillatorValue(data: Record<string, unknown>): number {
+  // Direct field
+  if (data.oscillator_value && typeof data.oscillator_value === 'number') return data.oscillator_value;
+  if (data.osc_value && typeof data.osc_value === 'number') return data.osc_value;
+  
+  // Nested in oscillator_state
+  if (data.oscillator_state && typeof data.oscillator_state === 'object') {
+    const osc = data.oscillator_state as Record<string, unknown>;
+    if (osc.value && typeof osc.value === 'number') return osc.value;
+  }
+  
+  // From MACD
+  if (data.macd_histogram && typeof data.macd_histogram === 'number') {
+    return Math.max(-100, Math.min(100, data.macd_histogram * 100));
+  }
+  
+  // From RSI
+  if (data.rsi && typeof data.rsi === 'number') {
+    return Math.max(-50, Math.min(50, data.rsi - 50));
+  }
+  
+  // Default
+  return 0;
+}
+
+/**
  * Parse and adapt incoming webhook data to SatyPhaseWebhook
+ * Enhanced with ultra-flexible fallback parsing
  */
 export function parseAndAdaptSaty(
   rawData: unknown
-): { success: true; data: SatyPhaseWebhook } | { success: false; error: unknown } {
+): { success: true; data: SatyPhaseWebhook; adaptations?: string[] } | { success: false; error: string; details?: unknown } {
+  const adaptations: string[] = [];
+  
   try {
+    // Validate input is an object
+    if (!rawData || typeof rawData !== 'object') {
+      return { 
+        success: false, 
+        error: 'Payload must be a valid JSON object',
+        details: { received_type: typeof rawData }
+      };
+    }
+
+    const data = rawData as Record<string, unknown>;
+
     // Try to parse as flexible SATY first
     const flexResult = FlexibleSatySchema.safeParse(rawData);
     
     if (flexResult.success) {
       const adapted = adaptSatyToPhaseWebhook(flexResult.data);
-      return { success: true, data: adapted };
+      adaptations.push('Parsed as FlexibleSaty format');
+      return { success: true, data: adapted, adaptations };
     }
 
     // Second try: phase-lite format (what the indicator is currently emitting)
     const phaseLiteResult = PhaseLiteSchema.safeParse(rawData);
     if (phaseLiteResult.success) {
-      return { success: true, data: adaptPhaseLiteToPhaseWebhook(phaseLiteResult.data) };
+      adaptations.push('Parsed as PhaseLite format');
+      return { success: true, data: adaptPhaseLiteToPhaseWebhook(phaseLiteResult.data), adaptations };
     }
 
     // Third try: indicator v5 format (new structured payload)
     const v5Result = IndicatorV5Schema.safeParse(rawData);
     if (v5Result.success) {
-      return { success: true, data: adaptIndicatorV5ToPhaseWebhook(v5Result.data) };
+      adaptations.push('Parsed as IndicatorV5 format');
+      return { success: true, data: adaptIndicatorV5ToPhaseWebhook(v5Result.data), adaptations };
     }
     
-    return { success: false, error: { flexible: flexResult.error, phase_lite: phaseLiteResult.error, indicator_v5: v5Result.error } };
+    // Fourth try: Ultra-flexible construction from minimal data
+    adaptations.push('Attempting ultra-flexible construction from minimal data');
+    const constructed = constructFromMinimalData(data);
+    
+    if (constructed) {
+      adaptations.push('Successfully constructed from minimal data');
+      adaptations.push(`Extracted: symbol=${constructed.instrument.symbol}, timeframe=${constructed.timeframe.chart_tf}, bias=${constructed.regime_context.local_bias}`);
+      return { success: true, data: constructed, adaptations };
+    }
+    
+    // All parsing attempts failed - provide detailed error
+    const missingFields: string[] = [];
+    if (!extractSymbol(data)) missingFields.push('symbol/ticker');
+    if (!extractBias(data) && !extractPhaseName(data)) missingFields.push('bias/trend/phase_name');
+    
+    return { 
+      success: false, 
+      error: `Unable to parse SATY payload. Missing required fields: ${missingFields.join(', ')}`,
+      details: {
+        available_fields: Object.keys(data),
+        missing_fields: missingFields,
+        tried_formats: ['FlexibleSaty', 'PhaseLite', 'IndicatorV5', 'MinimalData'],
+        hint: 'Payload must include at minimum: symbol/ticker and bias/trend/phase_name',
+        sample_minimal_payload: {
+          symbol: 'SPY',
+          timeframe: '15',
+          bias: 'BULLISH'
+        }
+      }
+    };
   } catch (error) {
-    return { success: false, error };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown parsing error',
+      details: error
+    };
   }
 }
