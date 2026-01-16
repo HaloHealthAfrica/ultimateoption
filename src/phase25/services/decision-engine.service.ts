@@ -201,7 +201,7 @@ export class DecisionEngineService implements IDecisionEngine {
     let minScore = 100;
     
     // Check spread conditions
-    if (marketContext.liquidity?.spreadBps) {
+    if (marketContext.liquidity?.spreadBps !== undefined) {
       const spreadBps = marketContext.liquidity.spreadBps;
       const maxSpread = this.configManager.getConfig().gates.maxSpreadBps;
       
@@ -218,7 +218,7 @@ export class DecisionEngineService implements IDecisionEngine {
     }
     
     // Check volatility spike conditions
-    if (marketContext.stats?.atr14) {
+    if (marketContext.stats?.atr14 !== undefined) {
       const atr = marketContext.stats.atr14;
       const maxAtrSpike = this.configManager.getConfig().gates.maxAtrSpike;
       
@@ -235,7 +235,7 @@ export class DecisionEngineService implements IDecisionEngine {
     }
     
     // Check depth score
-    if (marketContext.liquidity?.depthScore) {
+    if (marketContext.liquidity?.depthScore !== undefined) {
       const depthScore = marketContext.liquidity.depthScore;
       const minDepth = this.configManager.getConfig().gates.minDepthScore;
       

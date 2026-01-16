@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
 import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
@@ -201,6 +201,33 @@ function Card({
   );
 }
 
+class OverviewDecisionBreakdownBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Overview DecisionBreakdown crashed:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span className="font-semibold">Error:</span> Unable to render decision breakdown.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function TabButton({
   label,
   active,
@@ -387,7 +414,9 @@ export default function DashboardPage() {
               </Card>
 
               <Card title="Decision" subtitle="Most recent decision breakdown (if any)">
-                <DecisionBreakdown result={state.decision} />
+                <OverviewDecisionBreakdownBoundary>
+                  <DecisionBreakdown result={state.decision} />
+                </OverviewDecisionBreakdownBoundary>
               </Card>
             </div>
 

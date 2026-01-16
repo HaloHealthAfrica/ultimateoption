@@ -1,4 +1,97 @@
 # Phase 2.5 Comprehensive Action Plan
+
+## Objective
+Complete the pipeline from **webhook → decision → dashboard → auto‑trade**, using React best practices and documented changes.
+
+## Current Status
+- ✅ Webhook → Decision → Ledger → API: Working
+- ✅ Dashboard fix for decision shape mismatch: Implemented locally
+- ❌ Production dashboard: Still failing until fix is deployed
+- ❌ Auto‑trade: Not implemented
+
+## Critical Findings
+
+### 1) Dashboard Crash (Blocking)
+- **Root cause:** `/api/decisions` returns `LedgerEntry`, but overview UI expects `DecisionResult.breakdown`.
+- **Fix status:** Implemented locally in `src/app/page.tsx`; needs deployment.
+- **Action:** Deploy and verify in production.
+
+### 2) UUID Generation (Security)
+- **Issue:** `Math.random()` used for UUIDs in `src/ledger/ledger.ts`.
+- **Risk:** Predictable IDs and weaker uniqueness guarantees.
+- **Action:** Replace with `crypto.randomUUID()` or a UUID library.
+
+### 3) Market Gate Checks (Logic)
+- **Issue:** Gate checks skip when values are `0`.
+- **Impact:** Valid `0` values treated as missing.
+- **Action:** Use explicit `value !== undefined` checks.
+
+## Execution Roadmap
+
+### Week 1 — Stabilization
+1. Deploy dashboard crash fix.
+2. Fix UUID generation.
+3. Fix market gate zero‑value checks.
+4. Add an error boundary for overview `DecisionBreakdown` for extra safety.
+
+### Week 2 — Paper Execution
+1. Implement `PaperExecutorService` to simulate option trades.
+2. Add contract selection logic.
+3. Simulate fills + commissions.
+4. Persist `execution` into ledger entries.
+
+### Week 3 — Position Tracking + Exits
+1. Implement `PositionMonitorService`.
+2. Track P&L + Greeks.
+3. Implement `ExitSimulatorService` (targets, stops, time exits).
+4. Write `exit` updates to ledger with P&L attribution.
+
+### Week 4 — Risk Controls + Safety
+1. Risk limits (max size, daily loss cap, max open positions).
+2. Kill switch and manual approval path.
+3. Circuit breakers for repeated failures.
+
+## Required Services (Missing)
+- `src/phase25/services/paper-executor.service.ts`
+- `src/phase25/services/position-monitor.service.ts`
+- `src/phase25/services/exit-simulator.service.ts`
+- `src/phase25/services/risk-manager.service.ts`
+- `src/phase25/utils/pnl-attribution.ts`
+
+## Required API Endpoints (Proposed)
+- `GET /api/positions/open`
+- `POST /api/positions/:id/close`
+- `GET /api/performance/metrics`
+- `POST /api/risk/kill-switch`
+
+## React Best Practices Checklist
+- Use normalized data at boundaries (API → UI).
+- Guard against undefined data and hydrate‑safe renders.
+- Prefer memoized derived data (`useMemo`) where needed.
+- Add lightweight error boundaries for critical UI panels.
+- Avoid duplicate fetches; consolidate into shared hooks.
+
+## Verification Steps
+
+### Immediate (Post‑deploy)
+1. Open production dashboard: no `confluence_multiplier` errors.
+2. Send Phase 2.5 webhooks and confirm new decisions render.
+3. Validate `/api/decisions?limit=1` returns latest decision.
+
+### Short‑Term (After security/logic fixes)
+1. Verify ledger entries use non‑predictable UUIDs.
+2. Confirm market gates handle `0` values correctly.
+
+### Paper Trading Verification
+1. EXECUTE decision generates `execution` in ledger.
+2. Open positions list is accurate.
+3. Exit rules close positions and write `exit`.
+
+## Next Actions (Today)
+1. Deploy `src/app/page.tsx` decision normalization fix.
+2. Run E2E tests and confirm dashboard renders.
+3. Start UUID fix and market gate check fix.
+# Phase 2.5 Comprehensive Action Plan
 **Date:** January 16, 2026  
 **Status:** Post E2E Review - Ready for Execution
 
