@@ -150,6 +150,7 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
     decision_breakdown: decisionBreakdown,
     confluence_score: decision.confidenceScore,
     regime,
+    gate_results: decision.gateResults, // Store gate results with scores
   };
 
   return entry;

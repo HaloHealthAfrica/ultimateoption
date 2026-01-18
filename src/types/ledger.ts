@@ -108,6 +108,25 @@ export const LedgerEntrySchema = z.object({
   decision_breakdown: DecisionBreakdownSchema,
   confluence_score: z.number().min(0).max(100),
   
+  // Gate results (Phase 2.5)
+  gate_results: z.object({
+    regime: z.object({
+      passed: z.boolean(),
+      reason: z.string().optional(),
+      score: z.number().optional(),
+    }),
+    structural: z.object({
+      passed: z.boolean(),
+      reason: z.string().optional(),
+      score: z.number().optional(),
+    }),
+    market: z.object({
+      passed: z.boolean(),
+      reason: z.string().optional(),
+      score: z.number().optional(),
+    }),
+  }).optional(),
+  
   // Execution data (if executed)
   execution: ExecutionSchema.optional(),
   
