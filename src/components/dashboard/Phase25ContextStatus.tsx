@@ -12,6 +12,14 @@ type ContextStatusResponse = {
   snapshot: {
     symbol: string;
     updated_at: number;
+    context: {
+      lastUpdated: Record<string, number>;
+      instrument?: { symbol: string };
+      regime?: unknown;
+      alignment?: unknown;
+      expert?: unknown;
+      structure?: unknown;
+    };
   } | null;
   timestamp: number;
 };
@@ -73,8 +81,55 @@ export function Phase25ContextStatus() {
     return <div className="text-white/60">Loading context status...</div>;
   }
 
-  const completenessPct = Math.round(data.status.completeness * 100);
-  const completenessColor = data.status.isComplete ? 'text-emerald-300' : 'text-yellow-300';
+  // Use snapshot data if available (persisted), otherwise fall back to in-memory status
+  let displayStatus = data.status;
+  
+  if (data.snapshot?.context) {
+    // Build status from persisted snapshot
+    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30 minutes
+    const lastUpdated = data.snapshot.context.lastUpdated || {};
+    
+    const requiredSources = ['TRADINGVIEW_SIGNAL'];
+    const optionalSources = ['SATY_PHASE', 'MTF_DOTS', 'ULTIMATE_OPTIONS', 'STRAT_EXEC'];
+    
+    displayStatus = {
+      requiredSources: requiredSources.map(source => {
+        const timestamp = lastUpdated[source];
+        const available = !!timestamp && (now - timestamp) <= maxAge;
+        return {
+          source,
+          available,
+          age: timestamp ? now - timestamp : undefined
+        };
+      }),
+      optionalSources: optionalSources.map(source => {
+        const timestamp = lastUpdated[source];
+        const available = !!timestamp && (now - timestamp) <= maxAge;
+        return {
+          source,
+          available,
+          age: timestamp ? now - timestamp : undefined
+        };
+      }),
+      isComplete: requiredSources.every(source => {
+        const timestamp = lastUpdated[source];
+        return !!timestamp && (now - timestamp) <= maxAge;
+      }),
+      completeness: 0
+    };
+    
+    // Calculate completeness percentage
+    const allSources = [...requiredSources, ...optionalSources];
+    const availableCount = allSources.filter(source => {
+      const timestamp = lastUpdated[source];
+      return !!timestamp && (now - timestamp) <= maxAge;
+    }).length;
+    displayStatus.completeness = availableCount / allSources.length;
+  }
+
+  const completenessPct = Math.round(displayStatus.completeness * 100);
+  const completenessColor = displayStatus.isComplete ? 'text-emerald-300' : 'text-yellow-300';
 
   return (
     <div className="space-y-3">
@@ -87,7 +142,7 @@ export function Phase25ContextStatus() {
 
       <div className="space-y-2">
         <div className="text-xs text-white/50 uppercase tracking-wide">Required Sources</div>
-        {data.status.requiredSources.map((source) => (
+        {displayStatus.requiredSources.map((source) => (
           <div key={source.source} className="flex items-center justify-between text-sm">
             <span className="text-white/80">{source.source}</span>
             <span className={source.available ? 'text-emerald-300' : 'text-red-300'}>
@@ -99,7 +154,7 @@ export function Phase25ContextStatus() {
 
       <div className="space-y-2">
         <div className="text-xs text-white/50 uppercase tracking-wide">Optional Sources</div>
-        {data.status.optionalSources.map((source) => (
+        {displayStatus.optionalSources.map((source) => (
           <div key={source.source} className="flex items-center justify-between text-sm">
             <span className="text-white/80">{source.source}</span>
             <span className={source.available ? 'text-white/70' : 'text-white/40'}>
