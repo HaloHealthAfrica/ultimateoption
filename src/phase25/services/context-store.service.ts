@@ -10,6 +10,7 @@ import { IContextStore,
   StoredContext, 
   CompletenessRules, WebhookSource, DecisionContext } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
+import { upsertPhase25ContextSnapshot } from '../utils/contextDb';
 
 export class ContextStoreService implements IContextStore {
   private context: StoredContext;
@@ -20,13 +21,19 @@ export class ContextStoreService implements IContextStore {
       lastUpdated: {} as Record<WebhookSource, number>
     };
 
+    // Get timeout from environment variable or use default
+    const timeoutMinutes = parseInt(process.env.PHASE25_CONTEXT_TIMEOUT_MINUTES || '30');
+    const maxAge = timeoutMinutes * 60 * 1000;
+
     // Default completeness rules
     this.completenessRules = {
       requiredSources: ['SATY_PHASE'], // Only SATY_PHASE is truly required
       optionalSources: ['MTF_DOTS', 'STRAT_EXEC', 'ULTIMATE_OPTIONS', 'TRADINGVIEW_SIGNAL'],
-      maxAge: 5 * 60 * 1000, // 5 minutes before context expires
+      maxAge, // Configurable timeout (default: 15 minutes)
       ...completenessRules
     };
+
+    console.log(`Context store initialized with ${timeoutMinutes} minute timeout`);
   }
 
   /**
@@ -73,6 +80,13 @@ export class ContextStoreService implements IContextStore {
       hasInstrument: !!this.context.instrument,
       isComplete: this.isComplete()
     });
+
+    const symbol = this.context.instrument?.symbol;
+    if (symbol) {
+      upsertPhase25ContextSnapshot(symbol, this.context).catch((error) => {
+        console.warn('Failed to persist Phase 2.5 context snapshot:', error);
+      });
+    }
   }
 
   /**

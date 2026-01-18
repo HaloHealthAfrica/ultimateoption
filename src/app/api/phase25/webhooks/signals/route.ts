@@ -117,6 +117,10 @@ export async function POST(request: NextRequest) {
     // Process webhook through Phase 2.5 orchestrator
     const result = await orchestrator.processWebhook(body);
     
+    const detailsSummary = result.details
+      ? ` Details: ${JSON.stringify(result.details).slice(0, 300)}`
+      : '';
+
     // Log webhook receipt
     const auditEntry = {
       kind: 'signals' as const,
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || undefined,
       user_agent: request.headers.get('user-agent') || undefined,
       ticker: result.decision?.inputContext?.instrument?.symbol,
-      message: `Phase 2.5: ${result.message} (${requestId})`,
+      message: `Phase 2.5: ${result.message}${detailsSummary} (${requestId})`,
       raw_payload: rawBody,
       headers,
     };

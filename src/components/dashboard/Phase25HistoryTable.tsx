@@ -7,6 +7,7 @@ interface DecisionEntry {
   created_at: number;
   decision: 'EXECUTE' | 'WAIT' | 'SKIP';
   confluence_score: number;
+  engine_version?: string;
   signal: {
     signal: {
       type: 'LONG' | 'SHORT';
@@ -57,6 +58,7 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'EXECUTE' | 'WAIT' | 'SKIP'>('ALL');
+  const [engineFilter, setEngineFilter] = useState<string>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,7 +66,8 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
       try {
         setLoading(true);
         const filterParam = filter !== 'ALL' ? `&decision=${filter}` : '';
-        const res = await fetch(`/api/decisions?limit=${limit}${filterParam}&_t=${Date.now()}`);
+        const engineParam = engineFilter !== 'ALL' ? `&engine_version=${encodeURIComponent(engineFilter)}` : '';
+        const res = await fetch(`/api/decisions?limit=${limit}${filterParam}${engineParam}&_t=${Date.now()}`);
         const data = await res.json();
         
         if (!res.ok) {
@@ -81,7 +84,7 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
     }
 
     fetchHistory();
-  }, [limit, filter, onRefresh]);
+  }, [limit, filter, engineFilter, onRefresh]);
 
   if (loading) {
     return (
@@ -124,7 +127,7 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
   return (
     <div className="space-y-4">
       {/* Filter Buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-white/60">Filter:</span>
         {(['ALL', 'EXECUTE', 'WAIT', 'SKIP'] as const).map((f) => (
           <button
@@ -140,6 +143,19 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
             {f}
           </button>
         ))}
+        <span className="text-sm text-white/60">Engine:</span>
+        <select
+          value={engineFilter}
+          onChange={(e) => setEngineFilter(e.target.value)}
+          className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-sm text-white"
+        >
+          <option value="ALL">ALL</option>
+          {Array.from(new Set(entries.map((entry) => entry.engine_version).filter(Boolean))).map((engine) => (
+            <option key={engine} value={engine}>
+              {engine}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -153,6 +169,7 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
               <th className="text-left py-3 px-4 text-sm font-medium text-white/70">Direction</th>
               <th className="text-left py-3 px-4 text-sm font-medium text-white/70">TF</th>
               <th className="text-left py-3 px-4 text-sm font-medium text-white/70">Quality</th>
+              <th className="text-left py-3 px-4 text-sm font-medium text-white/70">Engine</th>
               <th className="text-right py-3 px-4 text-sm font-medium text-white/70">Confidence</th>
               <th className="text-right py-3 px-4 text-sm font-medium text-white/70">Size</th>
             </tr>
@@ -186,6 +203,9 @@ export function Phase25HistoryTable({ limit = 20, onRefresh }: Props) {
                 </td>
                 <td className="py-3 px-4 text-sm text-white/80">
                   {entry.signal?.signal?.quality || '—'}
+                </td>
+                <td className="py-3 px-4 text-sm text-white/70">
+                  {entry.engine_version || '—'}
                 </td>
                 <td className="py-3 px-4 text-right">
                   <div className="text-sm font-medium text-white">

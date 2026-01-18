@@ -12,6 +12,7 @@ interface DecisionPacket {
   finalSizeMultiplier: number;
   reasons: string[];
   timestamp: number;
+  engineVersion?: string;
   gateResults?: {
     regime: { passed: boolean; reason: string };
     structural: { passed: boolean; reason: string };
@@ -68,6 +69,7 @@ export function Phase25DecisionCard({ onRefresh }: Props) {
             finalSizeMultiplier: entry.decision_breakdown?.final_multiplier || 1.0,
             reasons: entry.decision_reason?.split(', ') || [],
             timestamp: entry.created_at,
+            engineVersion: entry.engine_version,
             gateResults: entry.gate_results,
           });
         } else {
@@ -147,6 +149,7 @@ export function Phase25DecisionCard({ onRefresh }: Props) {
             <span>Timeframe: <span className="text-white">{decision.timeframe}M</span></span>
             <span>Quality: <span className={qualityColors[decision.quality]}>{decision.quality}</span></span>
             <span>Size: <span className="text-white">{decision.finalSizeMultiplier.toFixed(2)}x</span></span>
+            <span>Engine: <span className="text-white">{decision.engineVersion || '—'}</span></span>
             <span className="text-white/40">•</span>
             <span>{formatRelative(decision.timestamp)}</span>
           </div>

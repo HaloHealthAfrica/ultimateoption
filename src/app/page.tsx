@@ -7,6 +7,7 @@ import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
 import { Phase25DecisionCard } from '@/components/dashboard/Phase25DecisionCard';
 import { Phase25BreakdownPanel } from '@/components/dashboard/Phase25BreakdownPanel';
 import { Phase25HistoryTable } from '@/components/dashboard/Phase25HistoryTable';
+import { Phase25ContextStatus } from '@/components/dashboard/Phase25ContextStatus';
 import { ConfluenceView } from '@/ui/components/ConfluenceView';
 import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
 import { LearningInsights } from '@/ui/components/LearningInsights';
@@ -445,9 +446,12 @@ export default function DashboardPage() {
                 </Card>
               </div>
 
-              <div className="lg:col-span-5">
+              <div className="lg:col-span-5 space-y-6">
                 <Card title="Decision Breakdown" subtitle="Confidence components and position sizing">
                   <Phase25BreakdownPanel onRefresh={refresh} />
+                </Card>
+                <Card title="Context Status" subtitle="Webhook coverage and freshness">
+                  <Phase25ContextStatus />
                 </Card>
               </div>
             </div>

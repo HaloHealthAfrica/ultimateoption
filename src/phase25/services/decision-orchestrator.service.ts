@@ -61,6 +61,7 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
     message: string;
     processingTime: number;
     adaptations?: string[];
+    details?: unknown;
   }> {
     const startTime = Date.now();
 
@@ -75,7 +76,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         return {
           success: false,
           message: `Webhook routing failed: ${routingResult.error?.message}`,
-          processingTime: Date.now() - startTime
+          processingTime: Date.now() - startTime,
+          details: routingResult.error?.details
         };
       }
 
@@ -106,7 +108,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         return {
           success: false,
           message: 'Failed to build complete decision context',
-          processingTime
+          processingTime,
+          details: this.contextStore.getCompletenessStats()
         };
       }
 
@@ -129,14 +132,18 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       this.metricsService.recordRequest(processingTime);
 
       // Step 7: Handle conditional forwarding
-      await this.handleDecisionForwarding(decision);
+      const ledgerResult = await this.handleDecisionForwarding(decision);
 
       return {
         success: true,
         decision,
         message: `Decision made: ${decision.action} (confidence: ${decision.confidenceScore})`,
         processingTime,
-        adaptations
+        adaptations,
+        details: {
+          ledgerStored: ledgerResult.stored,
+          ledgerError: ledgerResult.error
+        }
       };
 
     } catch (error) {
@@ -151,7 +158,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       return {
         success: false,
         message: `Processing failed: ${errorResponse.error}`,
-        processingTime
+        processingTime,
+        details: errorResponse.details
       };
     }
   }
@@ -378,10 +386,13 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
   /**
    * Handle conditional forwarding based on decision action
    */
-  private async handleDecisionForwarding(decision: DecisionPacket): Promise<void> {
+  private async handleDecisionForwarding(decision: DecisionPacket): Promise<{
+    stored: boolean;
+    error?: string;
+  }> {
     if (this.decisionOnlyMode) {
       console.log(`Decision-only mode: Not forwarding ${decision.action} decision`);
-      return;
+      return { stored: false, error: 'Decision-only mode enabled' };
     }
 
     try {
@@ -398,9 +409,22 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         confidence: decision.confidenceScore
       });
       
-      await ledger.append(ledgerEntry);
-      
-      console.log('✅ Decision stored in ledger successfully');
+      const maxAttempts = 2;
+      let stored = false;
+      let lastError: string | undefined;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await ledger.append(ledgerEntry);
+          console.log('✅ Decision stored in ledger successfully');
+          stored = true;
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'Unknown error';
+          console.warn(`Ledger append failed (attempt ${attempt}/${maxAttempts}):`, lastError);
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
 
       // Handle action-specific forwarding
       switch (decision.action) {
@@ -417,8 +441,14 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         default:
           console.warn(`Unknown decision action: ${decision.action}`);
       }
+
+      return {
+        stored,
+        error: stored ? undefined : lastError || 'Unknown ledger error'
+      };
     } catch (error) {
       console.error('Decision forwarding error:', error);
+      return { stored: false, error: error instanceof Error ? error.message : 'Unknown error' };
       // Don't throw - we still want to return the decision even if forwarding fails
     }
   }

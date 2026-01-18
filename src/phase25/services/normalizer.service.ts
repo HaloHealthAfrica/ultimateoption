@@ -98,19 +98,19 @@ export class NormalizerService implements INormalizer {
   private mapSatyPhase(payload: unknown): Partial<DecisionContext> {
     const data = payload as Record<string, unknown>;
     
-    // Extract phase information from data.phase or event.name (fallback)
-    const phaseName = (data.data as Record<string, unknown>)?.phase || this.extractPhaseName((data.event as Record<string, unknown>)?.name as string);
+    // Extract phase information from event.name
+    const phaseName = this.extractPhaseName((data.event as Record<string, unknown>)?.name as string);
     const phase = this.getPhaseNumber(phaseName as "ACCUMULATION" | "MARKUP" | "MARKDOWN" | "DISTRIBUTION");
     
     // Extract volatility from regime context or default to NORMAL
     const volatility = this.extractVolatility(data.regime_context);
     
-    // Extract bias from data.bias or regime_context.local_bias (fallback)
-    const bias = this.mapBias(((data.data as Record<string, unknown>)?.bias || (data.regime_context as Record<string, unknown>)?.local_bias) as string);
+    // Extract bias from regime_context.local_bias
+    const bias = this.mapBias((data.regime_context as Record<string, unknown>)?.local_bias as string);
 
     return {
       instrument: {
-        symbol: (data.data as Record<string, unknown>)?.symbol as string || (data.instrument as Record<string, unknown>)?.symbol as string || '',
+        symbol: (data.instrument as Record<string, unknown>)?.symbol as string || '',
         exchange: (data.instrument as Record<string, unknown>)?.exchange as string || '',
         price: 0 // Will be updated from other sources
       },
@@ -118,7 +118,7 @@ export class NormalizerService implements INormalizer {
         phase,
         phaseName: phaseName as "ACCUMULATION" | "MARKUP" | "MARKDOWN" | "DISTRIBUTION",
         volatility,
-        confidence: (data.data as Record<string, unknown>)?.confidence as number || (data.confidence as Record<string, unknown>)?.confidence_score as number || 0,
+        confidence: (data.confidence as Record<string, unknown>)?.confidence_score as number || 0,
         bias
       }
     };

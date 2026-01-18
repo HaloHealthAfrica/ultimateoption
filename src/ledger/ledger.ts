@@ -261,6 +261,10 @@ export class PostgresLedger implements ILedger {
         conditions.push(`decision = $${paramIndex++}`);
         params.push(filters.decision);
       }
+      if (filters.engine_version) {
+        conditions.push(`engine_version = $${paramIndex++}`);
+        params.push(filters.engine_version);
+      }
       if (filters.dte_bucket) {
         conditions.push(`execution->>'dte_bucket' = $${paramIndex++}`);
         params.push(filters.dte_bucket);

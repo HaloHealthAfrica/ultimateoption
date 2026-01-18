@@ -21,6 +21,7 @@ import { WebhookAuditLog } from '@/webhooks/auditLog';
 import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
 import { isWrongEndpoint, getWrongEndpointError } from '@/webhooks/endpointDetector';
+import { ServiceFactory } from '@/phase25/services/service-factory';
 
 /**
  * POST /api/webhooks/signals
@@ -65,6 +66,17 @@ export async function POST(request: NextRequest) {
     
     try {
       body = JSON.parse(rawBody);
+
+      if (body && typeof body === 'object' && 'text' in body) {
+        const textField = (body as Record<string, unknown>).text;
+        if (typeof textField === 'string') {
+          try {
+            body = JSON.parse(textField);
+          } catch {
+            // If text field isn't valid JSON, keep original body
+          }
+        }
+      }
     } catch {
       // Log parsing failure
       const entry = {
@@ -192,6 +204,31 @@ export async function POST(request: NextRequest) {
           details: adapterResult.error,
           standard_error: normalizationError instanceof Error ? normalizationError.message : 'Unknown error',
           hint: 'Payload must include signal.type and signal.ai_score (or equivalent fields)',
+          documentation: 'https://github.com/yourusername/optionstrat/blob/main/WEBHOOK_FORMATS.md#signals',
+          example_minimal: {
+            ticker: 'SPY',
+            trend: 'BULLISH',
+            score: 8.5
+          },
+          example_full: {
+            signal: {
+              type: 'LONG',
+              quality: 'EXTREME',
+              ai_score: 9.5,
+              timeframe: '15',
+              timestamp: Date.now()
+            },
+            instrument: {
+              ticker: 'SPY',
+              exchange: 'NASDAQ',
+              current_price: 450.25
+            },
+            risk: {
+              amount: 1000,
+              rr_ratio_t1: 2.5,
+              rr_ratio_t2: 4.0
+            }
+          },
           engineVersion: ENGINE_VERSION,
           requestId
         }, { status: HTTP_STATUS.BAD_REQUEST });
@@ -229,6 +266,28 @@ export async function POST(request: NextRequest) {
       decisionOutput,
       Date.now() - _startTime
     );
+
+    // DUAL-WRITE: Also send to Phase 2.5 orchestrator
+    // This allows Phase 2.5 to build context from the same webhooks
+    try {
+      const factory = ServiceFactory.getInstance();
+      const orchestrator = factory.getOrchestrator() || factory.createOrchestrator(false);
+      
+      // Send original body (not normalized) to Phase 2.5 for its own processing
+      const phase25Result = await orchestrator.processWebhook(body);
+      
+      logger.info('Phase 2.5 dual-write completed', {
+        requestId,
+        success: phase25Result.success,
+        message: phase25Result.message,
+        hasDecision: !!phase25Result.decision
+      });
+    } catch (phase25Error) {
+      // Don't fail Phase 2 if Phase 2.5 fails
+      logger.logError('Phase 2.5 dual-write failed (non-critical)', phase25Error as Error, {
+        requestId
+      });
+    }
 
     // Log successful webhook receipt
     const successMessage = adaptations.length > 0

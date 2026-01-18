@@ -131,6 +131,7 @@ export const LedgerQueryFiltersSchema = z.object({
   timeframe: z.string().optional(),
   quality: z.string().optional(),
   decision: DecisionSchema.optional(),
+  engine_version: z.string().optional(),
   dte_bucket: z.string().optional(),
   trade_type: z.string().optional(),
   regime_volatility: VolatilityRegimeSchema.optional(),

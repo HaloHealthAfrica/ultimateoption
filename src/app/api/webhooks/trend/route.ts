@@ -15,6 +15,7 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { authenticateWebhook } from '@/webhooks/security';
 import { parseAndAdaptTrend } from '@/webhooks/trendAdapter';
 import { isWrongEndpoint, getWrongEndpointError } from '@/webhooks/endpointDetector';
+import { ServiceFactory } from '@/phase25/services/service-factory';
 
 /**
  * POST /api/webhooks/trend
@@ -143,6 +144,29 @@ export async function POST(request: NextRequest) {
           error: 'Invalid trend payload',
           received_type: typeof body,
           details: errorDetails,
+          hint: 'Payload must include ticker and timeframes structure',
+          documentation: 'https://github.com/yourusername/optionstrat/blob/main/WEBHOOK_FORMATS.md#trend',
+          example_minimal: {
+            ticker: 'SPY',
+            timeframes: {
+              tf3min: { trend: 'BULLISH' },
+              tf5min: { trend: 'BULLISH' }
+            }
+          },
+          example_full: {
+            ticker: 'SPY',
+            exchange: 'NASDAQ',
+            price: 450.25,
+            timestamp: Date.now(),
+            timeframes: {
+              tf3min: { trend: 'BULLISH', strength: 85 },
+              tf5min: { trend: 'BULLISH', strength: 80 },
+              tf15min: { trend: 'BULLISH', strength: 75 },
+              tf30min: { trend: 'NEUTRAL', strength: 50 },
+              tf1h: { trend: 'BULLISH', strength: 70 },
+              tf4h: { trend: 'BULLISH', strength: 65 }
+            }
+          }
         },
         { status: 400 }
       );
@@ -156,6 +180,26 @@ export async function POST(request: NextRequest) {
     
     // Calculate alignment metrics
     const alignment = calculateTrendAlignment(trend);
+    
+    // DUAL-WRITE: Also send to Phase 2.5 orchestrator
+    // This allows Phase 2.5 to build context from the same webhooks
+    try {
+      const factory = ServiceFactory.getInstance();
+      const orchestrator = factory.getOrchestrator() || factory.createOrchestrator(false);
+      
+      // Send original body (not normalized) to Phase 2.5 for its own processing
+      const phase25Result = await orchestrator.processWebhook(body);
+      
+      console.log('Phase 2.5 dual-write completed:', {
+        success: phase25Result.success,
+        message: phase25Result.message,
+        hasDecision: !!phase25Result.decision,
+        ticker: trend.ticker
+      });
+    } catch (phase25Error) {
+      // Don't fail Phase 2 if Phase 2.5 fails
+      console.error('Phase 2.5 dual-write failed (non-critical):', phase25Error);
+    }
     
     const okEntry = {
       kind: 'trend',

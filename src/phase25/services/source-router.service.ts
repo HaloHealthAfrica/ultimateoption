@@ -9,6 +9,7 @@ import { NormalizerService } from './normalizer.service';
 import { WebhookSource, WebhookError, 
   WebhookErrorType, NormalizedPayload } from '../types';
 import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
+import { parseAndAdaptSaty } from '@/webhooks/satyAdapter';
 
 export class SourceRouterService {
   private normalizer: NormalizerService;
@@ -39,26 +40,42 @@ export class SourceRouterService {
         source = this.normalizer.detectSource(payload);
         normalized = this.normalizer.normalize(payload, source);
       } catch (detectionError) {
-        // Standard detection failed, try flexible signal adapter
-        console.log('Standard detection failed, trying flexible signal adapter:', 
+        // Standard detection failed, try flexible adapters
+        console.log('Standard detection failed, trying flexible adapters:', 
           detectionError instanceof Error ? detectionError.message : 'Unknown error');
         
-        const adapterResult = adaptFlexibleSignal(payload);
+        // Try SATY adapter first (checks for symbol/ticker + timeframe + bias)
+        const satyResult = parseAndAdaptSaty(payload);
         
-        if (!adapterResult.success) {
-          // Both standard and flexible detection failed
-          throw detectionError;
+        if (satyResult.success) {
+          // SATY adapter succeeded
+          adaptations = satyResult.adaptations;
+          source = 'SATY_PHASE';
+          normalized = this.normalizer.normalize(satyResult.data, source);
+          
+          console.log('Flexible SATY adapter succeeded:', {
+            source,
+            adaptations
+          });
+        } else {
+          // Try signal adapter
+          const signalResult = adaptFlexibleSignal(payload);
+          
+          if (!signalResult.success) {
+            // Both adapters failed
+            throw detectionError;
+          }
+          
+          // Signal adapter succeeded
+          adaptations = signalResult.adaptations;
+          source = this.normalizer.detectSource(signalResult.data);
+          normalized = this.normalizer.normalize(signalResult.data, source);
+          
+          console.log('Flexible signal adapter succeeded:', {
+            source,
+            adaptations
+          });
         }
-        
-        // Flexible adapter succeeded, use adapted payload
-        adaptations = adapterResult.adaptations;
-        source = this.normalizer.detectSource(adapterResult.data);
-        normalized = this.normalizer.normalize(adapterResult.data, source);
-        
-        console.log('Flexible adapter succeeded:', {
-          source,
-          adaptations
-        });
       }
       
       // Log successful routing
