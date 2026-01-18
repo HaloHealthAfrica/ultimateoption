@@ -12,7 +12,7 @@ export const ENGINE_VERSION = "2.5.0";
 export const PHASE_RULES = Object.freeze({
   1: { allowed: ["LONG", "SHORT"] as const, sizeCap: 1.0 }, // ACCUMULATION
   2: { allowed: ["LONG"] as const, sizeCap: 2.0 },          // MARKUP  
-  3: { allowed: [] as const, sizeCap: 0.5 },                // DISTRIBUTION
+  3: { allowed: ["SHORT"] as const, sizeCap: 0.5 },         // DISTRIBUTION - Allow SHORT trades during distribution
   4: { allowed: ["SHORT"] as const, sizeCap: 2.0 }          // MARKDOWN
 } as const);
 

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
 import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
+import WebhookTracker from '@/components/dashboard/WebhookTracker';
 import { Phase25DecisionCard } from '@/components/dashboard/Phase25DecisionCard';
 import { Phase25BreakdownPanel } from '@/components/dashboard/Phase25BreakdownPanel';
 import { Phase25HistoryTable } from '@/components/dashboard/Phase25HistoryTable';
@@ -21,6 +22,7 @@ import { SignalType } from '@/types/signal';
 import { StoredSignal } from '@/webhooks/timeframeStore';
 
 type TabKey = 'overview' | 'phase25' | 'trades' | 'learning' | 'webhooks';
+type WebhookSubTab = 'receipts' | 'tracker';
 
 interface DashboardState {
   signals: Map<string, StoredSignal>;
@@ -253,6 +255,7 @@ function TabButton({
 
 export default function DashboardPage() {
   const [tab, setTab] = useState<TabKey>('overview');
+  const [webhookSubTab, setWebhookSubTab] = useState<WebhookSubTab>('receipts');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshMs, setRefreshMs] = useState(5000);
 
@@ -480,9 +483,39 @@ export default function DashboardPage() {
 
         {tab === 'webhooks' ? (
           <div className="space-y-6">
-            <Card title="Webhook Receipts" subtitle="Verify TradingView → Vercel hits (debug token optional)">
-              <WebhookMonitor />
-            </Card>
+            {/* Sub-tabs for webhooks */}
+            <div className="flex gap-2 border-b border-white/10 pb-2">
+              <button
+                onClick={() => setWebhookSubTab('receipts')}
+                className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+                  webhookSubTab === 'receipts'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Receipts
+              </button>
+              <button
+                onClick={() => setWebhookSubTab('tracker')}
+                className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+                  webhookSubTab === 'tracker'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Pipeline Tracker
+              </button>
+            </div>
+
+            {webhookSubTab === 'receipts' ? (
+              <Card title="Webhook Receipts" subtitle="Verify TradingView → Vercel hits (debug token optional)">
+                <WebhookMonitor />
+              </Card>
+            ) : (
+              <Card title="Webhook Pipeline Tracker" subtitle="Track webhooks from ingestion to dashboard display">
+                <WebhookTracker />
+              </Card>
+            )}
           </div>
         ) : null}
       </main>
