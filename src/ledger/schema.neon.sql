@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   decision_reason TEXT NOT NULL,
   decision_breakdown JSONB NOT NULL,
   confluence_score DECIMAL(5,2) NOT NULL CHECK (confluence_score >= 0 AND confluence_score <= 100),
+  
+  -- Gate results (Phase 2.5)
+  gate_results JSONB,
 
   -- Execution data (if executed)
   execution JSONB,

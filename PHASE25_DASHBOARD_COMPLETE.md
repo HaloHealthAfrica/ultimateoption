@@ -1,401 +1,260 @@
-# Phase 2.5 Dashboard - COMPLETE ✅
+# Phase 2.5 Dashboard - Complete Implementation
 
-**Date:** January 15, 2026  
-**Status:** ✅ DEPLOYED
+## Issue Identified
 
----
+The Phase 2.5 dashboard was showing incomplete data because the `gate_results` column was missing from the database schema. This caused:
 
-## What Was Built
+1. **Missing gate scores** - Regime, Structural, and Market gate results weren't being stored
+2. **Incomplete decision breakdown** - Gate scores (0-100%) weren't displayed
+3. **Data loss** - All previous decisions lost their gate result data
 
-Successfully created a complete Phase 2.5 dashboard tab that visualizes decision engine output in real-time.
+## Root Cause
 
----
+The `gate_results` field was added to the TypeScript types (`LedgerEntry`) but was never added to:
+- Database schema (`schema.neon.sql`)
+- PostgreSQL ledger INSERT statement
+- PostgreSQL ledger SELECT/rowToEntry mapping
 
-## Components Created
+## Fixes Applied
 
-### 1. Phase25DecisionCard.tsx ✅
-**Location:** `src/components/dashboard/Phase25DecisionCard.tsx`
+### 1. Database Schema Update
+**File**: `src/ledger/schema.neon.sql`
 
-**Displays:**
-- Current decision (EXECUTE/WAIT/SKIP) with color coding
-- Ticker, direction (LONG/SHORT), timeframe, quality
-- Confidence score (0-100%) with progress bar
-- Position size multiplier
-- Gate results (Regime, Structural, Market) with pass/fail indicators
-- Decision reasons as bullet list
-- Timestamp with relative time
-
-**Features:**
-- Auto-refreshes with parent component
-- Color-coded by decision type (green/yellow/red)
-- Visual gate status indicators
-- Responsive layout
-
----
-
-### 2. Phase25BreakdownPanel.tsx ✅
-**Location:** `src/components/dashboard/Phase25BreakdownPanel.tsx`
-
-**Displays:**
-- **Confidence Components** (fixed weights):
-  - Regime: 30%
-  - Expert: 25%
-  - Alignment: 20%
-  - Market: 15%
-  - Structure: 10%
-  
-- **Position Sizing Multipliers**:
-  - Confluence (multi-timeframe alignment)
-  - Quality (signal quality tier)
-  - HTF Alignment (higher timeframe bias)
-  - R:R Ratio (risk-reward)
-  - Volume (vs average)
-  - Trend (strength)
-  - Session (market session)
-  - Day (day of week)
-
-- **Phase Boosts**:
-  - Confidence boost (from phase alignment)
-  - Position boost (from phase strength)
-
-- **Final Multiplier**: Capped between 0.5x - 3.0x
-
-**Features:**
-- Visual progress bars for confidence components
-- Color-coded multipliers (green >1.0, red <1.0)
-- Grid layout for easy scanning
-- Highlighted final multiplier
-
----
-
-### 3. Phase25HistoryTable.tsx ✅
-**Location:** `src/components/dashboard/Phase25HistoryTable.tsx`
-
-**Displays:**
-- Last 20 decisions in table format
-- Columns:
-  - Time (absolute + relative)
-  - Ticker
-  - Decision (EXECUTE/WAIT/SKIP)
-  - Direction (LONG/SHORT)
-  - Timeframe
-  - Quality
-  - Confidence (with mini progress bar)
-  - Size multiplier
-
-**Features:**
-- Filter by decision type (ALL/EXECUTE/WAIT/SKIP)
-- Click row to expand (future: show full details)
-- Color-coded decisions and confidence bars
-- Responsive table layout
-- Shows count of decisions
-
----
-
-## Dashboard Integration
-
-### New Tab Added
-**Tab Name:** "Phase 2.5"  
-**Position:** Between "Overview" and "Trades"
-
-### Layout
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Phase 2.5 Tab                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────────┐  ┌──────────────────────────┐   │
-│  │  Current Decision    │  │  Decision Breakdown      │   │
-│  │  - Action            │  │  - Confidence Components │   │
-│  │  - Confidence        │  │  - Position Multipliers  │   │
-│  │  - Gate Results      │  │  - Phase Boosts          │   │
-│  │  - Reasons           │  │  - Final Multiplier      │   │
-│  └──────────────────────┘  └──────────────────────────┘   │
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │              Decision History Table                   │ │
-│  │  - Last 20 decisions                                  │ │
-│  │  - Filterable by type                                 │ │
-│  │  - Sortable columns                                   │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+Added `gate_results` column to `ledger_entries` table:
+```sql
+-- Gate results (Phase 2.5)
+gate_results JSONB,
 ```
 
----
+### 2. Ledger Implementation Update
+**File**: `src/ledger/ledger.ts`
+
+**INSERT statement** - Added `gate_results` to column list and parameters:
+```typescript
+INSERT INTO ledger_entries (
+  id, created_at, engine_version, signal, phase_context,
+  decision, decision_reason, decision_breakdown, confluence_score,
+  gate_results, execution, exit, regime, hypothetical  // Added gate_results
+)
+```
+
+**SELECT mapping** - Added `gate_results` to `rowToEntry` method:
+```typescript
+private rowToEntry(row: Record<string, unknown>): LedgerEntry {
+  return {
+    // ... other fields
+    gate_results: row.gate_results as LedgerEntry['gate_results'],
+    // ... other fields
+  };
+}
+```
+
+### 3. Migration Script
+**File**: `scripts/add-gate-results-column.js`
+
+Created migration script to add the column to existing databases:
+- Checks if column already exists (idempotent)
+- Adds `gate_results JSONB` column
+- Creates GIN index for query performance
+- Safe to run multiple times
+
+## Dashboard Components (Already Built)
+
+All Phase 2.5 dashboard components are already implemented and working:
+
+### 1. Phase25DecisionCard
+**File**: `src/components/dashboard/Phase25DecisionCard.tsx`
+- Displays current decision with action, ticker, direction
+- Shows confidence score with progress bar
+- Displays gate results (Regime, Structural, Market) with pass/fail and scores
+- Shows detailed context: Regime, Expert Analysis, Alignment, Market Conditions
+- Position sizing breakdown
+
+### 2. Phase25BreakdownPanel
+**File**: `src/components/dashboard/Phase25BreakdownPanel.tsx`
+- Confidence components breakdown (Regime 30%, Expert 25%, Alignment 20%, Market 15%, Structure 10%)
+- Position sizing multipliers (Confluence, Quality, HTF Alignment, R:R, Volume, Trend, Session, Day)
+- Phase boosts (Confidence boost, Position boost)
+- Final multiplier display (capped 0.5x - 3.0x)
+
+### 3. Phase25ContextStatus
+**File**: `src/components/dashboard/Phase25ContextStatus.tsx`
+- Shows webhook coverage and completeness percentage
+- Required sources: TRADINGVIEW_SIGNAL
+- Optional sources: SATY_PHASE, MTF_DOTS, ULTIMATE_OPTIONS, STRAT_EXEC
+- Displays age of each source (freshness)
+- 30-minute freshness window
+
+### 4. Phase25HistoryTable
+**File**: `src/components/dashboard/Phase25HistoryTable.tsx`
+- Displays decision history with filtering
+- Columns: Time, Ticker, Decision, Direction, Timeframe, Quality, Engine, Confidence, Size
+- Filter by decision type (EXECUTE, WAIT, SKIP)
+- Filter by engine version
+- Shows confidence score with visual progress bar
+- Displays size multiplier (e.g., 1.50x)
+
+### 5. Main Dashboard Integration
+**File**: `src/app/page.tsx`
+
+Phase 2.5 tab layout:
+```
+┌─────────────────────────────────────────────────────────┐
+│  Current Decision Card (7 cols)  │  Breakdown (5 cols)  │
+│  - Action, Ticker, Direction     │  - Confidence parts  │
+│  - Confidence score              │  - Multipliers       │
+│  - Gate results                  │  - Phase boosts      │
+│  - Detailed context              │                      │
+│                                  │  Context Status      │
+│                                  │  - Webhook coverage  │
+│                                  │  - Freshness         │
+└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Decision History Table                                 │
+│  - Filterable by decision type and engine               │
+│  - Shows all decisions with full details                │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Migration Steps
+
+### For Production (Vercel)
+
+1. **Run the migration**:
+   ```bash
+   node scripts/add-gate-results-column.js
+   ```
+
+2. **Verify the column was added**:
+   ```bash
+   # Connect to your database and run:
+   SELECT column_name, data_type 
+   FROM information_schema.columns 
+   WHERE table_name = 'ledger_entries' 
+   AND column_name = 'gate_results';
+   ```
+
+3. **Deploy the updated code**:
+   ```bash
+   git add .
+   git commit -m "fix: Add gate_results column to ledger schema"
+   git push origin main
+   ```
+
+4. **Test with new webhooks**:
+   - Send test webhooks via `/webhook-tester` page
+   - Verify gate results appear in Phase 2.5 dashboard
+   - Check that scores (0-100%) are displayed
+
+### For Local Development
+
+1. **Run migration**:
+   ```bash
+   npm run db:migrate
+   node scripts/add-gate-results-column.js
+   ```
+
+2. **Start dev server**:
+   ```bash
+   npm run dev
+   ```
+
+3. **Test locally**:
+   - Visit http://localhost:3000/webhook-tester
+   - Send test webhooks
+   - Check Phase 2.5 dashboard
 
 ## Data Flow
 
 ```
-Phase 2.5 Webhook → Decision Engine → Ledger
-                                        ↓
-                              GET /api/decisions
-                                        ↓
-                              Dashboard Components
-                                        ↓
-                              Visual Display
+Webhook → Phase 2.5 Engine → Decision Packet
+                                    ↓
+                            Gate Results
+                            - Regime: {passed, reason, score}
+                            - Structural: {passed, reason, score}
+                            - Market: {passed, reason, score}
+                                    ↓
+                            Ledger Adapter
+                                    ↓
+                            PostgreSQL (gate_results JSONB)
+                                    ↓
+                            API /api/decisions
+                                    ↓
+                            Dashboard Components
 ```
 
----
+## What Was Already Working
 
-## API Integration
+✅ All dashboard components built and integrated
+✅ Webhook processing and decision engine
+✅ Context store and orchestrator
+✅ Ledger adapter converting decisions to entries
+✅ API endpoints returning data
+✅ Dashboard layout and styling
 
-### Endpoints Used
+## What Was Missing
 
-#### GET /api/decisions?limit=1
-**Used by:** Phase25DecisionCard  
-**Returns:** Most recent decision with full breakdown
+❌ `gate_results` column in database schema
+❌ `gate_results` in INSERT statement
+❌ `gate_results` in SELECT mapping
 
-#### GET /api/decisions?limit=20&decision={filter}
-**Used by:** Phase25HistoryTable  
-**Returns:** Decision history with optional filtering
+## Expected Behavior After Fix
 
----
+### Phase 2.5 Dashboard Should Show:
 
-## Features
+1. **Current Decision Card**:
+   - ✅ Action (EXECUTE/WAIT/SKIP)
+   - ✅ Ticker, Direction, Timeframe
+   - ✅ Confidence score (0-100%)
+   - ✅ Gate results with scores:
+     - Regime: 82% ✓
+     - Structural: 78% ✓
+     - Market: 100% ✓
+   - ✅ Detailed context panels
 
-### Real-Time Updates
-- Auto-refreshes with dashboard (5s default)
-- Manual refresh button
-- Shows "just now" / "5m ago" relative times
+2. **Breakdown Panel**:
+   - ✅ Confidence components (Regime 30%, Expert 25%, etc.)
+   - ✅ Position sizing multipliers
+   - ✅ Final multiplier (e.g., 1.50x)
 
-### Visual Feedback
-- **EXECUTE**: Green border, emerald colors
-- **WAIT**: Yellow border, amber colors
-- **SKIP**: Red border, red colors
-- **Confidence**: Color-coded progress bars
-- **Gates**: ✓ (green) or ✗ (red) indicators
+3. **Context Status**:
+   - ✅ Webhook coverage percentage
+   - ✅ Source freshness (e.g., "OK (3m)")
 
-### Filtering
-- Filter history by decision type
-- Quick toggle buttons (ALL/EXECUTE/WAIT/SKIP)
-- Instant filtering without page reload
+4. **History Table**:
+   - ✅ All decisions with full details
+   - ✅ Size multiplier column showing actual values (not 0.00x)
+   - ✅ Confidence scores with visual bars
 
-### Responsive Design
-- Desktop: 2-column layout for cards
-- Mobile: Stacked single column
-- Table: Horizontal scroll on small screens
+## Testing Checklist
 
----
-
-## Testing
-
-### Manual Testing Steps
-
-1. **Start Development Server**
-   ```bash
-   cd optionstrat
-   npm run dev
-   ```
-
-2. **Open Dashboard**
-   - Navigate to http://localhost:3000
-   - Click "Phase 2.5" tab
-
-3. **Send Test Webhook**
-   ```bash
-   node simulate-phase25-e2e.js
-   ```
-
-4. **Verify Display**
-   - ✅ Decision card shows latest decision
-   - ✅ Breakdown panel shows multipliers
-   - ✅ History table shows all decisions
-   - ✅ Confidence bars render correctly
-   - ✅ Gate results display properly
-
-### Expected Results
-
-**With No Decisions:**
-- Decision card: "No decisions yet"
-- Breakdown panel: "No breakdown available"
-- History table: "No decisions yet"
-
-**With Decisions:**
-- Decision card: Shows EXECUTE/WAIT/SKIP with confidence
-- Breakdown panel: Shows all multipliers and boosts
-- History table: Shows filterable list of decisions
-
----
-
-## Color Scheme
-
-### Decision Actions
-- **EXECUTE**: `border-emerald-400/30 bg-emerald-500/10 text-emerald-200`
-- **WAIT**: `border-yellow-400/30 bg-yellow-500/10 text-yellow-200`
-- **SKIP**: `border-red-400/30 bg-red-500/10 text-red-200`
-
-### Directions
-- **LONG**: `text-emerald-400`
-- **SHORT**: `text-red-400`
-
-### Quality
-- **EXTREME**: `text-purple-400`
-- **HIGH**: `text-blue-400`
-- **MEDIUM**: `text-white/60`
-
-### Confidence Bars
-- **≥80%**: `bg-emerald-500` (green)
-- **≥60%**: `bg-yellow-500` (yellow)
-- **<60%**: `bg-red-500` (red)
-
----
+- [ ] Run migration script successfully
+- [ ] Verify `gate_results` column exists in database
+- [ ] Deploy updated code to Vercel
+- [ ] Send test webhook via `/webhook-tester`
+- [ ] Verify decision appears in Phase 2.5 dashboard
+- [ ] Check gate results show scores (e.g., Regime: 82%)
+- [ ] Verify size multiplier shows correct value (not 0.00x)
+- [ ] Check history table displays all fields correctly
+- [ ] Verify context status shows webhook coverage
+- [ ] Test filtering in history table
 
 ## Files Modified
 
-### New Files
+1. `src/ledger/schema.neon.sql` - Added gate_results column
+2. `src/ledger/ledger.ts` - Updated INSERT and SELECT to include gate_results
+3. `scripts/add-gate-results-column.js` - New migration script
+
+## Files Already Complete (No Changes Needed)
+
 - `src/components/dashboard/Phase25DecisionCard.tsx`
 - `src/components/dashboard/Phase25BreakdownPanel.tsx`
+- `src/components/dashboard/Phase25ContextStatus.tsx`
 - `src/components/dashboard/Phase25HistoryTable.tsx`
-
-### Modified Files
-- `src/app/page.tsx` - Added Phase 2.5 tab and imports
-
----
-
-## Build Status
-
-✅ **TypeScript**: No errors  
-✅ **ESLint**: Passing  
-✅ **Build**: Successful  
-✅ **Bundle Size**: 15.4 kB (page)
-
----
-
-## Next Steps
-
-### Immediate (Testing)
-1. ✅ Build dashboard components - DONE
-2. 🔄 Test with real webhooks
-3. 🔄 Deploy to Vercel
-4. 🔄 Verify on production
-
-### Short-Term (Enhancements)
-1. Add expandable row details in history table
-2. Add export to CSV functionality
-3. Add date range filtering
-4. Add search by ticker
-5. Add decision analytics (win rate by confidence)
-
-### Medium-Term (Phase 2.6)
-1. Implement paper trading executor
-2. Add position tracking
-3. Add exit simulation
-4. Add performance metrics
-
----
-
-## Usage Guide
-
-### Viewing Current Decision
-1. Navigate to dashboard
-2. Click "Phase 2.5" tab
-3. View "Current Decision" card
-4. Check confidence score and gate results
-5. Read decision reasons
-
-### Analyzing Breakdown
-1. Look at "Decision Breakdown" panel
-2. Review confidence components (regime, expert, etc.)
-3. Check position sizing multipliers
-4. Note phase boosts if present
-5. See final multiplier (0.5x - 3.0x)
-
-### Reviewing History
-1. Scroll to "Decision History" table
-2. Use filter buttons to show specific types
-3. Click rows to expand (future feature)
-4. Sort by clicking column headers (future feature)
-5. Export data (future feature)
-
----
-
-## Troubleshooting
-
-### "No decisions yet" showing
-**Cause:** No webhooks received yet  
-**Solution:** Send test webhook with `simulate-phase25-e2e.js`
-
-### "Error: Failed to fetch decision"
-**Cause:** API endpoint not responding  
-**Solution:** Check server is running, verify `/api/decisions` endpoint
-
-### Confidence bar not showing
-**Cause:** `confluence_score` is null or undefined  
-**Solution:** Check decision engine is calculating confidence correctly
-
-### Gate results not displaying
-**Cause:** `gate_results` field missing from decision  
-**Solution:** Update decision engine to include gate results in output
-
----
-
-## Performance
-
-### Load Times
-- Initial render: <100ms
-- API fetch: <200ms
-- Re-render on update: <50ms
-
-### Bundle Impact
-- Added ~3KB to page bundle
-- No external dependencies
-- Uses existing UI components
-
-### API Calls
-- 1 call per component on mount
-- 1 call per auto-refresh (5s default)
-- Cached with `_t` timestamp parameter
-
----
-
-## Accessibility
-
-- ✅ Semantic HTML structure
-- ✅ Color contrast meets WCAG AA
-- ✅ Keyboard navigation support
-- ✅ Screen reader friendly labels
-- ⚠️ Focus indicators (needs enhancement)
-- ⚠️ ARIA labels (needs enhancement)
-
----
-
-## Browser Support
-
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Edge 90+
-- ⚠️ Mobile browsers (needs testing)
-
----
+- `src/app/page.tsx`
+- `src/phase25/utils/ledger-adapter.ts`
+- `src/types/ledger.ts`
 
 ## Summary
 
-✅ **Phase 2.5 Dashboard is complete and functional**
-
-You can now:
-- See what decisions the engine is making
-- Understand why decisions are made (gate results, confidence)
-- Review historical decisions
-- Filter by decision type
-- Monitor confidence scores and position sizing
-
-**Next:** Test with real webhooks and deploy to production!
-
----
-
-## Related Documentation
-
-- `PHASE25_COMPLETION_SUMMARY.md` - Phase 2.5 overview
-- `PHASE25_LEDGER_INTEGRATION.md` - Ledger integration details
-- `PHASE26_AUTO_TRADING_ROADMAP.md` - Next steps roadmap
-- `PHASE25_WEBHOOK_INTEGRATION.md` - Webhook setup
-
----
-
-**Status:** ✅ COMPLETE - Ready for testing and deployment
-
-**Date:** January 15, 2026
-
-**Version:** Phase 2.5 Dashboard v1.0
+The Phase 2.5 dashboard was fully built and integrated, but the `gate_results` data wasn't being persisted to the database due to a missing column. This fix adds the column and updates the ledger implementation to store and retrieve gate results. After running the migration and deploying, all dashboard features will work as designed.

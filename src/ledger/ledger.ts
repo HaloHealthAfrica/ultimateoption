@@ -107,8 +107,8 @@ export class PostgresLedger implements ILedger {
         `INSERT INTO ledger_entries (
           id, created_at, engine_version, signal, phase_context,
           decision, decision_reason, decision_breakdown, confluence_score,
-          execution, exit, regime, hypothetical
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          gate_results, execution, exit, regime, hypothetical
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           fullEntry.id,
           fullEntry.created_at,
@@ -119,6 +119,7 @@ export class PostgresLedger implements ILedger {
           fullEntry.decision_reason,
           JSON.stringify(fullEntry.decision_breakdown),
           fullEntry.confluence_score,
+          fullEntry.gate_results ? JSON.stringify(fullEntry.gate_results) : null,
           fullEntry.execution ? JSON.stringify(fullEntry.execution) : null,
           fullEntry.exit ? JSON.stringify(fullEntry.exit) : null,
           JSON.stringify(fullEntry.regime),
@@ -343,6 +344,7 @@ export class PostgresLedger implements ILedger {
       decision_reason: row.decision_reason as string,
       decision_breakdown: row.decision_breakdown as LedgerEntry['decision_breakdown'],
       confluence_score: parseFloat(row.confluence_score as string),
+      gate_results: row.gate_results as LedgerEntry['gate_results'],
       execution: row.execution as LedgerEntry['execution'],
       exit: row.exit as LedgerEntry['exit'],
       regime: row.regime as LedgerEntry['regime'],
