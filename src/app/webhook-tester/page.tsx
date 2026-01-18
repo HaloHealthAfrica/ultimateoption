@@ -25,6 +25,12 @@ export default function WebhookTesterPage() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [autoInterval, setAutoInterval] = useState<NodeJS.Timeout | null>(null);
+  
+  // Confidence and quality controls
+  const [aiScore, setAiScore] = useState(8.5);
+  const [quality, setQuality] = useState<'EXTREME' | 'HIGH' | 'MEDIUM'>('HIGH');
+  const [satyConfidence, setSatyConfidence] = useState(82);
+  const [trendStrength, setTrendStrength] = useState(75);
 
   const sendWebhook = async (type: WebhookType, interval: Interval): Promise<TestResult> => {
     const startTime = Date.now();
@@ -91,10 +97,10 @@ export default function WebhookTesterPage() {
               compression_state: 'EXPANDING',
             },
             confidence: {
-              raw_strength: 78.5,
+              raw_strength: satyConfidence * 0.96,
               htf_alignment: true,
-              confidence_score: 82,
-              confidence_tier: 'HIGH',
+              confidence_score: satyConfidence,
+              confidence_tier: satyConfidence >= 90 ? 'EXTREME' : satyConfidence >= 75 ? 'HIGH' : 'MEDIUM',
             },
             execution_guidance: {
               trade_allowed: true,
@@ -124,11 +130,11 @@ export default function WebhookTesterPage() {
           price: price,
           timestamp: timestamp,
           timeframes: {
-            tf3min: { trend: 'BULLISH', strength: 75, rsi: 58 },
-            tf5min: { trend: 'BULLISH', strength: 80, rsi: 62 },
-            tf15min: { trend: 'BULLISH', strength: 70, rsi: 55 },
-            tf30min: { trend: 'NEUTRAL', strength: 50, rsi: 50 },
-            tf1h: { trend: 'BULLISH', strength: 65, rsi: 58 },
+            tf3min: { trend: 'BULLISH', strength: trendStrength, rsi: 50 + (trendStrength * 0.15) },
+            tf5min: { trend: 'BULLISH', strength: trendStrength + 5, rsi: 50 + (trendStrength * 0.18) },
+            tf15min: { trend: 'BULLISH', strength: trendStrength - 5, rsi: 50 + (trendStrength * 0.12) },
+            tf30min: { trend: trendStrength >= 70 ? 'BULLISH' : 'NEUTRAL', strength: trendStrength - 10, rsi: 50 },
+            tf1h: { trend: 'BULLISH', strength: trendStrength - 10, rsi: 50 + (trendStrength * 0.15) },
           },
         };
         break;
@@ -139,8 +145,8 @@ export default function WebhookTesterPage() {
           signal: {
             type: 'LONG',
             timeframe: interval.replace('min', ''),
-            quality: 'HIGH',
-            ai_score: 8.5,
+            quality: quality,
+            ai_score: aiScore,
             timestamp: timestamp,
             bar_time: new Date(timestamp).toISOString(),
           },
@@ -186,8 +192,8 @@ export default function WebhookTesterPage() {
             ema_21: price * 0.999,
             ema_50: price * 0.997,
             alignment: 'BULLISH',
-            strength: 75,
-            rsi: 58,
+            strength: trendStrength,
+            rsi: 50 + (trendStrength * 0.15),
             macd_signal: 'BULLISH',
           },
           mtf_context: {
@@ -196,12 +202,12 @@ export default function WebhookTesterPage() {
             '1h_bias': 'LONG',
           },
           score_breakdown: {
-            strat: 85,
-            trend: 80,
-            gamma: 75,
-            vwap: 70,
-            mtf: 80,
-            golf: 78,
+            strat: Math.round(aiScore * 10),
+            trend: trendStrength,
+            gamma: Math.round(aiScore * 9),
+            vwap: Math.round(aiScore * 8.5),
+            mtf: trendStrength,
+            golf: Math.round(aiScore * 9.5),
           },
           components: ['STRAT_2U', 'TREND_ALIGNED', 'VWAP_ABOVE'],
           time_context: {
@@ -307,27 +313,172 @@ export default function WebhookTesterPage() {
         {/* Configuration */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Configuration</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-white/70 mb-2">Ticker Symbol</label>
-              <input
-                type="text"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
-                placeholder="SPY"
-              />
+          
+          {/* Basic Settings */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-white/70 mb-3">Basic Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Ticker Symbol</label>
+                <input
+                  type="text"
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
+                  placeholder="SPY"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Current Price</label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(parseFloat(e.target.value))}
+                  step="0.01"
+                  className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
+                  placeholder="450.25"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-white/70 mb-2">Current Price</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(parseFloat(e.target.value))}
-                step="0.01"
-                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
-                placeholder="450.25"
-              />
+          </div>
+
+          {/* Signal Quality Settings */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-white/70 mb-3">Signal Quality (affects confidence)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-white/70 mb-2">
+                  AI Score: {aiScore.toFixed(1)} / 10
+                  <span className="ml-2 text-xs">
+                    {aiScore >= 9 ? '🔥 Excellent' : aiScore >= 8 ? '✓ Good' : aiScore >= 7 ? '○ Fair' : '⚠ Low'}
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="10"
+                  step="0.1"
+                  value={aiScore}
+                  onChange={(e) => setAiScore(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-white/40 mt-1">
+                  <span>5.0 (Low)</span>
+                  <span>10.0 (Perfect)</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Signal Quality Tier</label>
+                <select
+                  value={quality}
+                  onChange={(e) => setQuality(e.target.value as 'EXTREME' | 'HIGH' | 'MEDIUM')}
+                  className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
+                >
+                  <option value="EXTREME">EXTREME (Best)</option>
+                  <option value="HIGH">HIGH (Good)</option>
+                  <option value="MEDIUM">MEDIUM (Fair)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Context Strength Settings */}
+          <div>
+            <h3 className="text-sm font-medium text-white/70 mb-3">Context Strength (affects gates)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-white/70 mb-2">
+                  SATY Phase Confidence: {satyConfidence}%
+                  <span className="ml-2 text-xs">
+                    {satyConfidence >= 90 ? '🔥 Extreme' : satyConfidence >= 75 ? '✓ High' : '○ Medium'}
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="100"
+                  step="1"
+                  value={satyConfidence}
+                  onChange={(e) => setSatyConfidence(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-white/40 mt-1">
+                  <span>50% (Weak)</span>
+                  <span>100% (Perfect)</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-white/70 mb-2">
+                  Trend Strength: {trendStrength}%
+                  <span className="ml-2 text-xs">
+                    {trendStrength >= 85 ? '🔥 Strong' : trendStrength >= 70 ? '✓ Good' : '○ Weak'}
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="100"
+                  step="1"
+                  value={trendStrength}
+                  onChange={(e) => setTrendStrength(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-white/40 mt-1">
+                  <span>50% (Weak)</span>
+                  <span>100% (Perfect)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Buttons */}
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <h3 className="text-sm font-medium text-white/70 mb-3">Quick Presets</h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  setAiScore(9.5);
+                  setQuality('EXTREME');
+                  setSatyConfidence(95);
+                  setTrendStrength(90);
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                🔥 Perfect Setup (EXECUTE likely)
+              </button>
+              <button
+                onClick={() => {
+                  setAiScore(8.5);
+                  setQuality('HIGH');
+                  setSatyConfidence(82);
+                  setTrendStrength(75);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                ✓ Good Setup (High confidence)
+              </button>
+              <button
+                onClick={() => {
+                  setAiScore(7.0);
+                  setQuality('MEDIUM');
+                  setSatyConfidence(65);
+                  setTrendStrength(60);
+                }}
+                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                ○ Fair Setup (WAIT likely)
+              </button>
+              <button
+                onClick={() => {
+                  setAiScore(5.5);
+                  setQuality('MEDIUM');
+                  setSatyConfidence(55);
+                  setTrendStrength(50);
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                ⚠ Poor Setup (SKIP likely)
+              </button>
             </div>
           </div>
         </div>
