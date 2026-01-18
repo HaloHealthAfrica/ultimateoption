@@ -70,9 +70,14 @@ After adding all 4 variables:
 ### Tradier
 1. Sign up at https://developer.tradier.com
 2. Create an account (free sandbox available)
-3. Go to **API Access** section
-4. Copy your **Access Token**
-5. Use this as `TRADIER_API_KEY`
+3. Go to **API Access** or **Settings** section
+4. You'll see:
+   - **Account Number** (e.g., ABC12345) - Don't use this
+   - **Access Token** (long string) - **Use this one**
+5. Copy the **Access Token** (NOT the account number)
+6. Use this as `TRADIER_API_KEY`
+
+**IMPORTANT:** Use the Access Token, not the Account Number!
 
 **Note:** Tradier has a free sandbox for testing
 
@@ -182,6 +187,23 @@ If keys are not set, the system uses **fallback values**:
 ---
 
 ## Troubleshooting
+
+### Tradier Specific Issues
+
+**"Which Tradier value do I use?"**
+- ✅ **Use:** Access Token (long alphanumeric string)
+- ❌ **Don't use:** Account Number (short, like ABC12345)
+
+**Where to find Access Token:**
+1. Log into https://developer.tradier.com
+2. Click **API Access** or **Settings**
+3. Look for **Access Token** or **API Token**
+4. Copy the long string (usually 30+ characters)
+
+**Sandbox vs Production:**
+- Sandbox: Free, for testing, limited data
+- Production: Requires funded account, real data
+- Both have separate Access Tokens
 
 ### "Keys not showing as set"
 - Check variable names match exactly (case-sensitive)

@@ -77,10 +77,11 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     const errors: string[] = [];
 
     // Execute all API calls in parallel for minimum latency
+    // Using Tradier for both options AND liquidity data
     const [optionsResult, statsResult, liquidityResult] = await Promise.allSettled([
       this.getTradierOptions(symbol),
       this.getTwelveDataStats(symbol),
-      this.getAlpacaLiquidity(symbol)
+      this.getTradierLiquidity(symbol)  // Changed from getAlpacaLiquidity
     ]);
 
     // Process results and collect any errors
@@ -89,13 +90,13 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     const liquidity = liquidityResult.status === 'fulfilled' ? liquidityResult.value : undefined;
 
     if (optionsResult.status === 'rejected') {
-      errors.push(`Tradier: ${optionsResult.reason.message}`);
+      errors.push(`Tradier Options: ${optionsResult.reason.message}`);
     }
     if (statsResult.status === 'rejected') {
       errors.push(`TwelveData: ${statsResult.reason.message}`);
     }
     if (liquidityResult.status === 'rejected') {
-      errors.push(`Alpaca: ${liquidityResult.reason.message}`);
+      errors.push(`Tradier Liquidity: ${liquidityResult.reason.message}`);
     }
 
     // Calculate completeness score (0-1 based on successful API calls)
@@ -211,7 +212,64 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   }
 
   /**
+   * Fetch liquidity data from Tradier API
+   * Using Tradier instead of Alpaca to avoid subscription costs
+   */
+  async getTradierLiquidity(symbol: string): Promise<MarketContext['liquidity']> {
+    if (!this.config.tradier.enabled) {
+      throw this.createFeedError('tradier', FeedErrorType.API_ERROR, 'Tradier feed disabled');
+    }
+
+    try {
+      // Fetch quote data with bid/ask information
+      const response = await this.tradierClient.get(
+        `/v1/markets/quotes?symbols=${symbol}`
+      );
+
+      const quoteData = response.data;
+      const quote = quoteData.quotes?.quote;
+
+      if (!quote) {
+        throw new Error('No quote data returned from Tradier');
+      }
+
+      // Calculate bid-ask spread in basis points
+      const bid = quote.bid || 0;
+      const ask = quote.ask || 0;
+      const midPrice = (bid + ask) / 2;
+      const spreadBps = midPrice > 0 ? ((ask - bid) / midPrice) * 10000 : 0;
+
+      // Get bid/ask sizes
+      const bidSize = quote.bidsize || 0;
+      const askSize = quote.asksize || 0;
+
+      // Calculate depth score (0-100 based on bid/ask sizes)
+      const depthScore = Math.min(100, Math.sqrt(bidSize + askSize) * 10);
+
+      // Determine trade velocity based on volume ratio
+      const volume = quote.volume || 0;
+      const avgVolume = quote.average_volume || 1000000;
+      const volumeRatio = avgVolume > 0 ? volume / avgVolume : 1;
+      
+      const tradeVelocity = volumeRatio > 1.5 ? 'FAST' : 
+                           volumeRatio < 0.5 ? 'SLOW' : 'NORMAL';
+
+      return {
+        spreadBps,
+        depthScore,
+        tradeVelocity,
+        bidSize,
+        askSize
+      };
+
+    } catch (error) {
+      throw this.handleApiError('tradier', error);
+    }
+  }
+
+  /**
    * Fetch liquidity data from Alpaca API
+   * DEPRECATED: Using Tradier instead (getTradierLiquidity)
    */
   async getAlpacaLiquidity(symbol: string): Promise<MarketContext['liquidity']> {
     if (!this.config.alpaca.enabled) {

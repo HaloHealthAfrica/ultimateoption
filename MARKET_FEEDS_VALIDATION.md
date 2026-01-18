@@ -1,31 +1,37 @@
 # Market Feeds Integration Validation Report
 **Date:** January 18, 2026
-**Providers:** Tradier, TwelveData, Alpaca
+**Providers:** Tradier (Options + Liquidity), TwelveData (Market Stats)
+**Update:** Now using Tradier for liquidity data instead of Alpaca
 
 ## Executive Summary
 
-✅ **All three providers are properly integrated into the system**
-⚠️ **API keys are NOT configured in production**
-⚠️ **Providers are currently using fallback values**
+✅ **All providers are properly integrated into the system**
+✅ **Using 2 providers instead of 3 (Tradier + TwelveData)**
+✅ **No Alpaca subscription needed**
 
 ---
 
 ## Integration Status
 
-### 1. Tradier (Options Data) ✅
-**Purpose:** Options chain, put/call ratio, gamma bias, IV percentile
+### 1. Tradier (Options Data + Liquidity Data) ✅
+**Purpose:** 
+- Options chain, put/call ratio, gamma bias, IV percentile
+- Bid/ask spread, market depth, trade velocity
 
 **Integration Points:**
 - ✅ Configuration: `src/phase25/config/market-feeds.config.ts`
 - ✅ Service: `MarketContextBuilder.getTradierOptions()`
-- ✅ Called by: Decision Orchestrator (line 118-120)
+- ✅ Service: `MarketContextBuilder.getTradierLiquidity()` (NEW)
+- ✅ Called by: Decision Orchestrator
 - ✅ Timeout: 600ms
 - ✅ Retries: 2
 - ✅ Fallback values: Configured
 
-**API Endpoint:**
+**API Endpoints:**
 ```typescript
 baseUrl: 'https://api.tradier.com'
+// Options: /v1/markets/options/chains
+// Liquidity: /v1/markets/quotes
 ```
 
 **Environment Variable:**
@@ -33,7 +39,7 @@ baseUrl: 'https://api.tradier.com'
 TRADIER_API_KEY=process.env.TRADIER_API_KEY
 ```
 
-**Status:** ⚠️ **API key not set in production**
+**Status:** ✅ **API key configured and working**
 
 ---
 
@@ -43,7 +49,7 @@ TRADIER_API_KEY=process.env.TRADIER_API_KEY
 **Integration Points:**
 - ✅ Configuration: `src/phase25/config/market-feeds.config.ts`
 - ✅ Service: `MarketContextBuilder.getTwelveDataStats()`
-- ✅ Called by: Decision Orchestrator (line 118-120)
+- ✅ Called by: Decision Orchestrator
 - ✅ Timeout: 600ms
 - ✅ Retries: 2
 - ✅ Fallback values: Configured
@@ -58,33 +64,14 @@ baseUrl: 'https://api.twelvedata.com'
 TWELVE_DATA_API_KEY=process.env.TWELVE_DATA_API_KEY
 ```
 
-**Status:** ⚠️ **API key not set in production**
+**Status:** ✅ **API key configured**
 
 ---
 
-### 3. Alpaca (Liquidity Data) ✅
-**Purpose:** Bid/ask spread, depth score, trade velocity
+### 3. Alpaca (DEPRECATED) ❌
+**Status:** No longer used - replaced with Tradier for liquidity data
 
-**Integration Points:**
-- ✅ Configuration: `src/phase25/config/market-feeds.config.ts`
-- ✅ Service: `MarketContextBuilder.getAlpacaLiquidity()`
-- ✅ Called by: Decision Orchestrator (line 118-120)
-- ✅ Timeout: 600ms
-- ✅ Retries: 2
-- ✅ Fallback values: Configured
-
-**API Endpoint:**
-```typescript
-baseUrl: 'https://data.alpaca.markets'
-```
-
-**Environment Variables:**
-```
-ALPACA_API_KEY=process.env.ALPACA_API_KEY
-ALPACA_SECRET_KEY=process.env.ALPACA_SECRET_KEY
-```
-
-**Status:** ⚠️ **API keys not set in production**
+**Reason:** Alpaca paper trading accounts require $9/month data subscription. Tradier provides the same data at no additional cost.
 
 ---
 
@@ -102,9 +89,9 @@ Context Store (builds decision context)
 Market Context Builder.buildContext(symbol)
     ↓
 Parallel API Calls (Promise.allSettled):
-    ├─→ getTradierOptions(symbol)    [Options data]
-    ├─→ getTwelveDataStats(symbol)   [Market stats]
-    └─→ getAlpacaLiquidity(symbol)   [Liquidity]
+    ├─→ getTradierOptions(symbol)     [Options data]
+    ├─→ getTwelveDataStats(symbol)    [Market stats]
+    └─→ getTradierLiquidity(symbol)   [Liquidity - NEW]
     ↓
 Market Context (with completeness score)
     ↓
@@ -114,10 +101,41 @@ Decision Packet (with confidence score)
 ```
 
 ### Parallel Execution
-All three providers are called **in parallel** using `Promise.allSettled()` to minimize latency:
+All API calls are made **in parallel** using `Promise.allSettled()` to minimize latency:
 - Maximum wait time: 600ms (timeout)
 - If one fails, others continue
 - Completeness score calculated: successful feeds / total feeds
+
+---
+
+## Benefits of Using Tradier for Liquidity
+
+### Advantages:
+1. ✅ **No additional cost** - Already have Tradier API key
+2. ✅ **One less provider** - Simpler architecture
+3. ✅ **Same data quality** - Bid, ask, sizes, volume
+4. ✅ **Already integrated** - Just added one method
+5. ✅ **No subscription needed** - Tradier includes quote data
+
+### What Tradier Provides for Liquidity:
+```json
+{
+  "bid": 580.48,
+  "ask": 580.52,
+  "bidsize": 500,
+  "asksize": 450,
+  "volume": 45000000,
+  "average_volume": 40000000
+}
+```
+
+### Calculated Metrics:
+- **Spread (bps):** `((ask - bid) / midPrice) * 10000`
+- **Depth Score:** `Math.min(100, Math.sqrt(bidSize + askSize) * 10)`
+- **Trade Velocity:** Based on `volume / average_volume` ratio
+  - > 1.5 = FAST
+  - < 0.5 = SLOW
+  - Otherwise = NORMAL
 
 ---
 
