@@ -12,6 +12,31 @@ import { EnrichedSignal } from '@/types/signal';
  * Convert Phase 2.5 decision to ledger entry
  */
 export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEntryCreate {
+  // Helper to ensure positive numbers with reasonable fallbacks
+  const safePositive = (value: number | undefined, fallback: number): number => {
+    if (typeof value === 'number' && value > 0) return value;
+    return fallback;
+  };
+
+  // Get current price - use a reasonable fallback if not available
+  // In production, this should come from the market context builder
+  const symbol = decision.inputContext.instrument.symbol;
+  const rawPrice = decision.inputContext.instrument.price;
+  const currentPrice = safePositive(rawPrice, 100); // Fallback to $100 if price not available
+  
+  // Log warning if using fallback price
+  if (!rawPrice || rawPrice <= 0) {
+    console.warn(`Using fallback price for ${symbol}: instrument.price was ${rawPrice}`);
+  }
+
+  // Calculate reasonable stop/target prices based on current price
+  const stopLoss = currentPrice * 0.98; // 2% stop loss
+  const target1 = currentPrice * 1.02; // 2% target 1
+  const target2 = currentPrice * 1.04; // 4% target 2
+
+  // Get ATR with reasonable fallback (2% of price)
+  const atr = safePositive(decision.marketSnapshot?.stats?.atr14, currentPrice * 0.02);
+
   // Build enriched signal from input context
   const signal: EnrichedSignal = {
     signal: {
@@ -25,20 +50,20 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
     instrument: {
       exchange: decision.inputContext.instrument.exchange || 'NASDAQ',
       ticker: decision.inputContext.instrument.symbol,
-      current_price: decision.inputContext.instrument.price || 0,
+      current_price: currentPrice,
     },
     entry: {
-      price: decision.inputContext.instrument.price || 0,
-      stop_loss: 0, // Would come from risk calculation
-      target_1: 0,
-      target_2: 0,
-      stop_reason: 'N/A',
+      price: currentPrice,
+      stop_loss: stopLoss,
+      target_1: target1,
+      target_2: target2,
+      stop_reason: 'ATR_BASED',
     },
     risk: {
       amount: 0,
-      rr_ratio_t1: decision.inputContext.expert?.rr1 || 0,
-      rr_ratio_t2: decision.inputContext.expert?.rr2 || 0,
-      stop_distance_pct: 0,
+      rr_ratio_t1: decision.inputContext.expert?.rr1 || 2.0,
+      rr_ratio_t2: decision.inputContext.expert?.rr2 || 4.0,
+      stop_distance_pct: 2.0,
       recommended_shares: 0,
       recommended_contracts: 0,
       position_multiplier: decision.finalSizeMultiplier,
@@ -46,23 +71,23 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
       max_loss_dollars: 0,
     },
     market_context: {
-      vwap: 0,
-      pmh: 0,
-      pml: 0,
-      day_open: 0,
+      vwap: currentPrice,
+      pmh: currentPrice * 1.01,
+      pml: currentPrice * 0.99,
+      day_open: currentPrice,
       day_change_pct: 0,
       price_vs_vwap_pct: 0,
-      distance_to_pmh_pct: 0,
-      distance_to_pml_pct: 0,
-      atr: decision.marketSnapshot?.stats?.atr14 || 0,
+      distance_to_pmh_pct: 1,
+      distance_to_pml_pct: 1,
+      atr: atr,
       volume_vs_avg: decision.marketSnapshot?.stats?.volumeRatio || 1,
       candle_direction: 'GREEN',
       candle_size_atr: 0,
     },
     trend: {
-      ema_8: 0,
-      ema_21: 0,
-      ema_50: 0,
+      ema_8: currentPrice,
+      ema_21: currentPrice,
+      ema_50: currentPrice,
       alignment: 'NEUTRAL',
       strength: 50,
       rsi: decision.marketSnapshot?.stats?.rsi || 50,

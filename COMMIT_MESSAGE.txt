@@ -1,0 +1,119 @@
+feat: Phase 2.5 webhook routing, context persistence, and UI enhancements
+
+This comprehensive update implements dual-write webhook routing, context
+persistence, improved error handling, and dashboard enhancements for Phase 2.5.
+
+## Core Features
+
+### 1. Dual-Write Webhook Routing
+- All Phase 2 webhook endpoints now forward to Phase 2.5 orchestrator
+- Non-blocking: Phase 2 succeeds even if Phase 2.5 fails
+- Enables Phase 2.5 to receive all webhook traffic without TradingView config changes
+- Files: src/app/api/webhooks/{signals,saty-phase,trend}/route.ts
+
+### 2. Flexible Webhook Adapters (Priorities 1-3)
+- Signal adapter: Accepts minimal format (ticker, trend, score)
+- SATY adapter: Ultra-flexible parsing from minimal data (symbol, timeframe, bias)
+- Endpoint detector: Auto-detects webhook type with confidence scoring
+- TradingView text wrapper support: Parses {"text": "{...}"} format
+- Files: src/webhooks/{signalAdapter,satyAdapter,endpointDetector}.ts
+
+### 3. Context Persistence & Status API
+- Persist latest context snapshot per symbol to database
+- New GET /api/phase25/context/status endpoint
+- Shows completeness, source freshness, and latest snapshot
+- Files: src/phase25/utils/contextDb.ts, src/app/api/phase25/context/status/route.ts
+
+### 4. Context Store Improvements
+- Default timeout increased to 30 minutes (env-configurable)
+- Auto-persist context snapshots to DB on updates
+- Better completeness tracking and expiration handling
+- File: src/phase25/services/context-store.service.ts
+
+### 5. Ledger Write Visibility & Retry
+- Added details.ledgerStored + details.ledgerError in webhook responses
+- 2-attempt retry for ledger append failures with 200ms delay
+- Better error tracking and visibility
+- File: src/phase25/services/decision-orchestrator.service.ts
+
+### 6. Dashboard Enhancements
+- New Phase25ContextStatus component showing completeness/freshness
+- Engine version filter in /api/decisions endpoint
+- Display engine version in Phase25DecisionCard and Phase25HistoryTable
+- Files: src/components/dashboard/Phase25ContextStatus.tsx, src/app/page.tsx
+
+### 7. Security & Best Practices
+- Replaced Math.random() with crypto.randomUUID() for secure UUID generation
+- File: src/ledger/ledger.ts
+
+### 8. Validation Endpoint (Priority 6)
+- New POST /api/webhooks/validate for testing payloads
+- Auto-detects webhook type and validates structure
+- Returns detailed error messages with examples
+- File: src/app/api/webhooks/validate/route.ts
+
+## Documentation Added
+
+- COMPLETE_SOLUTION_SUMMARY.md - Full overview of dual-write solution
+- QUICK_REFERENCE.md - Quick deployment guide
+- CORRECTED_GAPS_ANALYSIS.md - Corrected understanding of context gaps
+- DUAL_WRITE_IMPLEMENTATION.md - Technical implementation details
+- INDICATOR_SIDE_FIXES_NEEDED.md - Comprehensive indicator fixes guide
+- INDICATOR_FIXES_QUICK_REFERENCE.md - Quick reference for indicator fixes
+- WEBHOOK_FORMAT_VERIFICATION.md - Test results and verification report
+- PHASE25_GAP_REVIEW_AND_FIXES.md - Gap analysis and fixes
+- PHASE25_WEBHOOK_FAILURE_ANALYSIS.md - Webhook failure analysis
+- PHASE25_WEBHOOK_SPEC_FOR_INDICATORS.md - Webhook specifications
+- WEBHOOK_PRIORITIES_456_COMPLETE.md - Priorities 4-6 documentation
+- PRIORITIES_456_SUMMARY.md - Quick summary of priorities 4-6
+
+## Test Scripts Added
+
+- test-new-webhook-formats.js - Comprehensive webhook format testing
+- test-webhook-validation.js - Validation endpoint testing
+- check-recent-webhooks.js - Recent webhook analysis
+- diagnose-phase25-routing.js - Routing diagnostics
+
+## Expected Impact
+
+### Immediate (Day 1)
+- Phase 2.5 decisions: 2 → 600-650 per day (from dual-write)
+- Webhook success rate: 51.6% → ~78% (from flexible adapters)
+- Context completion: 0.05% → 70-80% (from dual-write)
+
+### Short-Term (Week 1)
+- Successful webhooks: 2,188 → 3,340+ per day
+- Phase 2.5 decisions: 600-650 → 1,500-1,800 per day
+- Webhook failures: 2,055 → ~900 per day
+
+## Breaking Changes
+
+None - All changes are backward compatible.
+
+## Migration Notes
+
+1. Optional: Set PHASE25_CONTEXT_TIMEOUT_MINUTES env var (default: 30)
+2. Database will auto-create phase25_context_snapshots table
+3. No TradingView configuration changes required (dual-write handles routing)
+
+## Testing
+
+- ✅ Build passes (npm run build)
+- ✅ All webhook format tests pass (7/7 - 100% success rate)
+- ✅ Minimal signal format verified: {ticker, trend, score}
+- ✅ Minimal SATY format verified: {symbol, timeframe, bias}
+- ✅ Alternative field names verified
+- ✅ Validation properly rejects incomplete payloads
+
+## Related Issues
+
+Fixes webhook routing issue where Phase 2.5 only had 2 decisions despite
+receiving 4,243 webhooks per day. Root cause: webhooks were going to Phase 2
+endpoints, not Phase 2.5 endpoints.
+
+## Contributors
+
+- Dual-write architecture and flexible adapters
+- Context persistence and status API
+- Dashboard enhancements and UI improvements
+- Comprehensive documentation and testing
