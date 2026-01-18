@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PhaseMonitor from '@/components/dashboard/PhaseMonitor';
 import TrendAlignment from '@/components/dashboard/TrendAlignment';
 import WebhookMonitor from '@/components/dashboard/WebhookMonitor';
-import WebhookTracker from '@/components/dashboard/WebhookTracker';
 import { Phase25DecisionCard } from '@/components/dashboard/Phase25DecisionCard';
 import { Phase25BreakdownPanel } from '@/components/dashboard/Phase25BreakdownPanel';
 import { Phase25HistoryTable } from '@/components/dashboard/Phase25HistoryTable';
@@ -512,8 +511,8 @@ export default function DashboardPage() {
                 <WebhookMonitor />
               </Card>
             ) : (
-              <Card title="Webhook Pipeline Tracker" subtitle="Track webhooks from ingestion to dashboard display">
-                <WebhookTracker />
+              <Card title="Webhook Receipts" subtitle="View webhook delivery history">
+                <WebhookMonitor />
               </Card>
             )}
           </div>
