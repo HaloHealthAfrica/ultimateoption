@@ -227,28 +227,40 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       );
 
       const quoteData = response.data;
-      const quote = quoteData.quotes?.quote;
+      
+      // Handle both single quote and array of quotes
+      let quote;
+      if (quoteData.quotes?.quote) {
+        // Single quote response
+        quote = quoteData.quotes.quote;
+      } else if (Array.isArray(quoteData.quotes) && quoteData.quotes.length > 0) {
+        // Array of quotes
+        quote = quoteData.quotes[0];
+      } else if (quoteData.quote) {
+        // Direct quote object
+        quote = quoteData.quote;
+      }
 
       if (!quote) {
         throw new Error('No quote data returned from Tradier');
       }
 
       // Calculate bid-ask spread in basis points
-      const bid = quote.bid || 0;
-      const ask = quote.ask || 0;
+      const bid = parseFloat(quote.bid) || 0;
+      const ask = parseFloat(quote.ask) || 0;
       const midPrice = (bid + ask) / 2;
       const spreadBps = midPrice > 0 ? ((ask - bid) / midPrice) * 10000 : 0;
 
       // Get bid/ask sizes
-      const bidSize = quote.bidsize || 0;
-      const askSize = quote.asksize || 0;
+      const bidSize = parseInt(quote.bidsize) || 0;
+      const askSize = parseInt(quote.asksize) || 0;
 
       // Calculate depth score (0-100 based on bid/ask sizes)
       const depthScore = Math.min(100, Math.sqrt(bidSize + askSize) * 10);
 
       // Determine trade velocity based on volume ratio
-      const volume = quote.volume || 0;
-      const avgVolume = quote.average_volume || 1000000;
+      const volume = parseInt(quote.volume) || 0;
+      const avgVolume = parseInt(quote.average_volume) || 1000000;
       const volumeRatio = avgVolume > 0 ? volume / avgVolume : 1;
       
       const tradeVelocity = volumeRatio > 1.5 ? 'FAST' : 
