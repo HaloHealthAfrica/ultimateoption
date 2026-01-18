@@ -1,3 +1,76 @@
 {
-  "text": "{\"meta\":{\"engine\":\"SATY_PO\",\"engine_version\":\"1.0.0\",\"event_id\":\"evt_test_001\",\"event_type\":\"REGIME_PHASE_ENTRY\",\"generated_at\":\"2026-01-14T02:00:00Z\"},\"instrument\":{\"symbol\":\"SPY\",\"exchange\":\"NASDAQ\",\"asset_class\":\"ETF\",\"session\":\"REGULAR\"},\"timeframe\":{\"chart_tf\":\"15\",\"event_tf\":\"15M\",\"tf_role\":\"SETUP_FORMATION\",\"bar_close_time\":\"2026-01-14T02:15:00Z\"},\"event\":{\"name\":\"ENTER_ACCUMULATION\",\"description\":\"Entering accumulation phase\",\"directional_implication\":\"UPSIDE_POTENTIAL\",\"event_priority\":8},\"oscillator_state\":{\"value\":45.5,\"previous_value\":38.2,\"zone_from\":\"NEUTRAL\",\"zone_to\":\"ACCUMULATION\",\"distance_from_zero\":45.5,\"distance_from_extreme\":54.5,\"velocity\":\"INCREASING\"},\"regime_context\":{\"local_bias\":\"BULLISH\",\"htf_bias\":{\"tf\":\"60\",\"bias\":\"BULLISH\",\"osc_value\":52.3},\"macro_bias\":{\"tf\":\"240\",\"bias\":\"BULLISH\"}},\"market_structure\":{\"mean_reversion_phase\":\"EXPANSION\",\"trend_phase\":\"TRENDING\",\"is_counter_trend\":false,\"compression_state\":\"EXPANDING\"},\"confidence\":{\"raw_strength\":0.85,\"htf_alignment\":true,\"confidence_score\":85,\"confidence_tier\":\"HIGH\"},\"execution_guidance\":{\"trade_allowed\":true,\"allowed_directions\":[\"LONG\"],\"recommended_execution_tf\":[\"5\",\"15\"],\"requires_confirmation\":[\"PRICE_ACTION\"]},\"risk_hints\":{\"avoid_if\":[\"LOW_VOLUME\"],\"time_decay_minutes\":30,\"cooldown_tf\":\"15\"},\"audit\":{\"source\":\"test\",\"alert_frequency\":\"once_per_bar\",\"deduplication_key\":\"spy_15m_001\"}}"
+  "meta": {
+    "engine": "SATY_PO",
+    "engine_version": "1.0.0",
+    "event_id": "evt_test_001",
+    "event_type": "REGIME_PHASE_ENTRY",
+    "generated_at": "2026-01-14T02:00:00Z"
+  },
+  "instrument": {
+    "symbol": "SPY",
+    "exchange": "NASDAQ",
+    "asset_class": "ETF",
+    "session": "REGULAR"
+  },
+  "timeframe": {
+    "chart_tf": "15",
+    "event_tf": "15M",
+    "tf_role": "SETUP_FORMATION",
+    "bar_close_time": "2026-01-14T02:15:00Z"
+  },
+  "event": {
+    "name": "ENTER_ACCUMULATION",
+    "description": "Entering accumulation phase",
+    "directional_implication": "UPSIDE_POTENTIAL",
+    "event_priority": 8
+  },
+  "oscillator_state": {
+    "value": 45.5,
+    "previous_value": 38.2,
+    "zone_from": "NEUTRAL",
+    "zone_to": "ACCUMULATION",
+    "distance_from_zero": 45.5,
+    "distance_from_extreme": 54.5,
+    "velocity": "INCREASING"
+  },
+  "regime_context": {
+    "local_bias": "BULLISH",
+    "htf_bias": {
+      "tf": "60",
+      "bias": "BULLISH",
+      "osc_value": 52.3
+    },
+    "macro_bias": {
+      "tf": "240",
+      "bias": "BULLISH"
+    }
+  },
+  "market_structure": {
+    "mean_reversion_phase": "EXPANSION",
+    "trend_phase": "TRENDING",
+    "is_counter_trend": false,
+    "compression_state": "EXPANDING"
+  },
+  "confidence": {
+    "raw_strength": 0.85,
+    "htf_alignment": true,
+    "confidence_score": 85,
+    "confidence_tier": "HIGH"
+  },
+  "execution_guidance": {
+    "trade_allowed": true,
+    "allowed_directions": ["LONG"],
+    "recommended_execution_tf": ["5", "15"],
+    "requires_confirmation": ["PRICE_ACTION"]
+  },
+  "risk_hints": {
+    "avoid_if": ["LOW_VOLUME"],
+    "time_decay_minutes": 30,
+    "cooldown_tf": "15"
+  },
+  "audit": {
+    "source": "test",
+    "alert_frequency": "once_per_bar",
+    "deduplication_key": "spy_15m_001"
+  }
 }

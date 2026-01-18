@@ -101,6 +101,15 @@ export class DecisionEngineService implements IDecisionEngine {
    * Regime Gate: Validates SATY phase alignment with trade direction
    */
   runRegimeGate(context: DecisionContext): GateResult {
+    // If no regime data, pass with warning (allow signal-only decisions)
+    if (!context.regime) {
+      return {
+        passed: true,
+        reason: 'No regime data available, allowing trade (signal-only mode)',
+        score: 50 // Neutral score
+      };
+    }
+    
     const phase = context.regime.phase;
     const direction = context.expert.direction;
     const phaseRules = PHASE_RULES[phase];
@@ -266,10 +275,12 @@ export class DecisionEngineService implements IDecisionEngine {
     let confidence = 0;
     let weightSum = 0;
     
-    // Base confidence from regime (weight: 30%)
-    const regimeWeight = 0.3;
-    confidence += context.regime.confidence * regimeWeight;
-    weightSum += regimeWeight;
+    // Base confidence from regime (weight: 30%) - skip if no regime data
+    if (context.regime) {
+      const regimeWeight = 0.3;
+      confidence += context.regime.confidence * regimeWeight;
+      weightSum += regimeWeight;
+    }
     
     // Expert AI score contribution (weight: 25%)
     const expertWeight = 0.25;
@@ -288,18 +299,20 @@ export class DecisionEngineService implements IDecisionEngine {
     confidence += Math.min(100, expertScore) * expertWeight;
     weightSum += expertWeight;
     
-    // Multi-timeframe alignment contribution (weight: 20%)
-    const alignmentWeight = 0.2;
-    const direction = context.expert.direction;
-    const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
-    
-    let alignmentScore = alignmentPct;
-    if (alignmentPct >= ALIGNMENT_THRESHOLDS.STRONG_ALIGNMENT) {
-      alignmentScore *= ALIGNMENT_THRESHOLDS.BONUS_MULTIPLIER;
+    // Multi-timeframe alignment contribution (weight: 20%) - skip if no alignment data
+    if (context.alignment) {
+      const alignmentWeight = 0.2;
+      const direction = context.expert.direction;
+      const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
+      
+      let alignmentScore = alignmentPct;
+      if (alignmentPct >= ALIGNMENT_THRESHOLDS.STRONG_ALIGNMENT) {
+        alignmentScore *= ALIGNMENT_THRESHOLDS.BONUS_MULTIPLIER;
+      }
+      
+      confidence += Math.min(100, alignmentScore) * alignmentWeight;
+      weightSum += alignmentWeight;
     }
-    
-    confidence += Math.min(100, alignmentScore) * alignmentWeight;
-    weightSum += alignmentWeight;
     
     // Market conditions contribution (weight: 15%)
     const marketWeight = 0.15;
@@ -331,24 +344,28 @@ export class DecisionEngineService implements IDecisionEngine {
     // Start with base size from confidence
     let sizeMultiplier = confidence / 100; // 0-1 based on confidence
     
-    // Apply volatility cap
-    const volatilityCap = VOLATILITY_CAPS[context.regime.volatility];
+    // Apply volatility cap (use NORMAL if no regime data)
+    const volatility = context.regime?.volatility || 'NORMAL';
+    const volatilityCap = VOLATILITY_CAPS[volatility];
     sizeMultiplier = Math.min(sizeMultiplier, volatilityCap);
     
-    // Apply phase-specific size cap
-    const phaseCap = PHASE_RULES[context.regime.phase].sizeCap;
+    // Apply phase-specific size cap (use phase 2 if no regime data)
+    const phase = context.regime?.phase || 2;
+    const phaseCap = PHASE_RULES[phase].sizeCap;
     sizeMultiplier = Math.min(sizeMultiplier, phaseCap);
     
     // Apply quality boost
     const qualityBoost = QUALITY_BOOSTS[context.expert.quality];
     sizeMultiplier *= qualityBoost;
     
-    // Apply alignment bonus
-    const direction = context.expert.direction;
-    const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
-    
-    if (alignmentPct >= ALIGNMENT_THRESHOLDS.STRONG_ALIGNMENT) {
-      sizeMultiplier *= ALIGNMENT_THRESHOLDS.BONUS_MULTIPLIER;
+    // Apply alignment bonus (skip if no alignment data)
+    if (context.alignment) {
+      const direction = context.expert.direction;
+      const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
+      
+      if (alignmentPct >= ALIGNMENT_THRESHOLDS.STRONG_ALIGNMENT) {
+        sizeMultiplier *= ALIGNMENT_THRESHOLDS.BONUS_MULTIPLIER;
+      }
     }
     
     // Enforce absolute bounds

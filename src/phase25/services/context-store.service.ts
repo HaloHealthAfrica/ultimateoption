@@ -25,15 +25,15 @@ export class ContextStoreService implements IContextStore {
     const timeoutMinutes = parseInt(process.env.PHASE25_CONTEXT_TIMEOUT_MINUTES || '30');
     const maxAge = timeoutMinutes * 60 * 1000;
 
-    // Default completeness rules
+    // Use config values or defaults - prioritize passed config over hardcoded values
     this.completenessRules = {
-      requiredSources: ['SATY_PHASE'], // Only SATY_PHASE is truly required
-      optionalSources: ['MTF_DOTS', 'STRAT_EXEC', 'ULTIMATE_OPTIONS', 'TRADINGVIEW_SIGNAL'],
-      maxAge, // Configurable timeout (default: 15 minutes)
-      ...completenessRules
+      requiredSources: completenessRules?.requiredSources || ['TRADINGVIEW_SIGNAL'],
+      optionalSources: completenessRules?.optionalSources || ['SATY_PHASE', 'MTF_DOTS', 'ULTIMATE_OPTIONS', 'STRAT_EXEC'],
+      maxAge: completenessRules?.maxAge || maxAge
     };
 
     console.log(`Context store initialized with ${timeoutMinutes} minute timeout`);
+    console.log(`Required sources: ${this.completenessRules.requiredSources.join(', ')}`);
   }
 
   /**
@@ -307,10 +307,12 @@ export class ContextStoreService implements IContextStore {
   }
 
   private getDefaultStructure(): DecisionContext['structure'] {
+    // When STRAT_EXEC data is missing, use neutral defaults that don't block trades
+    // This allows the decision engine to rely on other gates (regime, market, confidence)
     return {
-      validSetup: false,
-      liquidityOk: false,
-      executionQuality: 'C'
+      validSetup: true,  // Assume valid unless STRAT says otherwise
+      liquidityOk: true,  // Assume OK unless STRAT says otherwise
+      executionQuality: 'B'  // Neutral quality grade
     };
   }
 }
