@@ -284,7 +284,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
 
       // Determine trade velocity based on volume ratio
       const volumeRatio = avgVolume > 0 ? volume / avgVolume : 1;
-      const tradeVelocity = volumeRatio > 1.5 ? 'FAST' : 
+      const tradeVelocity: 'FAST' | 'NORMAL' | 'SLOW' = volumeRatio > 1.5 ? 'FAST' : 
                            volumeRatio < 0.5 ? 'SLOW' : 'NORMAL';
 
       const result = {
