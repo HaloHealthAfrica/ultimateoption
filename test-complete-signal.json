@@ -1,0 +1,10 @@
+{
+  "ticker": "SPY",
+  "trend": "BULLISH",
+  "score": 8.5,
+  "direction": "LONG",
+  "quality": "HIGH",
+  "rr1": 2.5,
+  "rr2": 4.0,
+  "components": ["TREND", "MOMENTUM", "VOLUME"]
+}

@@ -17,18 +17,8 @@ const ENGINE_VERSION = '2.5.0';
 export async function GET(_request: NextRequest) {
   try {
     const factory = ServiceFactory.getInstance();
-    const orchestrator = factory.getOrchestrator();
-    
-    if (!orchestrator) {
-      return NextResponse.json({
-        status: 'unhealthy',
-        message: 'Decision orchestrator not initialized',
-        engine: 'Phase 2.5 Decision Engine',
-        version: ENGINE_VERSION,
-        timestamp: Date.now(),
-        uptime: process.uptime()
-      }, { status: 503 });
-    }
+    // Create orchestrator if it doesn't exist (lazy initialization)
+    const orchestrator = factory.getOrchestrator() || factory.createOrchestrator(false);
     
     const isReady = orchestrator.isReady();
     

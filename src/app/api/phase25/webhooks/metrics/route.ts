@@ -19,15 +19,8 @@ const ENGINE_VERSION = '2.5.0';
 export async function GET(_request: NextRequest) {
   try {
     const factory = ServiceFactory.getInstance();
-    const orchestrator = factory.getOrchestrator();
-    
-    if (!orchestrator) {
-      return NextResponse.json({
-        success: false,
-        message: 'Decision orchestrator not initialized',
-        timestamp: Date.now()
-      }, { status: 503 });
-    }
+    // Create orchestrator if it doesn't exist (lazy initialization)
+    const orchestrator = factory.getOrchestrator() || factory.createOrchestrator(false);
     
     // Get metrics report
     const metricsReport = orchestrator.getMetricsReport();
