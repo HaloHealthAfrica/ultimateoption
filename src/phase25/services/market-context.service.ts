@@ -11,11 +11,16 @@ import { IMarketContextBuilder, FeedConfig,
   FeedErrorType,
   MarketContext } from '../types';
 import { ConfigManagerService } from './config-manager.service';
+import { MarketCacheService } from './market-cache.service';
+import { RateLimitTracker } from './rate-limit-tracker.service';
+import { FALLBACK_STRATEGY, getFallbackValue } from '../config/fallback-strategy.config';
 
 export class MarketContextBuilder implements IMarketContextBuilder {
   private tradierClient: AxiosInstance;
   private twelveDataClient: AxiosInstance;
   private alpacaClient: AxiosInstance;
+  private cache: MarketCacheService;
+  private rateLimiter: RateLimitTracker;
   private config: {
     tradier: FeedConfig;
     twelveData: FeedConfig;
@@ -39,6 +44,10 @@ export class MarketContextBuilder implements IMarketContextBuilder {
         alpaca: engineConfig.feeds.alpaca
       };
     }
+    
+    // Initialize cache and rate limiter
+    this.cache = new MarketCacheService();
+    this.rateLimiter = new RateLimitTracker();
     
     // Initialize API clients with timeout and retry configuration
     this.tradierClient = axios.create({
@@ -114,14 +123,30 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   }
 
   /**
-   * Fetch options data from Tradier API
+   * Fetch options data from Tradier API with caching and rate limiting
    */
   async getTradierOptions(symbol: string): Promise<MarketContext['options']> {
     if (!this.config.tradier.enabled) {
       throw this.createFeedError('tradier', FeedErrorType.API_ERROR, 'Tradier feed disabled');
     }
 
+    // Check cache first
+    const cacheKey = `tradier:options:${symbol}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached as MarketContext['options'];
+    }
+
+    // Check rate limits
+    if (!this.rateLimiter.canMakeRequest('tradier')) {
+      console.warn('[Tradier] Rate limit reached, using fallback');
+      return getFallbackValue('tradier', 'options') as MarketContext['options'];
+    }
+
     try {
+      // Record request
+      this.rateLimiter.recordRequest('tradier');
+
       // Fetch options chain data for put/call ratio and IV percentile
       const [chainResponse, quoteResponse] = await Promise.all([
         this.tradierClient.get(`/v1/markets/options/chains?symbol=${symbol}&expiration=2024-12-20`),
@@ -131,11 +156,18 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const chainData = chainResponse.data;
       const quoteData = quoteResponse.data;
 
+      // Check for API errors in response
+      if (chainData.error || quoteData.error) {
+        throw new Error(`Tradier API error: ${chainData.error || quoteData.error}`);
+      }
+
       // Calculate put/call ratio from options chain
       const putCallRatio = this.calculatePutCallRatio(chainData);
       
-      // Extract IV percentile from quote data
-      const ivPercentile = quoteData.quotes?.[0]?.iv_percentile || 50;
+      // Extract IV percentile from quote data - handle multiple response formats
+      const ivPercentile = quoteData.quotes?.quote?.iv_percentile || 
+                          quoteData.quotes?.[0]?.iv_percentile || 
+                          50;
       
       // Determine gamma bias based on options flow
       const gammaBias = this.determineGammaBias(chainData);
@@ -147,7 +179,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       // Calculate max pain level
       const maxPain = this.calculateMaxPain(chainData);
 
-      return {
+      const result = {
         putCallRatio,
         ivPercentile,
         gammaBias,
@@ -155,13 +187,37 @@ export class MarketContextBuilder implements IMarketContextBuilder {
         maxPain
       };
 
+      // Cache the result
+      this.cache.set(cacheKey, result, this.cache.TTL.OPTIONS);
+
+      return result;
+
     } catch (error) {
+      const apiError = error as { response?: { status?: number; data?: unknown }; code?: string; message?: string };
+      
+      // Enhanced error handling with specific messages
+      if (apiError.response?.status === 401) {
+        console.error('[Tradier] Authentication failed - invalid API key');
+        throw this.createFeedError('tradier', FeedErrorType.API_ERROR, 'Authentication failed: Invalid or expired API key');
+      }
+      
+      if (apiError.response?.status === 429) {
+        console.error('[Tradier] Rate limit exceeded');
+        throw this.createFeedError('tradier', FeedErrorType.RATE_LIMITED, 'Rate limit exceeded');
+      }
+      
+      if (apiError.code === 'ECONNABORTED' || apiError.code === 'ETIMEDOUT') {
+        console.error('[Tradier] Request timeout');
+        throw this.createFeedError('tradier', FeedErrorType.TIMEOUT, 'Request timeout');
+      }
+      
+      console.error('[Tradier] API error:', apiError.message);
       throw this.handleApiError('tradier', error);
     }
   }
 
   /**
-   * Fetch liquidity data from TwelveData API
+   * Fetch liquidity data from TwelveData API with caching and rate limiting
    * Using TwelveData for liquidity to avoid Alpaca subscription and Tradier issues
    */
   async getTwelveDataLiquidity(symbol: string): Promise<MarketContext['liquidity']> {
@@ -169,7 +225,23 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       throw this.createFeedError('twelvedata', FeedErrorType.API_ERROR, 'TwelveData feed disabled');
     }
 
+    // Check cache first
+    const cacheKey = `twelvedata:liquidity:${symbol}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached as MarketContext['liquidity'];
+    }
+
+    // Check rate limits
+    if (!this.rateLimiter.canMakeRequest('twelvedata')) {
+      console.warn('[TwelveData] Rate limit reached, using fallback');
+      return getFallbackValue('twelveData', 'liquidity') as MarketContext['liquidity'];
+    }
+
     try {
+      // Record request
+      this.rateLimiter.recordRequest('twelvedata');
+
       // Fetch quote data with bid/ask information
       const response = await this.twelveDataClient.get(
         `/quote?symbol=${symbol}&apikey=${this.config.twelveData.apiKey}`
@@ -177,8 +249,18 @@ export class MarketContextBuilder implements IMarketContextBuilder {
 
       const quote = response.data;
 
-      if (!quote || quote.code === 400) {
+      // Check for API errors
+      if (quote.code === 401) {
+        throw new Error('TwelveData authentication failed: Invalid API key');
+      }
+      if (quote.code === 429) {
+        throw new Error('TwelveData rate limit exceeded');
+      }
+      if (quote.code === 400 || !quote.symbol) {
         throw new Error('No quote data returned from TwelveData');
+      }
+      if (quote.status === 'error') {
+        throw new Error(`TwelveData API error: ${quote.message}`);
       }
 
       // Calculate bid-ask spread in basis points
@@ -205,7 +287,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const tradeVelocity = volumeRatio > 1.5 ? 'FAST' : 
                            volumeRatio < 0.5 ? 'SLOW' : 'NORMAL';
 
-      return {
+      const result = {
         spreadBps,
         depthScore,
         tradeVelocity,
@@ -213,20 +295,62 @@ export class MarketContextBuilder implements IMarketContextBuilder {
         askSize
       };
 
+      // Cache the result
+      this.cache.set(cacheKey, result, this.cache.TTL.LIQUIDITY);
+
+      return result;
+
     } catch (error) {
+      const apiError = error as { response?: { status?: number; data?: unknown }; code?: string; message?: string };
+      
+      // Enhanced error handling
+      if (apiError.message?.includes('authentication failed')) {
+        console.error('[TwelveData] Authentication failed - invalid API key');
+        throw this.createFeedError('twelvedata', FeedErrorType.API_ERROR, 'Authentication failed: Invalid API key');
+      }
+      
+      if (apiError.message?.includes('rate limit')) {
+        console.error('[TwelveData] Rate limit exceeded');
+        throw this.createFeedError('twelvedata', FeedErrorType.RATE_LIMITED, 'Rate limit exceeded');
+      }
+      
+      if (apiError.code === 'ECONNABORTED' || apiError.code === 'ETIMEDOUT') {
+        console.error('[TwelveData] Request timeout');
+        throw this.createFeedError('twelvedata', FeedErrorType.TIMEOUT, 'Request timeout');
+      }
+      
+      console.error('[TwelveData] API error:', apiError.message);
       throw this.handleApiError('twelvedata', error);
     }
   }
 
   /**
-   * Fetch market statistics from TwelveData API
+   * Fetch market statistics from TwelveData API with caching and rate limiting
    */
   async getTwelveDataStats(symbol: string): Promise<MarketContext['stats']> {
     if (!this.config.twelveData.enabled) {
       throw this.createFeedError('twelvedata', FeedErrorType.API_ERROR, 'TwelveData feed disabled');
     }
 
+    // Check cache first
+    const cacheKey = `twelvedata:stats:${symbol}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached as MarketContext['stats'];
+    }
+
+    // Check rate limits
+    if (!this.rateLimiter.canMakeRequest('twelvedata')) {
+      console.warn('[TwelveData] Rate limit reached, using fallback');
+      return getFallbackValue('twelveData', 'stats') as MarketContext['stats'];
+    }
+
     try {
+      // Record requests (3 calls)
+      this.rateLimiter.recordRequest('twelvedata');
+      this.rateLimiter.recordRequest('twelvedata');
+      this.rateLimiter.recordRequest('twelvedata');
+
       // Fetch multiple technical indicators in parallel
       const [atrResponse, rsiResponse, volumeResponse] = await Promise.all([
         this.twelveDataClient.get(`/atr?symbol=${symbol}&interval=1day&outputsize=1&apikey=${this.config.twelveData.apiKey}`),
@@ -237,6 +361,17 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const atrData = atrResponse.data;
       const rsiData = rsiResponse.data;
       const volumeData = volumeResponse.data;
+
+      // Check for API errors in responses
+      if (atrData.code === 401) {
+        throw new Error('TwelveData authentication failed: Invalid API key');
+      }
+      if (atrData.code === 429 || rsiData.code === 429 || volumeData.code === 429) {
+        throw new Error('TwelveData rate limit exceeded');
+      }
+      if (atrData.status === 'error' || rsiData.status === 'error' || volumeData.status === 'error') {
+        throw new Error(`TwelveData API error: ${atrData.message || rsiData.message || volumeData.message}`);
+      }
 
       // Extract ATR(14)
       const atr14 = parseFloat(atrData.values?.[0]?.atr) || 0;
@@ -255,7 +390,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       const avgVolume = this.calculateAverageVolume(volumeData.values);
       const volumeRatio = avgVolume > 0 ? currentVolume / avgVolume : 1;
 
-      return {
+      const result = {
         atr14,
         rv20,
         trendSlope,
@@ -264,7 +399,31 @@ export class MarketContextBuilder implements IMarketContextBuilder {
         volumeRatio
       };
 
+      // Cache the result
+      this.cache.set(cacheKey, result, this.cache.TTL.ATR);
+
+      return result;
+
     } catch (error) {
+      const apiError = error as { response?: { status?: number; data?: unknown }; code?: string; message?: string };
+      
+      // Enhanced error handling
+      if (apiError.message?.includes('authentication failed')) {
+        console.error('[TwelveData] Authentication failed - invalid API key');
+        throw this.createFeedError('twelvedata', FeedErrorType.API_ERROR, 'Authentication failed: Invalid API key');
+      }
+      
+      if (apiError.message?.includes('rate limit')) {
+        console.error('[TwelveData] Rate limit exceeded');
+        throw this.createFeedError('twelvedata', FeedErrorType.RATE_LIMITED, 'Rate limit exceeded');
+      }
+      
+      if (apiError.code === 'ECONNABORTED' || apiError.code === 'ETIMEDOUT') {
+        console.error('[TwelveData] Request timeout');
+        throw this.createFeedError('twelvedata', FeedErrorType.TIMEOUT, 'Request timeout');
+      }
+      
+      console.error('[TwelveData] API error:', apiError.message);
       throw this.handleApiError('twelvedata', error);
     }
   }
