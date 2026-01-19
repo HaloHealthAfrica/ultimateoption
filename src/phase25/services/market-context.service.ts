@@ -13,7 +13,7 @@ import { IMarketContextBuilder, FeedConfig,
 import { ConfigManagerService } from './config-manager.service';
 import { MarketCacheService } from './market-cache.service';
 import { RateLimitTracker } from './rate-limit-tracker.service';
-import { FALLBACK_STRATEGY, getFallbackValue } from '../config/fallback-strategy.config';
+import { getFallbackValue } from '../config/fallback-strategy.config';
 
 export class MarketContextBuilder implements IMarketContextBuilder {
   private tradierClient: AxiosInstance;
