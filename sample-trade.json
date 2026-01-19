@@ -1,0 +1,165 @@
+{
+  "id": "21d7f034-c096-475c-b6d3-89799cd2de83",
+  "created_at": 1768776163927,
+  "engine_version": "2.5.0",
+  "signal": {
+    "risk": {
+      "amount": 2052.1111865363887,
+      "rr_ratio_t1": 2.481615079289929,
+      "rr_ratio_t2": 3.887300304093651,
+      "account_risk_pct": 1.7070870659973618,
+      "max_loss_dollars": 2052.1111865363887,
+      "stop_distance_pct": 2,
+      "recommended_shares": 0,
+      "position_multiplier": 0.9861052149651357,
+      "recommended_contracts": 4
+    },
+    "entry": {
+      "price": 142.70135624662697,
+      "target_1": 144.84187659032636,
+      "target_2": 146.9823969340258,
+      "stop_loss": 139.84732912169443,
+      "stop_reason": "ATR_BASED"
+    },
+    "trend": {
+      "rsi": 45.54287855470316,
+      "ema_8": 142.56195727651593,
+      "ema_21": 142.1398472773413,
+      "ema_50": 143.68041820101695,
+      "strength": 65.390524652707,
+      "alignment": "BULLISH",
+      "macd_signal": "BEARISH"
+    },
+    "signal": {
+      "type": "LONG",
+      "quality": "HIGH",
+      "ai_score": 8.070975946868305,
+      "bar_time": "2026-01-18T22:42:43.927Z",
+      "timeframe": "15",
+      "timestamp": 1768776163927
+    },
+    "components": [
+      "STRAT",
+      "TREND",
+      "GAMMA",
+      "VWAP"
+    ],
+    "instrument": {
+      "ticker": "NVDA",
+      "exchange": "NASDAQ",
+      "current_price": 142.70135624662697
+    },
+    "mtf_context": {
+      "4h_rsi": 55.20151245023879,
+      "1h_bias": "LONG",
+      "4h_bias": "LONG"
+    },
+    "time_context": {
+      "day_of_week": "TUESDAY",
+      "market_session": "OPEN"
+    },
+    "market_context": {
+      "atr": 2.8540271249325393,
+      "pmh": 144.12836980909324,
+      "pml": 141.2743426841607,
+      "vwap": 142.85074278917526,
+      "day_open": 143.51085479986656,
+      "volume_vs_avg": 1.1055699936324475,
+      "day_change_pct": 0.1715315874573582,
+      "candle_size_atr": 0.635609321232446,
+      "candle_direction": "GREEN",
+      "price_vs_vwap_pct": -0.4341600771544287,
+      "distance_to_pmh_pct": 0.9000693122470624,
+      "distance_to_pml_pct": 1.9782881723992396
+    },
+    "score_breakdown": {
+      "mtf": 9.699968650164596,
+      "golf": 0.9727263886014348,
+      "vwap": 9.396681283596902,
+      "gamma": 14.91341623310344,
+      "strat": 21.005225276804037,
+      "trend": 13.087422069465038
+    }
+  },
+  "phase_context": null,
+  "decision": "EXECUTE",
+  "decision_reason": "High confidence setup with good risk/reward and tight spread",
+  "decision_breakdown": {
+    "rr_multiplier": 0.9880467681017497,
+    "day_multiplier": 1.00742883836024,
+    "final_multiplier": 0.9717695312720976,
+    "trend_multiplier": 0.9982561023439311,
+    "volume_multiplier": 0.9539204612684883,
+    "quality_multiplier": 1.1,
+    "session_multiplier": 1.001023216080801,
+    "phase_position_boost": 2.4571058934745835,
+    "confluence_multiplier": 1.024343930918002,
+    "trend_alignment_boost": 4.651482627194282,
+    "phase_confidence_boost": 2.2608926025615728,
+    "htf_alignment_multiplier": 0.9601015797121008
+  },
+  "confluence_score": 75.7,
+  "gate_results": {
+    "market": {
+      "score": 84.00527945013434,
+      "passed": true
+    },
+    "regime": {
+      "score": 86.22587556348235,
+      "passed": true
+    },
+    "structural": {
+      "score": 90.84264789933741,
+      "passed": true
+    }
+  },
+  "execution": {
+    "dte": 9,
+    "broker": "PAPER",
+    "status": "CLOSED",
+    "strike": 142.67315005468888,
+    "symbol": "NVDA",
+    "entry_iv": 0.4212759551741221,
+    "order_id": "PAPER-1768776163927-2",
+    "quantity": 4,
+    "slippage": 20.52111186536389,
+    "timestamp": 1768776223927,
+    "commission": 2.6,
+    "entry_vega": 0.19604366806675055,
+    "expiration": "2026-01-27T22:42:43.927Z",
+    "total_cost": 2052.1111865363887,
+    "entry_delta": 0.5014972766122265,
+    "entry_gamma": 0.027076567510670505,
+    "entry_price": 5.130277966340972,
+    "entry_theta": -0.15630588507524337,
+    "option_type": "CALL",
+    "spread_cost": 41.04222373072778,
+    "option_symbol": "NVDA260127C142673",
+    "underlying_at_entry": 142.70135624662697
+  },
+  "exit": {
+    "exit_iv": 0.22851825819379978,
+    "pnl_net": -785.357511794092,
+    "exit_time": 1768948963927,
+    "pnl_gross": -677.3513820638233,
+    "exit_delta": 0.7192656746078874,
+    "exit_price": 3.436899511181414,
+    "exit_reason": "STOP_LOSS",
+    "pnl_from_iv": -131.02999241634012,
+    "pnl_from_delta": -521.1427104461995,
+    "pnl_from_gamma": -42.657759838034515,
+    "pnl_from_theta": 13.514226466617831,
+    "total_slippage": 34.26870991008955,
+    "total_commission": 5.2,
+    "hold_time_seconds": 172800,
+    "total_spread_cost": 68.5374198201791,
+    "underlying_at_exit": 141.84588542686987
+  },
+  "regime": {
+    "trend": "NEUTRAL",
+    "iv_rank": 56.28273960965474,
+    "liquidity": "NORMAL",
+    "volatility": "HIGH"
+  },
+  "hypothetical": null
+}

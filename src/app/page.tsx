@@ -152,8 +152,9 @@ async function fetchDashboardData(): Promise<Partial<DashboardState>> {
   }
 
   // Ledger (API returns { data: [] })
+  // Fetch EXECUTE decisions for paper trades display
   try {
-    const payload = await fetchJson<{ data?: LedgerEntry[]; entries?: LedgerEntry[] }>('/api/ledger?limit=100');
+    const payload = await fetchJson<{ data?: LedgerEntry[]; entries?: LedgerEntry[] }>('/api/ledger?decision=EXECUTE&limit=200');
     next.ledgerEntries = payload.data || payload.entries || [];
   } catch (e) {
     errors.push(`Ledger: ${e instanceof Error ? e.message : 'Unknown error'}`);
