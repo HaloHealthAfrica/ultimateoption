@@ -29,6 +29,25 @@ if (!fs.existsSync(schemaPath)) {
 
 const sql = fs.readFileSync(schemaPath, 'utf8');
 
+// Add migration for enhanced_data column
+const enhancedDataMigration = `
+-- Add enhanced_data column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = 'ledger_entries' 
+    AND column_name = 'enhanced_data'
+  ) THEN
+    ALTER TABLE ledger_entries ADD COLUMN enhanced_data JSONB;
+    RAISE NOTICE 'Column enhanced_data added successfully';
+  ELSE
+    RAISE NOTICE 'Column enhanced_data already exists';
+  END IF;
+END $$;
+`;
+
 async function main() {
   console.log('🔄 Running database migrations...');
   
@@ -42,6 +61,13 @@ async function main() {
     console.log('✅ Connected to database');
     
     await client.query('BEGIN');
+    
+    // First run the enhanced_data migration
+    try {
+      await client.query(enhancedDataMigration);
+    } catch (err) {
+      console.log('   ℹ️  Enhanced data migration skipped (may already exist)');
+    }
     
     // Split SQL into statements and execute each one
     const statements = sql
