@@ -26,21 +26,37 @@ export async function GET(_request: NextRequest) {
     const metricsReport = orchestrator.getMetricsReport();
 
     // Calculate paper trading performance metrics from ledger
-    const ledger = await getGlobalLedger();
-    const limit = parseInt(process.env.PHASE25_METRICS_LIMIT || '500', 10);
-    const entries = await ledger.query({ limit: Number.isFinite(limit) ? limit : 500, offset: 0 });
-    const metricsByDte = getMetricsByDTEBucket(entries);
-    
-    return NextResponse.json({
-      success: true,
-      ...metricsReport,
-      paper_performance: {
+    let paperPerformance = null;
+    try {
+      const ledger = await getGlobalLedger();
+      const limit = parseInt(process.env.PHASE25_METRICS_LIMIT || '500', 10);
+      const entries = await ledger.query({ limit: Number.isFinite(limit) ? limit : 500, offset: 0 });
+      const metricsByDte = getMetricsByDTEBucket(entries);
+      
+      paperPerformance = {
         overall: calculateMetrics(entries),
         rolling: getRollingMetrics(entries),
         by_dte_bucket: Object.fromEntries(metricsByDte),
         streaks: calculateStreakStats(entries),
         sample_size: entries.length
-      },
+      };
+    } catch (ledgerError) {
+      console.error('Failed to calculate paper performance:', ledgerError);
+      // Continue without paper performance data
+      paperPerformance = {
+        overall: null,
+        rolling: null,
+        by_dte_bucket: {},
+        streaks: null,
+        sample_size: 0,
+        error: ledgerError instanceof Error ? ledgerError.message : 'Unknown error'
+      };
+    }
+    
+    return NextResponse.json({
+      success: true,
+      ...metricsReport,
+      paper_performance: paperPerformance,
       engine: 'Phase 2.5 Decision Engine',
       version: ENGINE_VERSION,
       timestamp: Date.now()
