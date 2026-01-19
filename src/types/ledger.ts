@@ -140,7 +140,7 @@ export const LedgerEntrySchema = z.object({
   hypothetical: HypotheticalSchema.optional(),
   
   // Enhanced data for replay and learning (Phase 2.5+)
-  enhanced_data: z.record(z.any()).optional(),
+  enhanced_data: z.record(z.string(), z.unknown()).optional(),
 });
 export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
 

@@ -16,12 +16,12 @@ import { z } from 'zod';
  */
 export const RawInputSnapshotSchema = z.object({
   // Original webhook payload (for exact replay)
-  webhook_payload: z.record(z.any()),
+  webhook_payload: z.record(z.string(), z.unknown()),
   
   // Webhook metadata
   webhook_received_at: z.number(),
   webhook_source_ip: z.string().optional(),
-  webhook_headers: z.record(z.string()).optional(),
+  webhook_headers: z.record(z.string(), z.string()).optional(),
   
   // Phase context at decision time
   saty_phase_regime: z.string().optional(),

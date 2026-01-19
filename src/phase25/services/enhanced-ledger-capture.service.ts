@@ -19,7 +19,7 @@ export class EnhancedLedgerCaptureService {
    * Capture raw input snapshot
    */
   captureRawInput(
-    webhookPayload: Record<string, any>,
+    webhookPayload: Record<string, unknown>,
     webhookMetadata: {
       receivedAt: number;
       sourceIp?: string;
@@ -32,12 +32,12 @@ export class EnhancedLedgerCaptureService {
       webhook_received_at: webhookMetadata.receivedAt,
       webhook_source_ip: webhookMetadata.sourceIp,
       webhook_headers: webhookMetadata.headers,
-      saty_phase_regime: decision.inputContext.phase?.regime?.phase,
-      saty_phase_bias: decision.inputContext.phase?.bias?.phase,
+      saty_phase_regime: decision.inputContext.regime?.phaseName,
+      saty_phase_bias: decision.inputContext.regime?.bias,
       market_data_sources: {
-        options_provider: decision.marketSnapshot?.provider as any,
-        quotes_provider: decision.marketSnapshot?.provider as any,
-        greeks_provider: decision.marketSnapshot?.provider as any,
+        options_provider: undefined, // Provider tracking not yet implemented
+        quotes_provider: undefined,
+        greeks_provider: undefined,
       },
     };
   }
@@ -111,30 +111,24 @@ export class EnhancedLedgerCaptureService {
       underlying: {
         symbol,
         price,
-        bid: marketSnapshot?.quotes?.bid,
-        ask: marketSnapshot?.quotes?.ask,
-        bid_size: marketSnapshot?.quotes?.bidSize,
-        ask_size: marketSnapshot?.quotes?.askSize,
+        bid: undefined, // Not available in current MarketContext
+        ask: undefined,
+        bid_size: undefined,
+        ask_size: undefined,
         volume: marketSnapshot?.stats?.volume,
-        open_interest: marketSnapshot?.options?.openInterest,
+        open_interest: undefined,
       },
       options_chain: marketSnapshot?.options ? {
-        expiration_dates: marketSnapshot.options.expirations || [],
-        strikes_near_money: marketSnapshot.options.strikes || [],
-        atm_iv: marketSnapshot.options.atmIv,
-        iv_skew: marketSnapshot.options.ivSkew,
+        expiration_dates: [],
+        strikes_near_money: [],
+        atm_iv: undefined,
+        iv_skew: undefined,
         put_call_ratio: marketSnapshot.options.putCallRatio,
       } : undefined,
-      greeks_snapshot: marketSnapshot?.options?.greeks ? {
-        delta: marketSnapshot.options.greeks.delta,
-        gamma: marketSnapshot.options.greeks.gamma,
-        theta: marketSnapshot.options.greeks.theta,
-        vega: marketSnapshot.options.greeks.vega,
-        rho: marketSnapshot.options.greeks.rho,
-      } : undefined,
+      greeks_snapshot: undefined, // Not available in current MarketContext
       technical_snapshot: {
         rsi_5m: marketSnapshot?.stats?.rsi,
-        rsi_15m: undefined, // Would need to fetch from market data
+        rsi_15m: undefined,
         rsi_1h: undefined,
         rsi_4h: undefined,
         macd_5m: undefined,
@@ -144,10 +138,10 @@ export class EnhancedLedgerCaptureService {
         bollinger_width: undefined,
       },
       order_book: marketSnapshot?.liquidity ? {
-        bid_depth_5: marketSnapshot.liquidity.bidDepth,
-        ask_depth_5: marketSnapshot.liquidity.askDepth,
+        bid_depth_5: undefined,
+        ask_depth_5: undefined,
         spread_bps: marketSnapshot.liquidity.spreadBps,
-        liquidity_score: marketSnapshot.liquidity.score,
+        liquidity_score: marketSnapshot.liquidity.depthScore,
       } : undefined,
     };
   }
@@ -177,12 +171,15 @@ export class EnhancedLedgerCaptureService {
         would_pass_market_gate: actualSpread <= threshold,
         actual_spread_bps: actualSpread,
       })),
-      sizing_alternatives: config.sizeMultipliers.map(multiplier => ({
-        multiplier,
-        contracts: Math.floor(decision.recommendedContracts * multiplier),
-        risk_dollars: decision.inputContext.instrument.price * 100 * Math.floor(decision.recommendedContracts * multiplier),
-        reason: multiplier > 1 ? 'Aggressive sizing' : multiplier < 1 ? 'Conservative sizing' : 'Standard sizing',
-      })),
+      sizing_alternatives: config.sizeMultipliers.map(multiplier => {
+        const baseContracts = 3; // Default contract size
+        return {
+          multiplier,
+          contracts: Math.floor(baseContracts * multiplier),
+          risk_dollars: decision.inputContext.instrument.price * 100 * Math.floor(baseContracts * multiplier),
+          reason: multiplier > 1 ? 'Aggressive sizing' : multiplier < 1 ? 'Conservative sizing' : 'Standard sizing',
+        };
+      }),
       wait_scenarios: [
         { wait_minutes: 5, hypothetical_entry_price: undefined, hypothetical_confidence: undefined, would_have_been_better: undefined },
         { wait_minutes: 15, hypothetical_entry_price: undefined, hypothetical_confidence: undefined, would_have_been_better: undefined },
@@ -198,7 +195,7 @@ export class EnhancedLedgerCaptureService {
     const patterns: Array<{ pattern_name: string; confidence: number; historical_win_rate?: number }> = [];
 
     // Detect common patterns
-    if (decision.inputContext.alignment?.isAligned) {
+    if (decision.inputContext.alignment && decision.inputContext.alignment.bullishPct > 70) {
       patterns.push({
         pattern_name: 'HTF_ALIGNMENT',
         confidence: 0.8,
@@ -247,7 +244,7 @@ export class EnhancedLedgerCaptureService {
    */
   captureEnhancedData(
     decision: DecisionPacket,
-    webhookPayload: Record<string, any>,
+    webhookPayload: Record<string, unknown>,
     webhookMetadata: {
       receivedAt: number;
       sourceIp?: string;
