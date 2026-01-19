@@ -119,7 +119,6 @@ export interface IDecisionEngine {
   runRegimeGate(context: DecisionContext): GateResult;
   runStructuralGate(context: DecisionContext): GateResult;
   runMarketGates(marketContext: MarketContext): GateResult;
-  calculateConfidence(context: DecisionContext, marketContext: MarketContext): number;
   calculateSizing(context: DecisionContext, confidence: number): number;
 }
 

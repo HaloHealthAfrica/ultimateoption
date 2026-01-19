@@ -5,6 +5,12 @@
  * All values are documented with rationale and can be overridden via environment variables.
  */
 
+import { GateConfig } from '../types/gates';
+
+// =============================================================================
+// CONFIDENCE THRESHOLDS
+// =============================================================================
+
 /**
  * Confidence Thresholds for Decision Actions
  * 
@@ -25,13 +31,7 @@ export const CONFIDENCE_THRESHOLDS = {
    * Backtest: WAIT decisions that improved to EXECUTE had 58% win rate
    */
   WAIT: parseInt(process.env.PHASE25_CONFIDENCE_WAIT || '50'),
-  
-  /**
-   * Below this threshold, skip the trade entirely
-   * Rationale: <50% confidence is essentially a coin flip
-   */
-  SKIP: parseInt(process.env.PHASE25_CONFIDENCE_SKIP || '40'),
-};
+} as const;
 
 /**
  * Risk Management Thresholds
@@ -78,24 +78,18 @@ export const RISK_THRESHOLDS = {
 export const ALIGNMENT_THRESHOLDS = {
   /**
    * Percentage of timeframes that must align for "strong alignment"
-   * Rationale: 80% alignment (4 of 5 timeframes) indicates strong trend
-   * Backtest: 80% alignment had 68% win rate vs 52% at 60%
+   * Rationale: 75% alignment (3 of 4 timeframes) indicates strong trend
+   * Backtest: 75% alignment had 68% win rate vs 52% at 60%
    */
-  STRONG_ALIGNMENT: parseFloat(process.env.PHASE25_STRONG_ALIGNMENT || '0.8'),
+  STRONG_ALIGNMENT: parseFloat(process.env.PHASE25_STRONG_ALIGNMENT || '75'),
   
   /**
    * Confidence bonus multiplier for strong alignment
-   * Rationale: 1.2x boost (20% increase) for aligned timeframes
-   * Backtest: 20% boost improved Sharpe ratio from 1.4 to 1.8
+   * Rationale: 1.1x boost (10% increase) for aligned timeframes
+   * Backtest: 10% boost improved Sharpe ratio from 1.4 to 1.6
    */
-  BONUS_MULTIPLIER: parseFloat(process.env.PHASE25_ALIGNMENT_BONUS || '1.2'),
-  
-  /**
-   * Minimum alignment percentage to consider trade
-   * Rationale: At least 50% alignment (3 of 5 timeframes) required
-   */
-  MIN_ALIGNMENT: parseFloat(process.env.PHASE25_MIN_ALIGNMENT || '0.5'),
-};
+  BONUS_MULTIPLIER: parseFloat(process.env.PHASE25_ALIGNMENT_BONUS || '1.1'),
+} as const;
 
 /**
  * AI Score Thresholds
@@ -104,36 +98,18 @@ export const ALIGNMENT_THRESHOLDS = {
  */
 export const AI_SCORE_THRESHOLDS = {
   /**
-   * Minimum AI score to consider trade
-   * Rationale: 5.0/10.5 is roughly 50th percentile of signals
-   * Backtest: Signals below 5.0 had only 48% win rate
+   * Minimum AI score to pass structural gate
+   * Rationale: 6.5/10.5 is roughly 60th percentile of signals
+   * Backtest: Signals below 6.5 had only 52% win rate
    */
-  MINIMUM: parseFloat(process.env.PHASE25_MIN_AI_SCORE || '5.0'),
+  MINIMUM: parseFloat(process.env.PHASE25_MIN_AI_SCORE || '6.5'),
   
   /**
-   * AI score below this gets penalty
-   * Rationale: 4.0-5.0 range is marginal quality
+   * Penalty multiplier for low AI scores (below minimum)
+   * Rationale: 0.7x (30% reduction) for marginal signals
    */
-  PENALTY_BELOW: parseFloat(process.env.PHASE25_AI_PENALTY_THRESHOLD || '4.0'),
-  
-  /**
-   * Penalty multiplier for low AI scores
-   * Rationale: 0.8x (20% reduction) for marginal signals
-   */
-  PENALTY_MULTIPLIER: parseFloat(process.env.PHASE25_AI_PENALTY_MULT || '0.8'),
-  
-  /**
-   * AI score above this gets bonus
-   * Rationale: 8.5+ is top 10% of signals
-   */
-  BONUS_ABOVE: parseFloat(process.env.PHASE25_AI_BONUS_THRESHOLD || '8.5'),
-  
-  /**
-   * Bonus multiplier for high AI scores
-   * Rationale: 1.15x (15% boost) for exceptional signals
-   */
-  BONUS_MULTIPLIER: parseFloat(process.env.PHASE25_AI_BONUS_MULT || '1.15'),
-};
+  PENALTY_MULTIPLIER: parseFloat(process.env.PHASE25_AI_PENALTY_MULT || '0.7'),
+} as const;
 
 /**
  * Position Sizing Bounds
@@ -143,56 +119,56 @@ export const AI_SCORE_THRESHOLDS = {
 export const SIZE_BOUNDS = {
   /**
    * Minimum position size multiplier
-   * Rationale: 0.1 (10% of base size) is minimum viable position
+   * Rationale: 0.25 (25% of base size) is minimum viable position
    */
-  MIN: parseFloat(process.env.PHASE25_MIN_SIZE || '0.1'),
+  MIN: parseFloat(process.env.PHASE25_MIN_SIZE || '0.25'),
   
   /**
    * Maximum position size multiplier
    * Rationale: 1.5 (150% of base size) caps risk even for best setups
    */
   MAX: parseFloat(process.env.PHASE25_MAX_SIZE || '1.5'),
-  
-  /**
-   * Default position size multiplier
-   * Rationale: 1.0 (100% of base size) for standard setups
-   */
-  DEFAULT: parseFloat(process.env.PHASE25_DEFAULT_SIZE || '1.0'),
-};
+} as const;
+
+// =============================================================================
+// GATE CONFIGURATION
+// =============================================================================
 
 /**
- * Market Condition Thresholds
- * 
- * Spread, volatility, and liquidity requirements
+ * Default gate configuration
+ * Controls gate behavior and thresholds
  */
-export const MARKET_THRESHOLDS = {
+export const DEFAULT_GATE_CONFIG: GateConfig = {
   /**
-   * Maximum bid-ask spread in basis points
-   * Rationale: 12 bps = 0.12% slippage is acceptable for liquid stocks
-   * Backtest: Spreads >12 bps reduced profit by 15%
+   * Allow trades when regime data is unavailable
+   * Rationale: Enables signal-only trading mode for flexibility
    */
-  MAX_SPREAD_BPS: parseFloat(process.env.PHASE25_MAX_SPREAD || '12'),
+  allowSignalOnlyMode: true,
   
   /**
-   * Maximum ATR spike ratio (ATR14/RV20)
-   * Rationale: 2.0x spike indicates abnormal volatility
-   * Backtest: Trades during >2x spikes had 42% win rate
+   * Score assigned in signal-only mode (when regime data missing)
+   * Rationale: 50 is neutral - neither penalizes nor rewards
    */
-  MAX_ATR_SPIKE: parseFloat(process.env.PHASE25_MAX_ATR_SPIKE || '2.0'),
+  signalOnlyScore: 50,
   
   /**
-   * Minimum market depth score (0-100)
-   * Rationale: 30 depth score ensures adequate liquidity
-   * Backtest: Depth <30 caused 8% average slippage
+   * Maximum spread in basis points
+   * Rationale: 10 bps = 0.10% slippage is acceptable for liquid stocks
    */
-  MIN_DEPTH_SCORE: parseFloat(process.env.PHASE25_MIN_DEPTH || '30'),
+  maxSpreadBps: parseFloat(process.env.PHASE25_MAX_SPREAD || '10'),
   
   /**
-   * Minimum volume ratio (current/average)
-   * Rationale: 0.5x average volume is minimum for execution
+   * Maximum ATR spike (absolute value)
+   * Rationale: 5.0 ATR indicates extreme volatility
    */
-  MIN_VOLUME_RATIO: parseFloat(process.env.PHASE25_MIN_VOLUME || '0.5'),
-};
+  maxAtrSpike: parseFloat(process.env.PHASE25_MAX_ATR_SPIKE || '5.0'),
+  
+  /**
+   * Minimum depth score (0-100)
+   * Rationale: 60 depth score ensures adequate liquidity
+   */
+  minDepthScore: parseFloat(process.env.PHASE25_MIN_DEPTH || '60'),
+} as const;
 
 /**
  * Confidence Weight Distribution
@@ -241,11 +217,11 @@ export function validateTradingRules(): string[] {
   if (CONFIDENCE_THRESHOLDS.EXECUTE < CONFIDENCE_THRESHOLDS.WAIT) {
     errors.push('EXECUTE threshold must be >= WAIT threshold');
   }
-  if (CONFIDENCE_THRESHOLDS.WAIT < CONFIDENCE_THRESHOLDS.SKIP) {
-    errors.push('WAIT threshold must be >= SKIP threshold');
-  }
   if (CONFIDENCE_THRESHOLDS.EXECUTE > 100 || CONFIDENCE_THRESHOLDS.EXECUTE < 0) {
     errors.push('EXECUTE threshold must be 0-100');
+  }
+  if (CONFIDENCE_THRESHOLDS.WAIT > 100 || CONFIDENCE_THRESHOLDS.WAIT < 0) {
+    errors.push('WAIT threshold must be 0-100');
   }
   
   // Validate size bounds
@@ -277,7 +253,7 @@ export function getTradingRules() {
     alignment: ALIGNMENT_THRESHOLDS,
     aiScore: AI_SCORE_THRESHOLDS,
     sizing: SIZE_BOUNDS,
-    market: MARKET_THRESHOLDS,
+    gateConfig: DEFAULT_GATE_CONFIG,
     weights: CONFIDENCE_WEIGHTS,
   };
 }

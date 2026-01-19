@@ -4,31 +4,49 @@
  * Core decision-making logic with deterministic pipeline stages.
  * Implements regime gates, structural validation, expert confirmation,
  * and confidence-based sizing calculations.
+ * 
+ * REFACTORED:
+ * - Gate results are now cached to prevent double execution
+ * - Magic numbers extracted to named constants
+ * - Market gate collects all failure reasons
+ * - Regime gate fallback behavior is configurable
+ * - Quality boost is only applied once (in sizing, not confidence)
  */
 
-import { IDecisionEngine, MarketContext,
+import {
+  IDecisionEngine,
+  MarketContext,
   DecisionPacket,
-  GateResult,
   EngineAction,
   TradeDirection,
-  DecisionContext } from '../types';
+  DecisionContext,
+} from '../types';
+import { GateResult, GateResults, GateConfig } from '../types/gates';
 import { ConfigManagerService } from './config-manager.service';
-import { PHASE_RULES,
+import {
+  PHASE_RULES,
   VOLATILITY_CAPS,
-  QUALITY_BOOSTS } from '../config/constants';
-import { 
+  QUALITY_BOOSTS,
+  AI_SCORE_MAX,
+  NEUTRAL_SCORE,
+  FAILURE_SCORES,
+} from '../config/constants';
+import {
   CONFIDENCE_THRESHOLDS,
   AI_SCORE_THRESHOLDS,
   ALIGNMENT_THRESHOLDS,
   SIZE_BOUNDS,
-  CONFIDENCE_WEIGHTS
+  CONFIDENCE_WEIGHTS,
+  DEFAULT_GATE_CONFIG,
 } from '../config/trading-rules.config';
 
 export class DecisionEngineService implements IDecisionEngine {
   private configManager: ConfigManagerService;
+  private gateConfig: GateConfig;
 
-  constructor(configManager: ConfigManagerService) {
+  constructor(configManager: ConfigManagerService, gateConfig?: Partial<GateConfig>) {
     this.configManager = configManager;
+    this.gateConfig = { ...DEFAULT_GATE_CONFIG, ...gateConfig };
   }
 
   /**
@@ -39,48 +57,26 @@ export class DecisionEngineService implements IDecisionEngine {
     const startTime = Date.now();
     const config = this.configManager.getConfig();
     
-    // Run all gates in sequence
-    const regimeGate = this.runRegimeGate(context);
-    const structuralGate = this.runStructuralGate(context);
-    const marketGate = this.runMarketGates(marketContext);
+    // Run all gates ONCE and cache results
+    const gateResults: GateResults = {
+      regime: this.runRegimeGate(context),
+      structural: this.runStructuralGate(context),
+      market: this.runMarketGates(marketContext),
+    };
     
-    // Calculate confidence score
-    const confidenceScore = this.calculateConfidence(context, marketContext);
+    // Calculate confidence using cached gate results
+    const confidenceScore = this.calculateConfidence(context, marketContext, gateResults);
     
     // Determine action based on gates and confidence
-    let action: EngineAction = "SKIP";
-    let direction: TradeDirection | undefined;
-    let finalSizeMultiplier = 0;
-    const reasons: string[] = [];
+    const { action, direction, reasons } = this.determineAction(
+      context,
+      gateResults,
+      confidenceScore
+    );
     
-    // Check if all gates pass
-    if (!regimeGate.passed) {
-      reasons.push(`Regime gate failed: ${regimeGate.reason}`);
-    }
-    
-    if (!structuralGate.passed) {
-      reasons.push(`Structural gate failed: ${structuralGate.reason}`);
-    }
-    
-    if (!marketGate.passed) {
-      reasons.push(`Market gate failed: ${marketGate.reason}`);
-    }
-    
-    // If all gates pass, determine action based on confidence
-    if (regimeGate.passed && structuralGate.passed && marketGate.passed) {
-      if (confidenceScore >= CONFIDENCE_THRESHOLDS.EXECUTE) {
-        action = "EXECUTE";
-        direction = context.expert.direction;
-        finalSizeMultiplier = this.calculateSizing(context, confidenceScore);
-        reasons.push(`High confidence execution (${confidenceScore.toFixed(1)})`);
-      } else if (confidenceScore >= CONFIDENCE_THRESHOLDS.WAIT) {
-        action = "WAIT";
-        reasons.push(`Moderate confidence, waiting for better setup (${confidenceScore.toFixed(1)})`);
-      } else {
-        action = "SKIP";
-        reasons.push(`Low confidence, skipping trade (${confidenceScore.toFixed(1)})`);
-      }
-    }
+    // Calculate sizing only for EXECUTE actions
+    const finalSizeMultiplier =
+      action === 'EXECUTE' ? this.calculateSizing(context, confidenceScore) : 0;
     
     return {
       action,
@@ -89,31 +85,88 @@ export class DecisionEngineService implements IDecisionEngine {
       confidenceScore,
       reasons,
       engineVersion: config.version,
-      gateResults: {
-        regime: regimeGate,
-        structural: structuralGate,
-        market: marketGate
-      },
+      gateResults,
       inputContext: context,
       marketSnapshot: marketContext,
-      timestamp: startTime
+      timestamp: startTime,
+    };
+  }
+
+  /**
+   * Determine action based on gate results and confidence
+   * Extracted for clarity and testability
+   */
+  private determineAction(
+    context: DecisionContext,
+    gateResults: GateResults,
+    confidenceScore: number
+  ): { action: EngineAction; direction?: TradeDirection; reasons: string[] } {
+    const reasons: string[] = [];
+    
+    // Collect gate failure reasons
+    if (!gateResults.regime.passed) {
+      reasons.push(`Regime gate failed: ${gateResults.regime.reason}`);
+    }
+    if (!gateResults.structural.passed) {
+      reasons.push(`Structural gate failed: ${gateResults.structural.reason}`);
+    }
+    if (!gateResults.market.passed) {
+      reasons.push(`Market gate failed: ${gateResults.market.reason}`);
+    }
+    
+    // If any gate failed, skip
+    const allGatesPassed =
+      gateResults.regime.passed && gateResults.structural.passed && gateResults.market.passed;
+    
+    if (!allGatesPassed) {
+      return { action: 'SKIP', reasons };
+    }
+    
+    // All gates passed - determine action based on confidence
+    if (confidenceScore >= CONFIDENCE_THRESHOLDS.EXECUTE) {
+      return {
+        action: 'EXECUTE',
+        direction: context.expert.direction,
+        reasons: [`High confidence execution (${confidenceScore.toFixed(1)})`],
+      };
+    }
+    
+    if (confidenceScore >= CONFIDENCE_THRESHOLDS.WAIT) {
+      return {
+        action: 'WAIT',
+        reasons: [`Moderate confidence, waiting for better setup (${confidenceScore.toFixed(1)})`],
+      };
+    }
+    
+    return {
+      action: 'SKIP',
+      reasons: [`Low confidence, skipping trade (${confidenceScore.toFixed(1)})`],
     };
   }
 
   /**
    * Regime Gate: Validates SATY phase alignment with trade direction
+   * 
+   * Behavior when regime data is missing is configurable via gateConfig.
    */
   runRegimeGate(context: DecisionContext): GateResult {
-    // If no regime data, pass with warning (allow signal-only decisions)
+    // Handle missing regime data based on configuration
     if (!context.regime) {
+      if (this.gateConfig.allowSignalOnlyMode) {
+        return {
+          passed: true,
+          reason: 'No regime data available, allowing trade (signal-only mode)',
+          score: this.gateConfig.signalOnlyScore,
+        };
+      }
       return {
-        passed: true,
-        reason: 'No regime data available, allowing trade (signal-only mode)',
-        score: 50 // Neutral score
+        passed: false,
+        reason: 'Regime data required but not available',
+        score: FAILURE_SCORES.CRITICAL,
       };
     }
     
-    const phase = context.regime.phase;
+    const { phase, phaseName, confidence, bias } = context.regime;
     const direction = context.expert.direction;
     const phaseRules = PHASE_RULES[phase];
     
@@ -121,34 +174,34 @@ export class DecisionEngineService implements IDecisionEngine {
     if (!phaseRules || !(phaseRules.allowed as readonly TradeDirection[]).includes(direction)) {
       return {
         passed: false,
-        reason: `${direction} trades not allowed in phase ${phase} (${context.regime.phaseName})`,
-        score: 0
+        reason: `${direction} trades not allowed in phase ${phase} (${phaseName})`,
+        score: FAILURE_SCORES.CRITICAL,
+        details: { phase, phaseName, direction, allowed: phaseRules?.allowed },
       };
     }
     
     // Check minimum confidence threshold
-    if (context.regime.confidence < CONFIDENCE_THRESHOLDS.WAIT) {
+    if (confidence < CONFIDENCE_THRESHOLDS.WAIT) {
       return {
         passed: false,
-        reason: `Regime confidence too low: ${context.regime.confidence}% < ${CONFIDENCE_THRESHOLDS.WAIT}%`,
-        score: context.regime.confidence
+        reason: `Regime confidence too low: ${confidence}% < ${CONFIDENCE_THRESHOLDS.WAIT}%`,
+        score: confidence,
       };
     }
     
     // Check regime bias alignment
-    const regimeBias = context.regime.bias;
-    if (regimeBias !== "NEUTRAL" && regimeBias !== direction) {
+    if (bias !== 'NEUTRAL' && bias !== direction) {
       return {
         passed: false,
-        reason: `Regime bias (${regimeBias}) conflicts with trade direction (${direction})`,
-        score: context.regime.confidence * 0.5 // Penalize conflicting bias
+        reason: `Regime bias (${bias}) conflicts with trade direction (${direction})`,
+        score: confidence * 0.5,
       };
     }
     
     return {
       passed: true,
-      reason: `Phase ${phase} allows ${direction}, confidence ${context.regime.confidence}%`,
-      score: context.regime.confidence
+      reason: `Phase ${phase} allows ${direction}, confidence ${confidence}%`,
+      score: confidence,
     };
   }
 
@@ -156,147 +209,148 @@ export class DecisionEngineService implements IDecisionEngine {
    * Structural Gate: Validates setup quality and execution conditions
    */
   runStructuralGate(context: DecisionContext): GateResult {
+    const { structure, expert } = context;
+    
     // Check if setup is valid
-    if (!context.structure.validSetup) {
+    if (!structure.validSetup) {
       return {
         passed: false,
-        reason: "Invalid setup structure detected",
-        score: 0
+        reason: 'Invalid setup structure detected',
+        score: FAILURE_SCORES.CRITICAL,
       };
     }
     
     // Check liquidity conditions
-    if (!context.structure.liquidityOk) {
+    if (!structure.liquidityOk) {
       return {
         passed: false,
-        reason: "Insufficient liquidity for execution",
-        score: 25
+        reason: 'Insufficient liquidity for execution',
+        score: FAILURE_SCORES.LIQUIDITY,
       };
     }
     
     // Check execution quality
-    const quality = context.structure.executionQuality;
-    if (quality === "C") {
+    if (structure.executionQuality === 'C') {
       return {
         passed: false,
-        reason: "Execution quality too poor (Grade C)",
-        score: 40
+        reason: 'Execution quality too poor (Grade C)',
+        score: FAILURE_SCORES.QUALITY,
       };
     }
     
     // Check AI score threshold
-    if (context.expert.aiScore < AI_SCORE_THRESHOLDS.MINIMUM) {
+    if (expert.aiScore < AI_SCORE_THRESHOLDS.MINIMUM) {
+      const proportionalScore = (expert.aiScore / AI_SCORE_THRESHOLDS.MINIMUM) * 100;
       return {
         passed: false,
-        reason: `AI score too low: ${context.expert.aiScore} < ${AI_SCORE_THRESHOLDS.MINIMUM}`,
-        score: (context.expert.aiScore / AI_SCORE_THRESHOLDS.MINIMUM) * 100
+        reason: `AI score too low: ${expert.aiScore} < ${AI_SCORE_THRESHOLDS.MINIMUM}`,
+        score: proportionalScore,
       };
     }
     
     // Calculate structural score based on quality and AI score
-    const qualityScore = quality === "A" ? 100 : 75; // A=100, B=75
-    const aiScoreNormalized = Math.min(100, (context.expert.aiScore / 10.5) * 100);
+    const qualityScore = structure.executionQuality === 'A' ? 100 : 75;
+    const aiScoreNormalized = Math.min(100, (expert.aiScore / AI_SCORE_MAX) * 100);
     const structuralScore = (qualityScore + aiScoreNormalized) / 2;
     
     return {
       passed: true,
-      reason: `Valid setup with ${quality} quality, AI score ${context.expert.aiScore}`,
-      score: structuralScore
+      reason: `Valid setup with ${structure.executionQuality} quality, AI score ${expert.aiScore}`,
+      score: structuralScore,
+      details: { qualityScore, aiScoreNormalized },
     };
   }
 
   /**
    * Market Gates: Validates current market conditions
-   * CONSERVATIVE: Fails if critical market data is unavailable
+   * 
+   * CONSERVATIVE: Fails if critical market data is unavailable.
+   * IMPROVED: Collects all failure reasons instead of returning on first failure.
    */
   runMarketGates(marketContext: MarketContext): GateResult {
-    const reasons: string[] = [];
-    let minScore = 100;
+    const failures: string[] = [];
+    const scores: number[] = [];
+    const config = this.configManager.getConfig();
     
     // Check spread conditions
-    if (marketContext.liquidity?.spreadBps !== undefined) {
+    if (marketContext.liquidity?.spreadBps === undefined) {
+      failures.push('Spread data unavailable - cannot assess execution quality');
+      scores.push(FAILURE_SCORES.CRITICAL);
+    } else {
       const spreadBps = marketContext.liquidity.spreadBps;
-      const maxSpread = this.configManager.getConfig().gates.maxSpreadBps;
+      const maxSpread = config.gates.maxSpreadBps;
       
       if (spreadBps > maxSpread) {
-        return {
-          passed: false,
-          reason: `Spread too wide: ${spreadBps}bps > ${maxSpread}bps`,
-          score: Math.max(0, 100 - (spreadBps - maxSpread) * 10)
-        };
+        failures.push(`Spread too wide: ${spreadBps}bps > ${maxSpread}bps`);
+        scores.push(Math.max(0, 100 - (spreadBps - maxSpread) * 10));
+      } else {
+        scores.push(Math.max(50, 100 - spreadBps));
       }
-      
-      reasons.push(`Spread OK: ${spreadBps}bps`);
-      minScore = Math.min(minScore, Math.max(50, 100 - spreadBps));
-    } else {
-      // CONSERVATIVE: Fail if spread data unavailable
-      return {
-        passed: false,
-        reason: 'Spread data unavailable - cannot assess execution quality',
-        score: 0
-      };
     }
     
     // Check volatility spike conditions
-    if (marketContext.stats?.atr14 !== undefined) {
+    if (marketContext.stats?.atr14 === undefined) {
+      failures.push('Volatility data unavailable - cannot assess risk');
+      scores.push(FAILURE_SCORES.CRITICAL);
+    } else {
       const atr = marketContext.stats.atr14;
-      const maxAtrSpike = this.configManager.getConfig().gates.maxAtrSpike;
+      const maxAtrSpike = config.gates.maxAtrSpike;
       
       if (atr > maxAtrSpike) {
-        return {
-          passed: false,
-          reason: `ATR spike too high: ${atr.toFixed(2)} > ${maxAtrSpike}`,
-          score: Math.max(0, 100 - (atr - maxAtrSpike) * 20)
-        };
+        failures.push(`ATR spike too high: ${atr.toFixed(2)} > ${maxAtrSpike}`);
+        scores.push(Math.max(0, 100 - (atr - maxAtrSpike) * 20));
+      } else {
+        scores.push(Math.max(60, 100 - atr * 10));
       }
-      
-      reasons.push(`ATR OK: ${atr.toFixed(2)}`);
-      minScore = Math.min(minScore, Math.max(60, 100 - atr * 10));
-    } else {
-      // CONSERVATIVE: Fail if volatility data unavailable
-      return {
-        passed: false,
-        reason: 'Volatility data unavailable - cannot assess risk',
-        score: 0
-      };
     }
     
     // Check depth score
-    if (marketContext.liquidity?.depthScore !== undefined) {
+    if (marketContext.liquidity?.depthScore === undefined) {
+      failures.push('Market depth data unavailable - cannot assess liquidity');
+      scores.push(FAILURE_SCORES.CRITICAL);
+    } else {
       const depthScore = marketContext.liquidity.depthScore;
-      const minDepth = this.configManager.getConfig().gates.minDepthScore;
+      const minDepth = config.gates.minDepthScore;
       
       if (depthScore < minDepth) {
-        return {
-          passed: false,
-          reason: `Market depth too low: ${depthScore} < ${minDepth}`,
-          score: depthScore
-        };
+        failures.push(`Market depth too low: ${depthScore} < ${minDepth}`);
+        scores.push(depthScore);
+      } else {
+        scores.push(depthScore);
       }
-      
-      reasons.push(`Depth OK: ${depthScore}`);
-      minScore = Math.min(minScore, depthScore);
-    } else {
-      // CONSERVATIVE: Fail if depth data unavailable
+    }
+    
+    // Return combined result
+    if (failures.length > 0) {
       return {
         passed: false,
-        reason: 'Market depth data unavailable - cannot assess liquidity',
-        score: 0
+        reason: failures.join('; '),
+        score: Math.min(...scores),
+        details: { failures, scores },
       };
     }
     
     return {
       passed: true,
-      reason: reasons.join(', '),
-      score: minScore
+      reason: `All market conditions OK (spread, ATR, depth)`,
+      score: Math.min(...scores),
+      details: { scores },
     };
   }
 
   /**
    * Calculate overall confidence score
-   * Combines regime confidence, expert quality, alignment, and market conditions
+   * 
+   * Uses cached gate results to avoid re-running gates.
+   * Quality boost is NOT applied here (only in sizing) to avoid double-reward.
+   * 
+   * PRIVATE: Not part of public interface, only used internally by makeDecision.
    */
-  calculateConfidence(context: DecisionContext, marketContext: MarketContext): number {
+  private calculateConfidence(
+    context: DecisionContext,
+    _marketContext: MarketContext,
+    gateResults: GateResults
+  ): number {
     let confidence = 0;
     let weightSum = 0;
     
@@ -307,14 +361,9 @@ export class DecisionEngineService implements IDecisionEngine {
       weightSum += regimeWeight;
     }
     
-    // Expert AI score contribution (weight from config)
+    // Expert AI score contribution (WITHOUT quality boost - applied only in sizing)
     const expertWeight = CONFIDENCE_WEIGHTS.EXPERT;
-    const aiScoreNormalized = Math.min(100, (context.expert.aiScore / 10.5) * 100);
-    let expertScore = aiScoreNormalized;
-    
-    // Apply quality boost
-    const qualityMultiplier = QUALITY_BOOSTS[context.expert.quality];
-    expertScore *= qualityMultiplier;
+    let expertScore = Math.min(100, (context.expert.aiScore / AI_SCORE_MAX) * 100);
     
     // Apply penalty for low AI scores
     if (context.expert.aiScore < AI_SCORE_THRESHOLDS.MINIMUM) {
@@ -339,19 +388,15 @@ export class DecisionEngineService implements IDecisionEngine {
       weightSum += alignmentWeight;
     }
     
-    // Market conditions contribution (weight from config)
+    // Market conditions contribution (use cached gate result)
     const marketWeight = CONFIDENCE_WEIGHTS.MARKET;
-    const marketGate = this.runMarketGates(marketContext);
-    const marketScore = marketGate.score || 50;
-    
+    const marketScore = gateResults.market.score || NEUTRAL_SCORE;
     confidence += marketScore * marketWeight;
     weightSum += marketWeight;
     
-    // Structural quality contribution (weight from config)
+    // Structural quality contribution (use cached gate result)
     const structuralWeight = CONFIDENCE_WEIGHTS.STRUCTURAL;
-    const structuralGate = this.runStructuralGate(context);
-    const structuralScore = structuralGate.score || 50;
-    
+    const structuralScore = gateResults.structural.score || NEUTRAL_SCORE;
     confidence += structuralScore * structuralWeight;
     weightSum += structuralWeight;
     
