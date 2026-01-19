@@ -81,7 +81,7 @@ export function calculateMetrics(
 ): Metrics {
   // Filter to only closed trades (EXECUTE with exit data)
   let closedTrades = entries.filter(e => 
-    e.decision === 'EXECUTE' && e.exit !== undefined
+    e.decision === 'EXECUTE' && e.exit !== undefined && e.exit !== null && e.exit.pnl_net !== undefined
   );
   
   // Apply feature filter if provided

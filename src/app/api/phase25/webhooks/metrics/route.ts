@@ -30,15 +30,24 @@ export async function GET(_request: NextRequest) {
     try {
       const ledger = await getGlobalLedger();
       const limit = parseInt(process.env.PHASE25_METRICS_LIMIT || '500', 10);
-      const entries = await ledger.query({ limit: Number.isFinite(limit) ? limit : 500, offset: 0 });
-      const metricsByDte = getMetricsByDTEBucket(entries);
+      // Fetch only EXECUTE decisions for performance metrics
+      const entries = await ledger.query({ 
+        limit: Number.isFinite(limit) ? limit : 500, 
+        offset: 0,
+        decision: 'EXECUTE'
+      });
+      
+      // Filter to only entries with valid exit data
+      const validEntries = entries.filter(e => e.exit && e.exit.pnl_net !== undefined);
+      
+      const metricsByDte = getMetricsByDTEBucket(validEntries);
       
       paperPerformance = {
-        overall: calculateMetrics(entries),
-        rolling: getRollingMetrics(entries),
+        overall: calculateMetrics(validEntries),
+        rolling: getRollingMetrics(validEntries),
         by_dte_bucket: Object.fromEntries(metricsByDte),
-        streaks: calculateStreakStats(entries),
-        sample_size: entries.length
+        streaks: calculateStreakStats(validEntries),
+        sample_size: validEntries.length
       };
     } catch (ledgerError) {
       console.error('Failed to calculate paper performance:', ledgerError);
