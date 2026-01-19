@@ -138,6 +138,9 @@ export const LedgerEntrySchema = z.object({
   
   // Hypothetical tracking (for skipped trades)
   hypothetical: HypotheticalSchema.optional(),
+  
+  // Enhanced data for replay and learning (Phase 2.5+)
+  enhanced_data: z.record(z.any()).optional(),
 });
 export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
 

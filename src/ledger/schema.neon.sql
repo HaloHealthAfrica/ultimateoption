@@ -61,6 +61,11 @@ CREATE INDEX IF NOT EXISTS idx_ledger_decision_timeframe ON ledger_entries (deci
 -- JSONB GIN indexes for queries
 CREATE INDEX IF NOT EXISTS idx_ledger_signal_gin ON ledger_entries USING GIN (signal);
 CREATE INDEX IF NOT EXISTS idx_ledger_regime_gin ON ledger_entries USING GIN (regime);
+CREATE INDEX IF NOT EXISTS idx_ledger_enhanced_data_gin ON ledger_entries USING GIN (enhanced_data);
+
+-- Index for replayable entries
+CREATE INDEX IF NOT EXISTS idx_ledger_replayable ON ledger_entries ((enhanced_data->'replay_metadata'->>'is_replayable'))
+WHERE enhanced_data IS NOT NULL;
 
 -- Webhook receipts (durable audit log)
 -- Used to confirm TradingView delivery in serverless environments (Vercel)
