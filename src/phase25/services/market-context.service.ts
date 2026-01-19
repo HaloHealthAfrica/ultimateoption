@@ -77,11 +77,11 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     const errors: string[] = [];
 
     // Execute all API calls in parallel for minimum latency
-    // Using Tradier for both options AND liquidity data
+    // Using Tradier for options and TwelveData for stats + liquidity
     const [optionsResult, statsResult, liquidityResult] = await Promise.allSettled([
       this.getTradierOptions(symbol),
       this.getTwelveDataStats(symbol),
-      this.getTradierLiquidity(symbol)  // Changed from getAlpacaLiquidity
+      this.getTwelveDataLiquidity(symbol)  // Changed to TwelveData
     ]);
 
     // Process results and collect any errors
@@ -93,10 +93,10 @@ export class MarketContextBuilder implements IMarketContextBuilder {
       errors.push(`Tradier Options: ${optionsResult.reason.message}`);
     }
     if (statsResult.status === 'rejected') {
-      errors.push(`TwelveData: ${statsResult.reason.message}`);
+      errors.push(`TwelveData Stats: ${statsResult.reason.message}`);
     }
     if (liquidityResult.status === 'rejected') {
-      errors.push(`Tradier Liquidity: ${liquidityResult.reason.message}`);
+      errors.push(`TwelveData Liquidity: ${liquidityResult.reason.message}`);
     }
 
     // Calculate completeness score (0-1 based on successful API calls)
@@ -157,6 +157,64 @@ export class MarketContextBuilder implements IMarketContextBuilder {
 
     } catch (error) {
       throw this.handleApiError('tradier', error);
+    }
+  }
+
+  /**
+   * Fetch liquidity data from TwelveData API
+   * Using TwelveData for liquidity to avoid Alpaca subscription and Tradier issues
+   */
+  async getTwelveDataLiquidity(symbol: string): Promise<MarketContext['liquidity']> {
+    if (!this.config.twelveData.enabled) {
+      throw this.createFeedError('twelvedata', FeedErrorType.API_ERROR, 'TwelveData feed disabled');
+    }
+
+    try {
+      // Fetch quote data with bid/ask information
+      const response = await this.twelveDataClient.get(
+        `/quote?symbol=${symbol}&apikey=${this.config.twelveData.apiKey}`
+      );
+
+      const quote = response.data;
+
+      if (!quote || quote.code === 400) {
+        throw new Error('No quote data returned from TwelveData');
+      }
+
+      // Calculate bid-ask spread in basis points
+      const bid = parseFloat(quote.bid) || 0;
+      const ask = parseFloat(quote.ask) || 0;
+      const close = parseFloat(quote.close) || 0;
+      const midPrice = bid > 0 && ask > 0 ? (bid + ask) / 2 : close;
+      const spreadBps = midPrice > 0 && bid > 0 && ask > 0 ? ((ask - bid) / midPrice) * 10000 : 0;
+
+      // Estimate bid/ask sizes from volume (TwelveData doesn't provide sizes directly)
+      const volume = parseInt(quote.volume) || 0;
+      const avgVolume = parseInt(quote.average_volume) || 1000000;
+      
+      // Estimate sizes as a fraction of volume (conservative estimate)
+      const estimatedSize = Math.floor(volume / 1000) || 100;
+      const bidSize = estimatedSize;
+      const askSize = estimatedSize;
+
+      // Calculate depth score (0-100 based on volume)
+      const depthScore = Math.min(100, Math.sqrt(volume / 10000));
+
+      // Determine trade velocity based on volume ratio
+      const volumeRatio = avgVolume > 0 ? volume / avgVolume : 1;
+      const tradeVelocity = volumeRatio > 1.5 ? 'FAST' : 
+                           volumeRatio < 0.5 ? 'SLOW' : 'NORMAL';
+
+      return {
+        spreadBps,
+        depthScore,
+        tradeVelocity,
+        bidSize,
+        askSize
+      };
+
+    } catch (error) {
+      throw this.handleApiError('twelvedata', error);
     }
   }
 
