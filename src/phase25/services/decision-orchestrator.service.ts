@@ -84,8 +84,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       const normalizedPayload = routingResult.normalized!;
       const adaptations = routingResult.adaptations;
       
-      // Step 2: Update context store
-      this.contextStore.update(normalizedPayload.partial, routingResult.source!);
+      // Step 2: Update context store (now async for thread safety)
+      await this.contextStore.update(normalizedPayload.partial, routingResult.source!);
       this.metricsService.recordContextUpdate();
 
       // Step 3: Check if we have complete context for decision making
@@ -99,8 +99,8 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
         };
       }
 
-      // Step 4: Build complete decision context
-      const decisionContext = this.contextStore.build();
+      // Step 4: Build complete decision context (now async for thread safety)
+      const decisionContext = await this.contextStore.build();
       if (!decisionContext) {
         this.metricsService.recordError('context_build_failed');
         const processingTime = Date.now() - startTime;

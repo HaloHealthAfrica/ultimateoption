@@ -4,6 +4,8 @@
  * Maintains the latest normalized data from each webhook source and builds
  * complete DecisionContext when ready. Handles partial updates, expiration,
  * and completeness validation.
+ * 
+ * THREAD-SAFE: Uses mutex to prevent race conditions from concurrent webhooks
  */
 
 import { IContextStore, 
@@ -11,15 +13,20 @@ import { IContextStore,
   CompletenessRules, WebhookSource, DecisionContext } from '../types';
 import { ENGINE_VERSION } from '../config/constants';
 import { upsertPhase25ContextSnapshot } from '../utils/contextDb';
+import { Mutex } from 'async-mutex';
 
 export class ContextStoreService implements IContextStore {
   private context: StoredContext;
   private completenessRules: CompletenessRules;
+  private mutex: Mutex;
 
   constructor(completenessRules?: Partial<CompletenessRules>) {
     this.context = {
       lastUpdated: {} as Record<WebhookSource, number>
     };
+    
+    // Initialize mutex for thread-safe operations
+    this.mutex = new Mutex();
 
     // Get timeout from environment variable or use default
     const timeoutMinutes = parseInt(process.env.PHASE25_CONTEXT_TIMEOUT_MINUTES || '30');
@@ -38,85 +45,91 @@ export class ContextStoreService implements IContextStore {
 
   /**
    * Update context with partial data from a specific webhook source
+   * THREAD-SAFE: Uses mutex to ensure atomic updates
    */
-  update(partial: Partial<DecisionContext>, source: WebhookSource): void {
-    const timestamp = Date.now();
+  async update(partial: Partial<DecisionContext>, source: WebhookSource): Promise<void> {
+    await this.mutex.runExclusive(async () => {
+      const timestamp = Date.now();
 
-    // Update the specific sections based on what's provided
-    if (partial.regime) {
-      this.context.regime = { ...partial.regime };
-    }
+      // Update the specific sections based on what's provided
+      if (partial.regime) {
+        this.context.regime = { ...partial.regime };
+      }
 
-    if (partial.alignment) {
-      this.context.alignment = { ...partial.alignment };
-    }
+      if (partial.alignment) {
+        this.context.alignment = { ...partial.alignment };
+      }
 
-    if (partial.expert) {
-      this.context.expert = { ...partial.expert };
-    }
+      if (partial.expert) {
+        this.context.expert = { ...partial.expert };
+      }
 
-    if (partial.structure) {
-      this.context.structure = { ...partial.structure };
-    }
+      if (partial.structure) {
+        this.context.structure = { ...partial.structure };
+      }
 
-    if (partial.instrument) {
-      // Merge instrument data, keeping the most recent price and other fields
-      this.context.instrument = {
-        ...this.context.instrument,
-        ...partial.instrument
-      };
-    }
+      if (partial.instrument) {
+        // Merge instrument data, keeping the most recent price and other fields
+        this.context.instrument = {
+          ...this.context.instrument,
+          ...partial.instrument
+        };
+      }
 
-    // Update the timestamp for this source
-    this.context.lastUpdated[source] = timestamp;
+      // Update the timestamp for this source
+      this.context.lastUpdated[source] = timestamp;
 
-    console.log(`Context updated from ${source}:`, {
-      source,
-      timestamp,
-      hasRegime: !!this.context.regime,
-      hasAlignment: !!this.context.alignment,
-      hasExpert: !!this.context.expert,
-      hasStructure: !!this.context.structure,
-      hasInstrument: !!this.context.instrument,
-      isComplete: this.isComplete()
-    });
-
-    const symbol = this.context.instrument?.symbol;
-    if (symbol) {
-      upsertPhase25ContextSnapshot(symbol, this.context).catch((error) => {
-        console.warn('Failed to persist Phase 2.5 context snapshot:', error);
+      console.log(`Context updated from ${source}:`, {
+        source,
+        timestamp,
+        hasRegime: !!this.context.regime,
+        hasAlignment: !!this.context.alignment,
+        hasExpert: !!this.context.expert,
+        hasStructure: !!this.context.structure,
+        hasInstrument: !!this.context.instrument,
+        isComplete: this.isComplete()
       });
-    }
+
+      const symbol = this.context.instrument?.symbol;
+      if (symbol) {
+        upsertPhase25ContextSnapshot(symbol, this.context).catch((error) => {
+          console.warn('Failed to persist Phase 2.5 context snapshot:', error);
+        });
+      }
+    });
   }
 
   /**
    * Build complete DecisionContext if all required data is available and fresh
+   * THREAD-SAFE: Uses mutex to ensure consistent reads
    */
-  build(): DecisionContext | null {
-    if (!this.isComplete()) {
-      return null;
-    }
+  async build(): Promise<DecisionContext | null> {
+    return await this.mutex.runExclusive(() => {
+      if (!this.isComplete()) {
+        return null;
+      }
 
-    if (!this.context.instrument) {
-      console.warn('Cannot build DecisionContext: missing instrument data');
-      return null;
-    }
+      if (!this.context.instrument) {
+        console.warn('Cannot build DecisionContext: missing instrument data');
+        return null;
+      }
 
-    // Calculate completeness score based on available sources
-    const completeness = this.calculateCompleteness();
+      // Calculate completeness score based on available sources
+      const completeness = this.calculateCompleteness();
 
-    return {
-      meta: {
-        engineVersion: ENGINE_VERSION,
-        receivedAt: Date.now(),
-        completeness
-      },
-      instrument: { ...this.context.instrument },
-      regime: this.context.regime!,
-      alignment: this.context.alignment || this.getDefaultAlignment(),
-      expert: this.context.expert!,
-      structure: this.context.structure || this.getDefaultStructure()
-    };
+      return {
+        meta: {
+          engineVersion: ENGINE_VERSION,
+          receivedAt: Date.now(),
+          completeness
+        },
+        instrument: { ...this.context.instrument },
+        regime: this.context.regime!,
+        alignment: this.context.alignment || this.getDefaultAlignment(),
+        expert: this.context.expert!,
+        structure: this.context.structure || this.getDefaultStructure()
+      };
+    });
   }
 
   /**

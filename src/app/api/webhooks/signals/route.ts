@@ -22,6 +22,7 @@ import { recordWebhookReceipt } from '@/webhooks/auditDb';
 import { adaptFlexibleSignal } from '@/webhooks/signalAdapter';
 import { isWrongEndpoint, getWrongEndpointError } from '@/webhooks/endpointDetector';
 import { ServiceFactory } from '@/phase25/services/service-factory';
+import { validateSignalWebhook, formatValidationErrors } from '@/webhooks/schemas';
 
 /**
  * POST /api/webhooks/signals
@@ -139,6 +140,34 @@ export async function POST(request: NextRequest) {
         { error: 'Request body must be valid JSON' },
         { status: HTTP_STATUS.BAD_REQUEST }
       );
+    }
+
+    // Validate payload structure with Zod
+    const validationResult = validateSignalWebhook(body);
+    if (!validationResult.success) {
+      const validationErrors = formatValidationErrors(validationResult.error);
+      
+      const entry = {
+        kind: 'signals' as const,
+        ok: false,
+        status: 400,
+        ip: request.headers.get('x-forwarded-for') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
+        message: `Validation failed: ${validationErrors.map((e: { message: string }) => e.message).join(', ')}`,
+        raw_payload: rawBody,
+        headers,
+      };
+      audit.add(entry);
+      await recordWebhookReceipt(entry);
+      
+      return NextResponse.json({
+        error: 'Payload validation failed',
+        type: 'VALIDATION_ERROR',
+        details: validationErrors,
+        hint: 'Check field types and value ranges',
+        engineVersion: ENGINE_VERSION,
+        requestId
+      }, { status: HTTP_STATUS.BAD_REQUEST });
     }
 
     // Auto-detect webhook type and check if sent to wrong endpoint

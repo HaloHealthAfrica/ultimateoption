@@ -15,11 +15,14 @@ import { IDecisionEngine, MarketContext,
 import { ConfigManagerService } from './config-manager.service';
 import { PHASE_RULES,
   VOLATILITY_CAPS,
-  QUALITY_BOOSTS,
+  QUALITY_BOOSTS } from '../config/constants';
+import { 
   CONFIDENCE_THRESHOLDS,
-  AI_SCORE_THRESHOLDS, 
+  AI_SCORE_THRESHOLDS,
   ALIGNMENT_THRESHOLDS,
-  SIZE_BOUNDS } from '../config/constants';
+  SIZE_BOUNDS,
+  CONFIDENCE_WEIGHTS
+} from '../config/trading-rules.config';
 
 export class DecisionEngineService implements IDecisionEngine {
   private configManager: ConfigManagerService;
@@ -204,6 +207,7 @@ export class DecisionEngineService implements IDecisionEngine {
 
   /**
    * Market Gates: Validates current market conditions
+   * CONSERVATIVE: Fails if critical market data is unavailable
    */
   runMarketGates(marketContext: MarketContext): GateResult {
     const reasons: string[] = [];
@@ -224,6 +228,13 @@ export class DecisionEngineService implements IDecisionEngine {
       
       reasons.push(`Spread OK: ${spreadBps}bps`);
       minScore = Math.min(minScore, Math.max(50, 100 - spreadBps));
+    } else {
+      // CONSERVATIVE: Fail if spread data unavailable
+      return {
+        passed: false,
+        reason: 'Spread data unavailable - cannot assess execution quality',
+        score: 0
+      };
     }
     
     // Check volatility spike conditions
@@ -241,6 +252,13 @@ export class DecisionEngineService implements IDecisionEngine {
       
       reasons.push(`ATR OK: ${atr.toFixed(2)}`);
       minScore = Math.min(minScore, Math.max(60, 100 - atr * 10));
+    } else {
+      // CONSERVATIVE: Fail if volatility data unavailable
+      return {
+        passed: false,
+        reason: 'Volatility data unavailable - cannot assess risk',
+        score: 0
+      };
     }
     
     // Check depth score
@@ -258,6 +276,13 @@ export class DecisionEngineService implements IDecisionEngine {
       
       reasons.push(`Depth OK: ${depthScore}`);
       minScore = Math.min(minScore, depthScore);
+    } else {
+      // CONSERVATIVE: Fail if depth data unavailable
+      return {
+        passed: false,
+        reason: 'Market depth data unavailable - cannot assess liquidity',
+        score: 0
+      };
     }
     
     return {
@@ -275,15 +300,15 @@ export class DecisionEngineService implements IDecisionEngine {
     let confidence = 0;
     let weightSum = 0;
     
-    // Base confidence from regime (weight: 30%) - skip if no regime data
+    // Base confidence from regime (weight from config)
     if (context.regime) {
-      const regimeWeight = 0.3;
+      const regimeWeight = CONFIDENCE_WEIGHTS.REGIME;
       confidence += context.regime.confidence * regimeWeight;
       weightSum += regimeWeight;
     }
     
-    // Expert AI score contribution (weight: 25%)
-    const expertWeight = 0.25;
+    // Expert AI score contribution (weight from config)
+    const expertWeight = CONFIDENCE_WEIGHTS.EXPERT;
     const aiScoreNormalized = Math.min(100, (context.expert.aiScore / 10.5) * 100);
     let expertScore = aiScoreNormalized;
     
@@ -293,15 +318,15 @@ export class DecisionEngineService implements IDecisionEngine {
     
     // Apply penalty for low AI scores
     if (context.expert.aiScore < AI_SCORE_THRESHOLDS.MINIMUM) {
-      expertScore *= AI_SCORE_THRESHOLDS.PENALTY_BELOW;
+      expertScore *= AI_SCORE_THRESHOLDS.PENALTY_MULTIPLIER;
     }
     
     confidence += Math.min(100, expertScore) * expertWeight;
     weightSum += expertWeight;
     
-    // Multi-timeframe alignment contribution (weight: 20%) - skip if no alignment data
+    // Multi-timeframe alignment contribution (weight from config)
     if (context.alignment) {
-      const alignmentWeight = 0.2;
+      const alignmentWeight = CONFIDENCE_WEIGHTS.ALIGNMENT;
       const direction = context.expert.direction;
       const alignmentPct = direction === "LONG" ? context.alignment.bullishPct : context.alignment.bearishPct;
       
@@ -314,16 +339,16 @@ export class DecisionEngineService implements IDecisionEngine {
       weightSum += alignmentWeight;
     }
     
-    // Market conditions contribution (weight: 15%)
-    const marketWeight = 0.15;
+    // Market conditions contribution (weight from config)
+    const marketWeight = CONFIDENCE_WEIGHTS.MARKET;
     const marketGate = this.runMarketGates(marketContext);
     const marketScore = marketGate.score || 50;
     
     confidence += marketScore * marketWeight;
     weightSum += marketWeight;
     
-    // Structural quality contribution (weight: 10%)
-    const structuralWeight = 0.1;
+    // Structural quality contribution (weight from config)
+    const structuralWeight = CONFIDENCE_WEIGHTS.STRUCTURAL;
     const structuralGate = this.runStructuralGate(context);
     const structuralScore = structuralGate.score || 50;
     

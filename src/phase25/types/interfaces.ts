@@ -86,8 +86,8 @@ export interface IMarketContextBuilder {
 // ============================================================================
 
 export interface IContextStore {
-  update(partial: Partial<DecisionContext>, source: WebhookSource): void;
-  build(): DecisionContext | null;
+  update(partial: Partial<DecisionContext>, source: WebhookSource): Promise<void>;
+  build(): Promise<DecisionContext | null>;
   isComplete(): boolean;
   getLastUpdate(source: WebhookSource): number | null;
   clear(): void;

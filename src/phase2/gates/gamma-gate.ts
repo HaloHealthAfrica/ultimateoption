@@ -23,9 +23,18 @@ export class GammaGate extends BaseRiskGate {
   readonly name = GATE_NAMES.GAMMA_GATE;
   
   evaluate(context: DecisionContext): GateResult {
-    // Get gamma bias from market context, fallback to NEUTRAL if unavailable
-    const gammaBias = context.market?.optionsData.gammaBias ?? 'NEUTRAL';
+    // Get gamma bias from market context
+    const gammaBias = context.market?.optionsData.gammaBias;
     const signalType = context.indicator.signalType;
+    
+    // CONSERVATIVE: Fail gate if gamma data is unavailable
+    // This prevents trading when we cannot assess market maker positioning
+    if (!gammaBias) {
+      return this.createResult(
+        false,
+        'Gamma bias data unavailable - cannot assess market maker positioning'
+      );
+    }
     
     // Check for gamma headwind conditions
     const hasGammaHeadwind = (

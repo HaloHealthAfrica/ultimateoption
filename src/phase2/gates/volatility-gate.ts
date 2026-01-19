@@ -22,17 +22,25 @@ export class VolatilityGate extends BaseRiskGate {
   readonly name = GATE_NAMES.VOLATILITY_GATE;
   
   evaluate(context: DecisionContext): GateResult {
-    // Get volatility data from market context, fallback to 0 if unavailable
-    let atr14 = context.market?.marketStats.atr14 ?? 0;
-    let rv20 = context.market?.marketStats.rv20 ?? 0;
+    // Get volatility data from market context
+    const atr14 = context.market?.marketStats.atr14;
+    const rv20 = context.market?.marketStats.rv20;
     
-    // Handle NaN and invalid values
-    if (!Number.isFinite(atr14)) atr14 = 0;
-    if (!Number.isFinite(rv20)) rv20 = 0;
+    // CONSERVATIVE: Fail gate if data is unavailable or invalid
+    // This prevents trading when we cannot assess volatility risk
+    if (atr14 === undefined || rv20 === undefined || 
+        !Number.isFinite(atr14) || !Number.isFinite(rv20)) {
+      return this.createResult(
+        false,
+        'Volatility data unavailable - cannot assess risk',
+        undefined,
+        GATE_THRESHOLDS.VOLATILITY_SPIKE
+      );
+    }
     
     // Calculate spike ratio with zero-division protection
-    // If RV20 is zero or invalid, assume no spike (ratio = 1.0)
-    const spikeRatio = rv20 > 0 ? atr14 / rv20 : 1.0;
+    // If RV20 is zero, use high ratio to fail the gate (conservative)
+    const spikeRatio = rv20 > 0 ? atr14 / rv20 : 999;
     
     // Apply threshold check
     const passed = spikeRatio <= GATE_THRESHOLDS.VOLATILITY_SPIKE;

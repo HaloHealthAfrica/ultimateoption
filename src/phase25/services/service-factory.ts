@@ -15,6 +15,7 @@ import { ConfigManagerService } from './config-manager.service';
 import { MetricsService } from './metrics.service';
 import { AuditLoggerService } from './audit-logger.service';
 import { RiskGatesService } from './risk-gates.service';
+import { getEngineConfig, validateEngineConfig } from '../config/engine.config';
 
 export class ServiceFactory {
   private static instance: ServiceFactory;
@@ -25,6 +26,22 @@ export class ServiceFactory {
   static getInstance(): ServiceFactory {
     if (!ServiceFactory.instance) {
       ServiceFactory.instance = new ServiceFactory();
+      
+      // Validate configuration at startup
+      const config = getEngineConfig();
+      const errors = validateEngineConfig(config);
+      
+      if (errors.length > 0) {
+        console.error('❌ CRITICAL: Invalid Phase 2.5 configuration detected!');
+        console.error('Configuration errors:');
+        errors.forEach(error => console.error(`  - ${error}`));
+        throw new Error(`Invalid Phase 2.5 configuration: ${errors.join('; ')}`);
+      }
+      
+      console.log('✅ Phase 2.5 configuration validated successfully');
+      console.log(`Engine version: ${config.version}`);
+      console.log(`Required sources: ${config.contextRules.requiredSources.join(', ')}`);
+      console.log(`Confidence thresholds: EXECUTE=${config.confidenceThresholds.execute}, WAIT=${config.confidenceThresholds.wait}`);
     }
     return ServiceFactory.instance;
   }

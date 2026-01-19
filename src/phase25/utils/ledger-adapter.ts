@@ -7,6 +7,7 @@
 import { DecisionPacket } from '../types';
 import { LedgerEntryCreate } from '@/types/ledger';
 import { EnrichedSignal } from '@/types/signal';
+import { RISK_THRESHOLDS } from '../config/trading-rules.config';
 
 /**
  * Convert Phase 2.5 decision to ledger entry
@@ -30,9 +31,9 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
   }
 
   // Calculate reasonable stop/target prices based on current price
-  const stopLoss = currentPrice * 0.98; // 2% stop loss
-  const target1 = currentPrice * 1.02; // 2% target 1
-  const target2 = currentPrice * 1.04; // 4% target 2
+  const stopLoss = currentPrice * (1 - RISK_THRESHOLDS.STOP_LOSS_PCT);
+  const target1 = currentPrice * (1 + RISK_THRESHOLDS.TARGET_1_PCT);
+  const target2 = currentPrice * (1 + RISK_THRESHOLDS.TARGET_2_PCT);
 
   // Get ATR with reasonable fallback (2% of price)
   const atr = safePositive(decision.marketSnapshot?.stats?.atr14, currentPrice * 0.02);
@@ -61,9 +62,9 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
     },
     risk: {
       amount: 0,
-      rr_ratio_t1: decision.inputContext.expert?.rr1 || 2.0,
-      rr_ratio_t2: decision.inputContext.expert?.rr2 || 4.0,
-      stop_distance_pct: 2.0,
+      rr_ratio_t1: decision.inputContext.expert?.rr1 || RISK_THRESHOLDS.MIN_RR_RATIO_T1,
+      rr_ratio_t2: decision.inputContext.expert?.rr2 || RISK_THRESHOLDS.MIN_RR_RATIO_T2,
+      stop_distance_pct: RISK_THRESHOLDS.STOP_LOSS_PCT * 100,
       recommended_shares: 0,
       recommended_contracts: 0,
       position_multiplier: decision.finalSizeMultiplier,

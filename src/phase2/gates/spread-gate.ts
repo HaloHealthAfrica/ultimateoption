@@ -21,8 +21,19 @@ export class SpreadGate extends BaseRiskGate {
   readonly name = GATE_NAMES.SPREAD_GATE;
   
   evaluate(context: DecisionContext): GateResult {
-    // Get spread from market context, fallback to 999 if unavailable
-    const spreadBps = context.market?.liquidityData.spreadBps ?? 999;
+    // Get spread from market context
+    const spreadBps = context.market?.liquidityData.spreadBps;
+    
+    // CONSERVATIVE: Fail gate if spread data is unavailable
+    // This prevents trading when we cannot assess execution quality
+    if (spreadBps === undefined || !Number.isFinite(spreadBps) || spreadBps < 0) {
+      return this.createResult(
+        false,
+        'Spread data unavailable - cannot assess execution quality',
+        undefined,
+        GATE_THRESHOLDS.SPREAD_BPS
+      );
+    }
     
     // Apply threshold check
     const passed = spreadBps <= GATE_THRESHOLDS.SPREAD_BPS;
