@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   execution JSONB,
 
   -- Exit data (updated when closed)
-  exit_data JSONB,
+  exit JSONB,
 
   -- Market regime snapshot
   regime JSONB NOT NULL,
