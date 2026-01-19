@@ -267,7 +267,7 @@ export enum FeedErrorType {
 }
 
 export interface FeedError {
-  provider: "tradier" | "twelvedata" | "alpaca";
+  provider: "tradier" | "twelvedata" | "alpaca" | "marketdata";
   type: FeedErrorType;
   message: string;
   timestamp: number;

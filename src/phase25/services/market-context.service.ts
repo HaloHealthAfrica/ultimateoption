@@ -14,11 +14,13 @@ import { ConfigManagerService } from './config-manager.service';
 import { MarketCacheService } from './market-cache.service';
 import { RateLimitTracker } from './rate-limit-tracker.service';
 import { getFallbackValue } from '../config/fallback-strategy.config';
+import { MarketDataService } from './marketdata.service';
 
 export class MarketContextBuilder implements IMarketContextBuilder {
   private tradierClient: AxiosInstance;
   private twelveDataClient: AxiosInstance;
   private alpacaClient: AxiosInstance;
+  private marketDataService: MarketDataService;
   private cache: MarketCacheService;
   private rateLimiter: RateLimitTracker;
   private config: {
@@ -26,6 +28,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     twelveData: FeedConfig;
     alpaca: FeedConfig;
   };
+  private useMarketData: boolean;
 
   constructor(config?: {
     tradier: FeedConfig;
@@ -48,6 +51,21 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     // Initialize cache and rate limiter
     this.cache = new MarketCacheService();
     this.rateLimiter = new RateLimitTracker();
+    
+    // Initialize MarketData.app service if API key is available
+    this.useMarketData = !!process.env.MARKETDATA_API_KEY;
+    if (this.useMarketData) {
+      this.marketDataService = new MarketDataService({
+        enabled: true,
+        timeout: 600,
+        retries: 2,
+        apiKey: process.env.MARKETDATA_API_KEY || '',
+        baseUrl: process.env.MARKETDATA_BASE_URL || 'https://api.marketdata.app'
+      });
+      console.log('[MarketContext] Using MarketData.app as primary provider');
+    } else {
+      console.log('[MarketContext] MarketData.app not configured, using legacy providers');
+    }
     
     // Initialize API clients with timeout and retry configuration
     this.tradierClient = axios.create({
@@ -85,41 +103,80 @@ export class MarketContextBuilder implements IMarketContextBuilder {
     const _startTime = Date.now();
     const errors: string[] = [];
 
-    // Execute all API calls in parallel for minimum latency
-    // Using Tradier for options and TwelveData for stats + liquidity
-    const [optionsResult, statsResult, liquidityResult] = await Promise.allSettled([
-      this.getTradierOptions(symbol),
-      this.getTwelveDataStats(symbol),
-      this.getTwelveDataLiquidity(symbol)  // Changed to TwelveData
-    ]);
+    // Use MarketData.app if available, otherwise fall back to legacy providers
+    if (this.useMarketData) {
+      // Execute all API calls in parallel using MarketData.app
+      const [optionsResult, statsResult, liquidityResult] = await Promise.allSettled([
+        this.marketDataService.getOptionsData(symbol),
+        this.marketDataService.getMarketStats(symbol),
+        this.marketDataService.getLiquidityData(symbol)
+      ]);
 
-    // Process results and collect any errors
-    const options = optionsResult.status === 'fulfilled' ? optionsResult.value : undefined;
-    const stats = statsResult.status === 'fulfilled' ? statsResult.value : undefined;
-    const liquidity = liquidityResult.status === 'fulfilled' ? liquidityResult.value : undefined;
+      // Process results and collect any errors
+      const options = optionsResult.status === 'fulfilled' ? optionsResult.value : undefined;
+      const stats = statsResult.status === 'fulfilled' ? statsResult.value : undefined;
+      const liquidity = liquidityResult.status === 'fulfilled' ? liquidityResult.value : undefined;
 
-    if (optionsResult.status === 'rejected') {
-      errors.push(`Tradier Options: ${optionsResult.reason.message}`);
+      if (optionsResult.status === 'rejected') {
+        errors.push(`MarketData Options: ${optionsResult.reason.message}`);
+      }
+      if (statsResult.status === 'rejected') {
+        errors.push(`MarketData Stats: ${statsResult.reason.message}`);
+      }
+      if (liquidityResult.status === 'rejected') {
+        errors.push(`MarketData Liquidity: ${liquidityResult.reason.message}`);
+      }
+
+      // Calculate completeness score (0-1 based on successful API calls)
+      const successfulCalls = [options, stats, liquidity].filter(Boolean).length;
+      const completeness = successfulCalls / 3;
+
+      return {
+        options,
+        stats,
+        liquidity,
+        fetchTime: Date.now(),
+        completeness,
+        errors
+      };
+    } else {
+      // Legacy provider fallback
+      // Execute all API calls in parallel for minimum latency
+      // Using Tradier for options and TwelveData for stats + liquidity
+      const [optionsResult, statsResult, liquidityResult] = await Promise.allSettled([
+        this.getTradierOptions(symbol),
+        this.getTwelveDataStats(symbol),
+        this.getTwelveDataLiquidity(symbol)  // Changed to TwelveData
+      ]);
+
+      // Process results and collect any errors
+      const options = optionsResult.status === 'fulfilled' ? optionsResult.value : undefined;
+      const stats = statsResult.status === 'fulfilled' ? statsResult.value : undefined;
+      const liquidity = liquidityResult.status === 'fulfilled' ? liquidityResult.value : undefined;
+
+      if (optionsResult.status === 'rejected') {
+        errors.push(`Tradier Options: ${optionsResult.reason.message}`);
+      }
+      if (statsResult.status === 'rejected') {
+        errors.push(`TwelveData Stats: ${statsResult.reason.message}`);
+      }
+      if (liquidityResult.status === 'rejected') {
+        errors.push(`TwelveData Liquidity: ${liquidityResult.reason.message}`);
+      }
+
+      // Calculate completeness score (0-1 based on successful API calls)
+      const successfulCalls = [options, stats, liquidity].filter(Boolean).length;
+      const completeness = successfulCalls / 3;
+
+      return {
+        options,
+        stats,
+        liquidity,
+        fetchTime: Date.now(),
+        completeness,
+        errors
+      };
     }
-    if (statsResult.status === 'rejected') {
-      errors.push(`TwelveData Stats: ${statsResult.reason.message}`);
-    }
-    if (liquidityResult.status === 'rejected') {
-      errors.push(`TwelveData Liquidity: ${liquidityResult.reason.message}`);
-    }
-
-    // Calculate completeness score (0-1 based on successful API calls)
-    const successfulCalls = [options, stats, liquidity].filter(Boolean).length;
-    const completeness = successfulCalls / 3;
-
-    return {
-      options,
-      stats,
-      liquidity,
-      fetchTime: Date.now(),
-      completeness,
-      errors
-    };
   }
 
   /**
