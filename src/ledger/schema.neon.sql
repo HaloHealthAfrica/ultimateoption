@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   -- Hypothetical tracking (for skipped trades)
   hypothetical JSONB,
 
+  -- Enhanced data for replay and learning (Phase 2.5+)
+  enhanced_data JSONB,
+
   -- Constraints
   CONSTRAINT valid_execution CHECK (
     (decision = 'EXECUTE' AND execution IS NOT NULL) OR
