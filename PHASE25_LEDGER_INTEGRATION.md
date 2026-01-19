@@ -43,7 +43,27 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
 
 ---
 
-### 3. Decision Orchestrator Integration ✅
+### 3. Paper Trading Execution + Exit Simulation ✅
+**Files:**
+- `src/phase25/utils/paper-execution-adapter.ts`
+- `src/phase25/utils/paper-exit-simulator.ts`
+- `src/phase25/services/decision-orchestrator.service.ts`
+
+Added deterministic paper execution and automated exit simulation:
+- Converts Phase 2.5 decisions into `EnrichedSignal` + `DecisionResult` for the paper executor
+- Executes simulated fills and stores the `execution` payload in the ledger
+- Simulates exits (target/stop) and writes exit P&L attribution to ledger
+- Exit timing is deterministic by DTE bucket (override via env)
+
+**Config (optional):**
+- `PHASE25_PAPER_BASE_CONTRACTS` (default `1`)
+- `PHASE25_PAPER_EXIT_TARGET2_CONF` (default `80`)
+- `PHASE25_PAPER_EXIT_TARGET1_CONF` (default `60`)
+- `PHASE25_PAPER_EXIT_MINUTES` (override hold time)
+
+---
+
+### 4. Decision Orchestrator Integration ✅
 **File:** `src/phase25/services/decision-orchestrator.service.ts`
 
 Updated `handleDecisionForwarding` to store ALL decisions:
@@ -59,7 +79,7 @@ Decision Made → Store in Ledger → Forward to Execution (if EXECUTE)
 
 ---
 
-### 4. Decisions API Integration ✅
+### 5. Decisions API Integration ✅
 **File:** `src/app/api/decisions/route.ts`
 
 Updated `GET /api/decisions` to read from global ledger:
@@ -70,7 +90,7 @@ Updated `GET /api/decisions` to read from global ledger:
 
 ---
 
-### 5. Ledger API Integration ✅
+### 6. Ledger API Integration ✅
 **File:** `src/app/api/ledger/route.ts`
 
 Updated `GET /api/ledger` to read from global ledger:
@@ -168,13 +188,14 @@ Each decision stores:
 ## Frontend Integration
 
 ### Current State
-✅ **Backend:** Phase 2.5 decisions stored in ledger  
-✅ **API:** Decisions API returns Phase 2.5 data  
-⚠️ **Frontend:** Dashboard fetches from `/api/decisions` (will show Phase 2.5 decisions)
+✅ **Backend:** Phase 2.5 decisions + paper execution + exits stored in ledger  
+✅ **API:** Decisions/Ledger endpoints return Phase 2.5 data  
+✅ **Metrics:** Phase 2.5 metrics endpoint includes `paper_performance`  
+✅ **Frontend:** Trades tab reads ledger + Phase 2.5 paper performance
 
 ### Dashboard Components
 - **Decision Card:** Shows most recent decision (Phase 2 or 2.5)
-- **Paper Trades Tab:** Shows executed trades from ledger
+- **Paper Trades Tab:** Shows executed trades + exits from ledger and performance metrics
 - **Learning Tab:** Can analyze SKIP/WAIT decisions
 
 ---
@@ -191,15 +212,10 @@ Each decision stores:
 - ⚠️ Missing: entry prices, stop loss, targets
 - ✅ **Solution:** Enhance ledger adapter with more context
 
-### 3. No Execution Data
-- ⚠️ EXECUTE decisions don't have execution details
-- ⚠️ No filled contracts, Greeks, or P&L
-- ✅ **Solution:** Implement paper trading executor (next step)
-
-### 4. No Auto-Trading
-- ⚠️ Decisions stored but not executed
-- ⚠️ No broker integration
-- ✅ **Solution:** Add paper trading executor, then broker integration
+### 3. Simulated-Only Execution
+- ⚠️ Paper execution and exits are simulated
+- ⚠️ No live broker integration
+- ✅ **Solution:** Add broker adapter when ready
 
 ---
 
@@ -211,15 +227,14 @@ Each decision stores:
    - Check API responses
    - Validate data persistence
 
-2. ⚠️ **Implement Paper Trading Executor**
-   - Create simulated fills for EXECUTE decisions
-   - Add execution data to ledger entries
-   - Calculate Greeks and position sizing
+2. ✅ **Implement Paper Trading Executor**
+   - Simulated fills for EXECUTE decisions
+   - Execution data stored in ledger entries
+   - Greeks and sizing included
 
-3. ⚠️ **Add Exit Tracking**
-   - Monitor open positions
-   - Simulate exits (target/stop/time)
-   - Update ledger with exit data
+3. ✅ **Add Exit Tracking**
+   - Deterministic exits (target/stop/time)
+   - Ledger exit data with P&L attribution
 
 ### Short-term (Enhancements)
 4. Add Phase 2.5 tab to dashboard
@@ -282,6 +297,17 @@ curl "http://localhost:3000/api/decisions?decision=EXECUTE&limit=10"
 
 ### GET /api/ledger
 Returns complete ledger entries (includes execution data).
+---
+
+### GET /api/phase25/webhooks/metrics
+Returns Phase 2.5 system metrics plus paper performance stats.
+
+**Response adds:**
+- `paper_performance.overall`
+- `paper_performance.rolling`
+- `paper_performance.by_dte_bucket`
+- `paper_performance.streaks`
+
 
 **Query Parameters:**
 - All from `/api/decisions` plus:

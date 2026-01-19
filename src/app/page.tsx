@@ -11,7 +11,7 @@ import { Phase25ContextStatus } from '@/components/dashboard/Phase25ContextStatu
 import { ConfluenceView } from '@/ui/components/ConfluenceView';
 import { DecisionBreakdown } from '@/ui/components/DecisionBreakdown';
 import { LearningInsights } from '@/ui/components/LearningInsights';
-import { PaperTrades } from '@/ui/components/PaperTrades';
+import { PaperTrades, PaperPerformance } from '@/ui/components/PaperTrades';
 import { SignalMonitor } from '@/ui/components/SignalMonitor';
 import { Metrics } from '@/learning/metricsEngine';
 import { LearningSuggestion } from '@/learning/learningAdvisor';
@@ -30,6 +30,7 @@ interface DashboardState {
   decision: DecisionResult | null;
   ledgerEntries: LedgerEntry[];
   metrics: Metrics | null;
+  paperPerformance: PaperPerformance | null;
   suggestions: LearningSuggestion[];
   lastUpdated: number;
   error: string | null;
@@ -42,6 +43,7 @@ const initialState: DashboardState = {
   decision: null,
   ledgerEntries: [],
   metrics: null,
+  paperPerformance: null,
   suggestions: [],
   // Important: must be deterministic across SSR + client hydration.
   // We'll set a real timestamp after mount / first fetch.
@@ -163,6 +165,14 @@ async function fetchDashboardData(): Promise<Partial<DashboardState>> {
     next.metrics = payload.metrics ?? null;
   } catch (e) {
     errors.push(`Metrics: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
+
+  // Paper performance (Phase 2.5)
+  try {
+    const payload = await fetchJson<{ paper_performance?: PaperPerformance | null }>('/api/phase25/webhooks/metrics');
+    next.paperPerformance = payload.paper_performance ?? null;
+  } catch (e) {
+    errors.push(`Paper metrics: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
 
   // Suggestions
@@ -467,7 +477,11 @@ export default function DashboardPage() {
         {tab === 'trades' ? (
           <div className="space-y-6">
             <Card title="Paper Trades" subtitle="Read-only ledger view (DB-backed later)">
-              <PaperTrades entries={state.ledgerEntries} onRefresh={refresh} />
+              <PaperTrades
+                entries={state.ledgerEntries}
+                performance={state.paperPerformance}
+                onRefresh={refresh}
+              />
             </Card>
           </div>
         ) : null}

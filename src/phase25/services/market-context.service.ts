@@ -20,7 +20,7 @@ export class MarketContextBuilder implements IMarketContextBuilder {
   private tradierClient: AxiosInstance;
   private twelveDataClient: AxiosInstance;
   private alpacaClient: AxiosInstance;
-  private marketDataService: MarketDataService;
+  private marketDataService!: MarketDataService;
   private cache: MarketCacheService;
   private rateLimiter: RateLimitTracker;
   private config: {

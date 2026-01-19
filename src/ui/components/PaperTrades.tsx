@@ -7,13 +7,28 @@
  * Requirements: 14.4
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LedgerEntry } from '@/types/ledger';
 import { OptionType, Execution } from '@/types/options';
+import { Metrics, RollingMetrics } from '@/learning/metricsEngine';
 
 interface PaperTradesProps {
   entries: LedgerEntry[];
+  performance?: PaperPerformance | null;
   onRefresh?: () => void;
+}
+
+export interface PaperPerformance {
+  overall: Metrics;
+  rolling: RollingMetrics;
+  by_dte_bucket: Record<string, Metrics>;
+  streaks: {
+    currentStreak: number;
+    currentStreakType: 'WIN' | 'LOSS' | 'NONE';
+    maxWinStreak: number;
+    maxLossStreak: number;
+  };
+  sample_size: number;
 }
 
 /**
@@ -201,7 +216,7 @@ function ClosedPositionRow({ entry }: { entry: LedgerEntry }) {
 /**
  * Paper Trades Component
  */
-export function PaperTrades({ entries, onRefresh }: PaperTradesProps) {
+export function PaperTrades({ entries, performance, onRefresh }: PaperTradesProps) {
   const [showClosed, setShowClosed] = useState(false);
   
   // Separate open and closed positions
@@ -216,6 +231,25 @@ export function PaperTrades({ entries, onRefresh }: PaperTradesProps) {
   const totalPnL = closedPositions.reduce((sum, e) => sum + (e.exit?.pnl_net ?? 0), 0);
   const winCount = closedPositions.filter(e => (e.exit?.pnl_net ?? 0) > 0).length;
   const winRate = closedPositions.length > 0 ? (winCount / closedPositions.length) * 100 : 0;
+  const perfSummary = useMemo(() => {
+    if (!performance?.overall) return null;
+    return performance.overall;
+  }, [performance]);
+  const perfValid = perfSummary?.status === 'VALID';
+  const displayPnL = perfValid && typeof perfSummary?.total_pnl === 'number'
+    ? perfSummary.total_pnl
+    : totalPnL;
+  const displayWinRate = perfValid && typeof perfSummary?.win_rate === 'number'
+    ? perfSummary.win_rate * 100
+    : winRate;
+  const displayTrades = perfValid && typeof perfSummary?.total_trades === 'number'
+    ? perfSummary.total_trades
+    : closedPositions.length;
+  const sampleLabel = perfSummary
+    ? perfSummary.status === 'VALID'
+      ? `sample ${perfSummary.sample_size}`
+      : `sample ${perfSummary.sample_size}/${perfSummary.required ?? 30}`
+    : null;
   
   return (
     <div className="bg-gray-900 rounded-xl p-6">
@@ -225,6 +259,7 @@ export function PaperTrades({ entries, onRefresh }: PaperTradesProps) {
           <h2 className="text-xl font-bold text-white">Paper Trades</h2>
           <p className="text-gray-400 text-sm">
             {openPositions.length} open / {closedPositions.length} closed
+            {sampleLabel ? ` • ${sampleLabel}` : ''}
           </p>
         </div>
         <div className="flex gap-2">
@@ -250,16 +285,20 @@ export function PaperTrades({ entries, onRefresh }: PaperTradesProps) {
       </div>
       
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="text-gray-400 text-xs">Total P&L</div>
-          <div className={`text-xl font-bold ${getPnLColor(totalPnL)}`}>
-            {formatCurrency(totalPnL)}
+          <div className={`text-xl font-bold ${getPnLColor(displayPnL)}`}>
+            {formatCurrency(displayPnL)}
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="text-gray-400 text-xs">Win Rate</div>
-          <div className="text-xl font-bold text-white">{winRate.toFixed(1)}%</div>
+          <div className="text-xl font-bold text-white">{displayWinRate.toFixed(1)}%</div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3">
+          <div className="text-gray-400 text-xs">Closed Trades</div>
+          <div className="text-xl font-bold text-blue-400">{displayTrades}</div>
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="text-gray-400 text-xs">Open Positions</div>

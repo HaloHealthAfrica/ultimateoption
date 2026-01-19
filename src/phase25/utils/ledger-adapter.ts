@@ -13,6 +13,7 @@
 import { DecisionPacket } from '../types';
 import { LedgerEntryCreate } from '@/types/ledger';
 import { EnrichedSignal } from '@/types/signal';
+import type { Execution } from '@/types/options';
 import { RISK_THRESHOLDS } from '../config/trading-rules.config';
 import { LEDGER_DEFAULTS } from '../config/constants';
 
@@ -97,7 +98,12 @@ function getMarketSession(timestamp: number): 'OPEN' | 'MIDDAY' | 'POWER_HOUR' |
 /**
  * Build enriched signal from decision packet
  */
-function buildEnrichedSignal(decision: DecisionPacket, currentPrice: number, atr: number): EnrichedSignal {
+function buildEnrichedSignal(
+  decision: DecisionPacket,
+  currentPrice: number,
+  atr: number,
+  recommendedContracts: number
+): EnrichedSignal {
   const { inputContext, marketSnapshot, timestamp, finalSizeMultiplier } = decision;
   
   // Calculate stop/target prices
@@ -132,7 +138,7 @@ function buildEnrichedSignal(decision: DecisionPacket, currentPrice: number, atr
       rr_ratio_t2: inputContext.expert?.rr2 || RISK_THRESHOLDS.MIN_RR_RATIO_T2,
       stop_distance_pct: RISK_THRESHOLDS.STOP_LOSS_PCT * 100,
       recommended_shares: 0,
-      recommended_contracts: 0,
+      recommended_contracts: recommendedContracts,
       position_multiplier: finalSizeMultiplier,
       account_risk_pct: 0,
       max_loss_dollars: 0,
@@ -234,7 +240,7 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
   const atr = safePositive(decision.marketSnapshot?.stats?.atr14, currentPrice * 0.02);
   
   // Build components
-  const signal = buildEnrichedSignal(decision, currentPrice, atr);
+  const signal = buildEnrichedSignal(decision, currentPrice, atr, 0);
   const decisionBreakdown = buildDecisionBreakdown(decision);
   const regime = buildRegimeSnapshot(decision);
   
@@ -254,5 +260,36 @@ export function convertDecisionToLedgerEntry(decision: DecisionPacket): LedgerEn
     gate_results: decision.gateResults,
   };
   
+  return entry;
+}
+
+export function buildEnrichedSignalFromDecision(
+  decision: DecisionPacket,
+  recommendedContracts: number
+): EnrichedSignal {
+  const symbol = decision.inputContext.instrument.symbol;
+  const rawPrice = decision.inputContext.instrument.price;
+  const currentPrice = safePositive(rawPrice, 100);
+
+  if (!rawPrice || rawPrice <= 0) {
+    console.warn(`Using fallback price for ${symbol}: instrument.price was ${rawPrice}`);
+  }
+
+  const atr = safePositive(decision.marketSnapshot?.stats?.atr14, currentPrice * 0.02);
+  return buildEnrichedSignal(decision, currentPrice, atr, recommendedContracts);
+}
+
+export function convertDecisionToLedgerEntryWithExecution(
+  decision: DecisionPacket,
+  execution: Execution | undefined,
+  recommendedContracts: number
+): LedgerEntryCreate {
+  const entry = convertDecisionToLedgerEntry(decision);
+  if (execution) {
+    entry.execution = execution;
+  }
+  if (recommendedContracts > 0) {
+    entry.signal.risk.recommended_contracts = recommendedContracts;
+  }
   return entry;
 }

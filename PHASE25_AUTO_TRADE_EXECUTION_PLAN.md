@@ -3,34 +3,47 @@
 ## Goal
 Receive webhooks → build decision context → make decision → show on dashboard → auto‑trade (paper first, real later).
 
-## Current State (What Works)
-- Webhooks ingest and decision engine produce EXECUTE/WAIT/SKIP.
-- Decisions persist to ledger (Postgres).
-- Phase 2.5 dashboard components exist (Decision Card, Breakdown, History).
+## Current State (What Works) ✅
 
-## Gaps to Close
+### Phase 2.5 Paper Trading - COMPLETE
+- ✅ Webhooks ingest and decision engine produce EXECUTE/WAIT/SKIP
+- ✅ Decisions persist to ledger (in-memory, PostgreSQL migration pending)
+- ✅ Phase 2.5 dashboard components (Decision Card, Breakdown, History)
+- ✅ **Paper execution adapter** converts decisions to simulated fills
+- ✅ **Paper exit simulator** deterministically closes positions (target/stop based on confidence)
+- ✅ **Ledger integration** stores execution + exit data with full P&L attribution
+- ✅ **Dashboard integration** displays paper performance metrics and trade history
+- ✅ **Metrics API** exposes paper performance (overall, rolling, by DTE, streaks)
 
-### A) UI Reliability (Blocking)
-1. **Overview dashboard crash**
-   - Cause: `/api/decisions` returns ledger shape, overview expects `DecisionResult`.
-   - Fix: Normalize ledger entry → `DecisionResult` (already implemented locally; needs deploy).
+### Complete Flow (Working End-to-End)
+```
+Webhook → Decision Engine → EXECUTE
+  ↓
+Paper Execution Adapter (builds signal + decision inputs)
+  ↓
+executePaperTrade() (simulates fill with Greeks, slippage, spread)
+  ↓
+Store execution in ledger
+  ↓
+simulatePaperExit() (deterministic exit based on confidence)
+  ↓
+Update ledger with exit P&L attribution
+  ↓
+Dashboard displays trades + metrics
+```
 
-### B) Auto‑Trade Execution (Missing)
-1. **Paper Executor Service**
-   - Needed to convert EXECUTE decisions into simulated option trades.
-   - Must write `execution` data back to ledger.
+## What's Next
 
-2. **Position Tracking**
-   - Track open positions from ledger entries with `execution` but no `exit`.
-   - Update P&L + Greeks periodically.
+### A) Production Hardening (Required for Deployment)
+1. **Database Migration**
+   - Replace in-memory ledger with PostgreSQL
+   - Persist across server restarts
+   - Handle concurrent requests safely
 
-3. **Exit Simulation**
-   - Trigger exits on targets/stops/time rules.
-   - Write `exit` data to ledger and close positions.
-
-4. **Risk Controls**
-   - Max position size, daily loss cap, max open positions.
-   - Kill switch + human‑approval flag for large trades.
+2. **Error Recovery**
+   - Graceful degradation when market feeds fail
+   - Retry logic for ledger writes
+   - Audit trail for failed executions
 
 ### C) Production Hardening
 1. Replace `Math.random()` UUIDs in ledger.

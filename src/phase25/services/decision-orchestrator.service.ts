@@ -18,6 +18,10 @@ import { DecisionEngineService } from './decision-engine.service';
 import { ErrorHandlerService } from './error-handler.service';
 import { ConfigManagerService } from './config-manager.service';
 import { MetricsService } from './metrics.service';
+import { executePaperTrade } from '@/paper';
+import { buildPaperTradeInputs } from '../utils/paper-execution-adapter';
+import type { Execution } from '@/types/options';
+import type { EnrichedSignal } from '@/types/signal';
 
 export class DecisionOrchestratorService implements IDecisionOrchestrator {
   private sourceRouter: SourceRouterService;
@@ -396,12 +400,27 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
     }
 
     try {
+      let execution: Execution | undefined;
+      let recommendedContracts = 0;
+      let paperSignal: EnrichedSignal | undefined;
+
+      if (decision.action === 'EXECUTE') {
+        const executionResult = await this.forwardToExecution(decision);
+        execution = executionResult.execution;
+        recommendedContracts = executionResult.recommendedContracts;
+        paperSignal = executionResult.signal;
+      }
+
       // Store ALL decisions in ledger (EXECUTE, WAIT, SKIP)
       const { getGlobalLedger } = await import('@/ledger/globalLedger');
-      const { convertDecisionToLedgerEntry } = await import('../utils/ledger-adapter');
+      const { convertDecisionToLedgerEntryWithExecution } = await import('../utils/ledger-adapter');
       
       const ledger = await getGlobalLedger();
-      const ledgerEntry = convertDecisionToLedgerEntry(decision);
+      const ledgerEntry = convertDecisionToLedgerEntryWithExecution(
+        decision,
+        execution,
+        recommendedContracts
+      );
       
       console.log('Attempting to store decision in ledger:', {
         symbol: decision.inputContext.instrument.symbol,
@@ -415,9 +434,19 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          await ledger.append(ledgerEntry);
+          const created = await ledger.append(ledgerEntry);
           console.log('✅ Decision stored in ledger successfully');
           stored = true;
+          if (decision.action === 'EXECUTE' && execution && paperSignal) {
+            try {
+              const { simulatePaperExit } = await import('../utils/paper-exit-simulator');
+              const exitData = simulatePaperExit(decision, execution, paperSignal);
+              await ledger.updateExit(created.id, exitData);
+              console.log('✅ Paper exit simulated and stored');
+            } catch (exitError) {
+              console.warn('Paper exit simulation failed (non-blocking):', exitError);
+            }
+          }
           break;
         } catch (error) {
           lastError = error instanceof Error ? error.message : 'Unknown error';
@@ -429,9 +458,11 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
       // Handle action-specific forwarding
       switch (decision.action) {
         case 'EXECUTE':
-          await this.forwardToExecution(decision);
+          if (!execution) {
+            console.warn('EXECUTE decision stored without execution payload');
+          }
           break;
-        
+
         case 'WAIT':
         case 'SKIP':
           // Log the decision but don't execute
@@ -456,20 +487,27 @@ export class DecisionOrchestratorService implements IDecisionOrchestrator {
   /**
    * Forward EXECUTE decisions to paper trading system
    */
-  private async forwardToExecution(decision: DecisionPacket): Promise<void> {
-    // In a real implementation, this would forward to the paper trading executor
-    // For now, we'll just log the execution intent
-    
-    console.log('Forwarding to paper execution:', {
-      action: decision.action,
-      direction: decision.direction,
-      symbol: decision.inputContext.instrument.symbol,
-      sizeMultiplier: decision.finalSizeMultiplier,
-      confidence: decision.confidenceScore,
-      timestamp: new Date(decision.timestamp).toISOString()
-    });
+  private async forwardToExecution(decision: DecisionPacket): Promise<{
+    execution?: Execution;
+    recommendedContracts: number;
+    signal?: EnrichedSignal;
+  }> {
+    try {
+      const { signal, decision: paperDecision, recommendedContracts } = buildPaperTradeInputs(decision);
+      const execution = executePaperTrade(signal, paperDecision);
 
-    // TODO: Implement actual paper trading integration
-    // await this.paperTradingExecutor.execute(decision);
+      console.log('Paper execution completed:', {
+        symbol: decision.inputContext.instrument.symbol,
+        direction: decision.direction,
+        contracts: execution.contracts,
+        entry_price: execution.entry_price,
+        fill_quality: execution.fill_quality,
+      });
+
+      return { execution, recommendedContracts, signal };
+    } catch (error) {
+      console.warn('Paper execution failed (non-blocking):', error);
+      return { recommendedContracts: 0 };
+    }
   }
 }

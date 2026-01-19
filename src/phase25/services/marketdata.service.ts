@@ -18,28 +18,29 @@ interface MarketDataConfig {
   baseUrl: string;
 }
 
-interface OptionQuote {
-  s: string;
-  optionSymbol: string[];
-  ask: number[];
-  askSize: number[];
-  bid: number[];
-  bidSize: number[];
-  mid: number[];
-  last: number[];
-  volume: number[];
-  openInterest: number[];
-  underlyingPrice: number[];
-  inTheMoney: boolean[];
-  updated: number[];
-  iv: number[];
-  delta: number[];
-  gamma: number[];
-  theta: number[];
-  vega: number[];
-  intrinsicValue: number[];
-  extrinsicValue: number[];
-}
+// Unused interface - kept for future reference
+// interface OptionQuote {
+//   s: string;
+//   optionSymbol: string[];
+//   ask: number[];
+//   askSize: number[];
+//   bid: number[];
+//   bidSize: number[];
+//   mid: number[];
+//   last: number[];
+//   volume: number[];
+//   openInterest: number[];
+//   underlyingPrice: number[];
+//   inTheMoney: boolean[];
+//   updated: number[];
+//   iv: number[];
+//   delta: number[];
+//   gamma: number[];
+//   theta: number[];
+//   vega: number[];
+//   intrinsicValue: number[];
+//   extrinsicValue: number[];
+// }
 
 interface StockQuote {
   s: string;
@@ -168,7 +169,6 @@ export class MarketDataService {
       let totalOpenInterest = 0;
       let weightedIV = 0;
       let totalVolume = 0;
-      let gammaSum = 0;
       let gammaWeightedSum = 0;
 
       for (let i = 0; i < chain.optionSymbol.length; i++) {
@@ -194,7 +194,6 @@ export class MarketDataService {
 
         // Weight gamma by open interest
         if (openInterest > 0) {
-          gammaSum += gamma;
           gammaWeightedSum += gamma * openInterest;
         }
       }

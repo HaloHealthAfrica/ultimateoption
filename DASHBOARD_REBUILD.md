@@ -60,6 +60,12 @@ All dashboard components are now wrapped with error boundaries:
 ✅ Dark theme styling consistency
 ✅ Responsive layout
 
+## Paper Trades Updates
+
+- Trades tab now reads Phase 2.5 paper performance from `GET /api/phase25/webhooks/metrics`.
+- The summary cards (P&L, win rate, closed trades) are backed by the new `paper_performance` metrics.
+- Open/closed tables still use ledger entries for detailed execution/exit data.
+
 ## Next Steps
 
 The dashboard is now much more robust and should handle errors gracefully. If specific components continue to have issues, they will now fail individually with clear error messages and retry options, rather than crashing the entire dashboard.
