@@ -73,19 +73,19 @@ function GreeksDisplay({ execution }: { execution: Execution }) {
     <div className="grid grid-cols-4 gap-2 text-xs">
       <div>
         <span className="text-gray-500">Δ</span>
-        <span className="text-blue-400 ml-1">{execution.entry_delta.toFixed(3)}</span>
+        <span className="text-blue-400 ml-1">{execution.entry_delta?.toFixed(3) ?? 'N/A'}</span>
       </div>
       <div>
         <span className="text-gray-500">Γ</span>
-        <span className="text-purple-400 ml-1">{execution.entry_gamma.toFixed(4)}</span>
+        <span className="text-purple-400 ml-1">{execution.entry_gamma?.toFixed(4) ?? 'N/A'}</span>
       </div>
       <div>
         <span className="text-gray-500">Θ</span>
-        <span className="text-orange-400 ml-1">{execution.entry_theta.toFixed(2)}</span>
+        <span className="text-orange-400 ml-1">{execution.entry_theta?.toFixed(2) ?? 'N/A'}</span>
       </div>
       <div>
         <span className="text-gray-500">IV</span>
-        <span className="text-cyan-400 ml-1">{(execution.entry_iv * 100).toFixed(1)}%</span>
+        <span className="text-cyan-400 ml-1">{execution.entry_iv ? (execution.entry_iv * 100).toFixed(1) + '%' : 'N/A'}</span>
       </div>
     </div>
   );
@@ -123,11 +123,11 @@ function OpenPositionCard({ entry }: { entry: LedgerEntry }) {
       <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
         <div>
           <span className="text-gray-500">Contracts:</span>
-          <span className="text-white ml-2">{execution.filled_contracts}</span>
+          <span className="text-white ml-2">{execution.filled_contracts ?? execution.contracts ?? 0}</span>
         </div>
         <div>
           <span className="text-gray-500">Entry:</span>
-          <span className="text-white ml-2">${execution.entry_price.toFixed(2)}</span>
+          <span className="text-white ml-2">${execution.entry_price?.toFixed(2) ?? 'N/A'}</span>
         </div>
         <div>
           <span className="text-gray-500">Cost Basis:</span>
@@ -135,7 +135,7 @@ function OpenPositionCard({ entry }: { entry: LedgerEntry }) {
         </div>
         <div>
           <span className="text-gray-500">Risk:</span>
-          <span className="text-red-400 ml-2">${execution.risk_amount.toFixed(2)}</span>
+          <span className="text-red-400 ml-2">${execution.risk_amount?.toFixed(2) ?? 'N/A'}</span>
         </div>
       </div>
       
@@ -149,15 +149,15 @@ function OpenPositionCard({ entry }: { entry: LedgerEntry }) {
       <div className="grid grid-cols-3 gap-2 text-xs mb-3">
         <div>
           <span className="text-gray-500">Spread:</span>
-          <span className="text-orange-400 ml-1">${execution.spread_cost.toFixed(2)}</span>
+          <span className="text-orange-400 ml-1">${execution.spread_cost?.toFixed(2) ?? 'N/A'}</span>
         </div>
         <div>
           <span className="text-gray-500">Slip:</span>
-          <span className="text-orange-400 ml-1">${execution.slippage.toFixed(2)}</span>
+          <span className="text-orange-400 ml-1">${execution.slippage?.toFixed(2) ?? 'N/A'}</span>
         </div>
         <div>
           <span className="text-gray-500">Comm:</span>
-          <span className="text-orange-400 ml-1">${execution.commission.toFixed(2)}</span>
+          <span className="text-orange-400 ml-1">${execution.commission?.toFixed(2) ?? 'N/A'}</span>
         </div>
       </div>
       
@@ -191,14 +191,14 @@ function ClosedPositionRow({ entry }: { entry: LedgerEntry }) {
           ${execution.strike}
         </span>
       </td>
-      <td className="py-3 px-4 text-gray-300">{execution.filled_contracts}</td>
-      <td className="py-3 px-4 text-gray-300">${execution.entry_price.toFixed(2)}</td>
-      <td className="py-3 px-4 text-gray-300">${exit.exit_price.toFixed(2)}</td>
+      <td className="py-3 px-4 text-gray-300">{execution.filled_contracts ?? execution.contracts ?? 0}</td>
+      <td className="py-3 px-4 text-gray-300">${execution.entry_price?.toFixed(2) ?? 'N/A'}</td>
+      <td className="py-3 px-4 text-gray-300">${exit.exit_price?.toFixed(2) ?? 'N/A'}</td>
       <td className={`py-3 px-4 font-mono ${getPnLColor(exit.pnl_net)}`}>
-        {formatCurrency(exit.pnl_net)}
+        {formatCurrency(exit.pnl_net ?? 0)}
       </td>
       <td className="py-3 px-4 text-gray-400 text-sm">
-        {formatDuration(exit.hold_time_seconds)}
+        {exit.hold_time_seconds ? formatDuration(exit.hold_time_seconds) : 'N/A'}
       </td>
       <td className="py-3 px-4">
         <span className={`px-2 py-1 rounded text-xs ${
@@ -242,6 +242,11 @@ export function PaperTrades({ entries, performance, onRefresh }: PaperTradesProp
   const displayWinRate = perfValid && typeof perfSummary?.win_rate === 'number'
     ? perfSummary.win_rate * 100
     : winRate;
+  
+  // Ensure displayWinRate is a valid number
+  const safeDisplayWinRate = typeof displayWinRate === 'number' && !isNaN(displayWinRate) 
+    ? displayWinRate 
+    : 0;
   const displayTrades = perfValid && typeof perfSummary?.total_trades === 'number'
     ? perfSummary.total_trades
     : closedPositions.length;
@@ -294,7 +299,7 @@ export function PaperTrades({ entries, performance, onRefresh }: PaperTradesProp
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="text-gray-400 text-xs">Win Rate</div>
-          <div className="text-xl font-bold text-white">{displayWinRate.toFixed(1)}%</div>
+          <div className="text-xl font-bold text-white">{safeDisplayWinRate.toFixed(1)}%</div>
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="text-gray-400 text-xs">Closed Trades</div>
