@@ -1,0 +1,126 @@
+
+=== TESTING MARKET DATA SOURCES ===
+
+Sending test signal to Phase 2.5...
+URL: https://optionstrat.vercel.app/api/phase25/webhooks/signals
+Symbol: SPY
+Signal: LONG @ 580.25
+
+Response Status: 200
+Decision: [object Object]
+Confidence: N/A%
+
+--- Full Response ---
+{
+  "success": true,
+  "decision": {
+    "action": "SKIP",
+    "finalSizeMultiplier": 0,
+    "confidenceScore": 65.1,
+    "reasons": [
+      "Market gate failed: Spread too wide: 15bps > 12bps"
+    ],
+    "engineVersion": "2.5.0",
+    "gateResults": {
+      "regime": {
+        "passed": true,
+        "reason": "No regime data available, allowing trade (signal-only mode)",
+        "score": 50
+      },
+      "structural": {
+        "passed": true,
+        "reason": "Valid setup with B quality, AI score 8.5",
+        "score": 77.97619047619048,
+        "details": {
+          "qualityScore": 75,
+          "aiScoreNormalized": 80.95238095238095
+        }
+      },
+      "market": {
+        "passed": false,
+        "reason": "Spread too wide: 15bps > 12bps",
+        "score": 50,
+        "details": {
+          "failures": [
+            "Spread too wide: 15bps > 12bps"
+          ],
+          "scores": [
+            70,
+            80,
+            50
+          ]
+        }
+      }
+    },
+    "inputContext": {
+      "meta": {
+        "engineVersion": "2.5.0",
+        "receivedAt": 1769042706843,
+        "completeness": 0.2
+      },
+      "instrument": {
+        "symbol": "SPY",
+        "exchange": "NYSE",
+        "price": 580.25
+      },
+      "alignment": {
+        "tfStates": {},
+        "bullishPct": 50,
+        "bearishPct": 50
+      },
+      "expert": {
+        "direction": "LONG",
+        "aiScore": 8.5,
+        "quality": "HIGH",
+        "components": [],
+        "rr1": 2.5,
+        "rr2": 4
+      },
+      "structure": {
+        "validSetup": true,
+        "liquidityOk": true,
+        "executionQuality": "B"
+      }
+    },
+    "marketSnapshot": {
+      "options": {
+        "putCallRatio": 1,
+        "ivPercentile": 50,
+        "gammaBias": "NEUTRAL",
+        "optionVolume": 0,
+        "maxPain": 0
+      },
+      "stats": {
+        "atr14": 2,
+        "rv20": 20,
+        "trendSlope": 0,
+        "rsi": 50,
+        "volume": 1000000,
+        "volumeRatio": 1,
+        "confidence": 0,
+        "reason": "Using conservative neutral values due to provider failure"
+      },
+      "liquidity": {
+        "spreadBps": 15,
+        "depthScore": 50,
+        "tradeVelocity": "NORMAL",
+        "bidSize": 100,
+        "askSize": 100,
+        "confidence": 0,
+        "reason": "Using conservative neutral values due to provider failure"
+      },
+      "fetchTime": 1769042706844,
+      "completeness": 1,
+      "errors": []
+    },
+    "timestamp": 1769042706844
+  },
+  "message": "Decision made: SKIP (confidence: 65.1)",
+  "processingTime": 2,
+  "details": {
+    "ledgerStored": true
+  },
+  "engineVersion": "2.5.0",
+  "requestId": "req_1769042706842_2ktwqh01j",
+  "timestamp": 1769042706852
+}

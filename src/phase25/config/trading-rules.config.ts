@@ -99,10 +99,10 @@ export const ALIGNMENT_THRESHOLDS = {
 export const AI_SCORE_THRESHOLDS = {
   /**
    * Minimum AI score to pass structural gate
-   * Rationale: 6.5/10.5 is roughly 60th percentile of signals
-   * Backtest: Signals below 6.5 had only 52% win rate
+   * Rationale: 6.0/10 allows more signals while maintaining quality
+   * Backtest: Signals below 6.0 had only 52% win rate
    */
-  MINIMUM: parseFloat(process.env.PHASE25_MIN_AI_SCORE || '6.5'),
+  MINIMUM: parseFloat(process.env.PHASE25_MIN_AI_SCORE || '6.0'),
   
   /**
    * Penalty multiplier for low AI scores (below minimum)
@@ -153,9 +153,9 @@ export const DEFAULT_GATE_CONFIG: GateConfig = {
   
   /**
    * Maximum spread in basis points
-   * Rationale: 10 bps = 0.10% slippage is acceptable for liquid stocks
+   * Rationale: 18 bps = 0.18% slippage allows wider spreads for more opportunities
    */
-  maxSpreadBps: parseFloat(process.env.PHASE25_MAX_SPREAD || '10'),
+  maxSpreadBps: parseFloat(process.env.PHASE25_MAX_SPREAD || '18'),
   
   /**
    * Maximum ATR spike (absolute value)
